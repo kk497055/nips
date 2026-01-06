@@ -163,7 +163,7 @@ h4 {
 }
 
 .gradient-text {
-  color: #7CFC00;
+  color: var(--accent);
   font-weight: 800;
 }
 
