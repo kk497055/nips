@@ -1,0 +1,6 @@
+# Private files - do not commit
+docs/
+*.log
+.env
+.DS_Store
+Thumbs.db
