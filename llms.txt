@@ -1,0 +1,56 @@
+# NIPS Education Solutions
+
+> Professional training institute based in Lahore, Pakistan offering career-focused courses in AI, English language, and creative skills.
+
+## About NIPS
+
+NIPS Education Solutions SMC Pvt Ltd is a leading educational institute in Lahore, Pakistan. We specialize in practical, industry-focused training programs with small batch sizes (max 15 students) for personalized attention.
+
+**Location**: K Block, Johar Town, Lahore, Pakistan
+**Contact**: +92 321 5554125
+**Email**: info@nips.com.pk
+**Website**: https://nips.com.pk
+
+## Courses Offered
+
+### 1. Applied AI for Business (12 Weeks)
+Practical AI training covering ChatGPT, automation tools, and business applications. Learn to leverage AI for productivity and decision-making.
+
+### 2. IELTS Preparation (8 Weeks)
+Comprehensive IELTS preparation covering all four modules: Reading, Writing, Listening, and Speaking. Personalized feedback and mock tests included.
+
+### 3. Spoken English (6 Weeks)
+Fluency-focused English speaking course with confidence building, pronunciation training, and daily conversation practice.
+
+### 4. AI Graphics Design (10 Weeks)
+Create stunning visuals using AI tools like Midjourney, DALL-E, and Canva AI. No prior design experience needed.
+
+### 5. Calligraphy (8 Weeks)
+Traditional and modern calligraphy including Nastaliq, Arabic scripts, and English lettering. Materials included.
+
+### 6. Prompt Engineering Masterclass (6 Weeks)
+Master the art of communicating with AI systems. Learn advanced prompting techniques for ChatGPT, Claude, Midjourney, and more.
+
+### 7. Cloud Computing Essentials (10 Weeks)
+Master AWS, Azure, and cloud infrastructure. Covers EC2, S3, Docker, serverless, and DevOps basics.
+
+## Key Features
+
+- Small batch sizes (maximum 15 students)
+- Industry-experienced instructors
+- Both online and in-person options
+- Practical, project-based learning
+- Certificate upon completion
+- Located in Johar Town, Lahore
+
+## Enrollment
+
+To enroll in any course, visit https://nips.com.pk/contact.html or contact us via WhatsApp at +92 321 5554125.
+
+## Social Media
+
+- Facebook: https://www.facebook.com/NIPSLahore
+
+---
+
+*Last updated: January 2026*

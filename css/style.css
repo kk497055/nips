@@ -1218,6 +1218,112 @@ h4 {
 }
 
 /* ========================================
+   FAQ Section
+   ======================================== */
+.faq-section {
+  background: var(--bg-secondary);
+}
+
+.faq-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+.faq-item:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.faq-question {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-lg) var(--space-xl);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: all var(--transition-base);
+}
+
+.faq-question:hover {
+  color: var(--primary);
+}
+
+.faq-question svg {
+  flex-shrink: 0;
+  transition: transform var(--transition-base);
+  color: var(--primary);
+}
+
+.faq-question[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  padding: 0 var(--space-xl);
+}
+
+.faq-answer.active {
+  max-height: 500px;
+  padding: 0 var(--space-xl) var(--space-lg);
+}
+
+.faq-answer p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-sm);
+}
+
+.faq-answer ul {
+  margin: var(--space-sm) 0;
+  padding-left: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+.faq-answer ul li {
+  margin-bottom: var(--space-xs);
+  line-height: 1.6;
+}
+
+.faq-cta {
+  text-align: center;
+  margin-top: var(--space-2xl);
+  padding: var(--space-xl);
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.faq-cta p {
+  margin-bottom: var(--space-md);
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+.faq-cta .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ========================================
    WhatsApp Float
    ======================================== */
 .whatsapp-float {

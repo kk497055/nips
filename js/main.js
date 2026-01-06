@@ -342,32 +342,36 @@ function filterCourses(category) {
 }
 
 /* ========================================
-   FAQ Accordion (for resources page)
+   FAQ Accordion (for resources and contact page)
    ======================================== */
 function initFaqAccordion() {
-  const faqItems = document.querySelectorAll(".faq-item");
+  const faqQuestions = document.querySelectorAll(".faq-question");
 
-  faqItems.forEach((item) => {
-    const question = item.querySelector(".faq-question");
-
+  faqQuestions.forEach((question) => {
     question.addEventListener("click", () => {
-      const isActive = item.classList.contains("active");
+      const faqItem = question.parentElement;
+      const answer = faqItem.querySelector(".faq-answer");
+      const isExpanded = question.getAttribute("aria-expanded") === "true";
 
       // Close all other items
-      faqItems.forEach((other) => {
-        other.classList.remove("active");
+      document.querySelectorAll(".faq-question").forEach((otherQuestion) => {
+        if (otherQuestion !== question) {
+          otherQuestion.setAttribute("aria-expanded", "false");
+          otherQuestion.parentElement
+            .querySelector(".faq-answer")
+            .classList.remove("active");
+        }
       });
 
       // Toggle current item
-      if (!isActive) {
-        item.classList.add("active");
-      }
+      question.setAttribute("aria-expanded", !isExpanded);
+      answer.classList.toggle("active");
     });
   });
 }
 
-// Initialize FAQ if on resources page
-if (document.querySelector(".faq-item")) {
+// Initialize FAQ if on any page with FAQ items
+if (document.querySelector(".faq-question")) {
   initFaqAccordion();
 }
 
