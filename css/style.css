@@ -741,7 +741,7 @@ h4 {
 }
 
 .partner-logo img {
-  height: 50px;
+  height: 80px;
   width: auto;
   object-fit: contain;
   opacity: 0.9;
@@ -762,7 +762,7 @@ h4 {
   }
   
   .partner-logo img {
-    height: 40px;
+    height: 60px;
   }
 }
 
