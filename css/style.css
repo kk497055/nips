@@ -727,24 +727,20 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-md) var(--space-xl);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.6);
-  transition: all var(--transition-base);
+  padding: var(--space-md);
+  transition: transform var(--transition-base);
   text-decoration: none;
 }
 
 .partner-logo:hover {
-  background: rgba(255, 255, 255, 1);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .partner-logo img {
   height: 50px;
   width: auto;
   object-fit: contain;
-  opacity: 0.9;
+  opacity: 0.8;
   transition: opacity var(--transition-base);
 }
 
@@ -758,11 +754,11 @@ h4 {
   }
   
   .partner-logo {
-    padding: var(--space-sm) var(--space-lg);
+    padding: var(--space-sm);
   }
   
   .partner-logo img {
-    height: 40px;
+    height: 35px;
   }
 }
 
