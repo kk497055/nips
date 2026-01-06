@@ -1,0 +1,185 @@
+{
+  "courses": [
+    {
+      "id": "applied-ai",
+      "title": "Applied AI for Business",
+      "shortTitle": "AI for Business",
+      "emoji": "🤖",
+      "icon": "ai",
+      "duration": "12 Weeks",
+      "level": "Beginner to Intermediate",
+      "mode": "Online & In-Person",
+      "batchSize": "Max 15 students",
+      "badge": "Most Popular",
+      "badgeClass": "popular",
+      "gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      "gradientClass": "ai-gradient",
+      "tagline": "Master ChatGPT, automation, and AI tools to transform your career and business.",
+      "description": "Learn to leverage artificial intelligence tools for real-world business applications. From ChatGPT to automation workflows.",
+      "highlights": [
+        "ChatGPT & Prompt Engineering",
+        "Business Automation",
+        "AI Tools Mastery",
+        "Real Projects"
+      ],
+      "whatsappMessage": "Hi! I'm interested in the Applied AI for Business course."
+    },
+    {
+      "id": "ielts",
+      "title": "IELTS Preparation",
+      "shortTitle": "IELTS Expert",
+      "emoji": "📚",
+      "icon": "ielts",
+      "duration": "8 Weeks",
+      "level": "All Levels",
+      "mode": "Online & In-Person",
+      "batchSize": "Max 15 students",
+      "badge": "High Demand",
+      "badgeClass": "demand",
+      "gradient": "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+      "gradientClass": "ielts-gradient",
+      "tagline": "Comprehensive preparation for all four IELTS modules with proven strategies.",
+      "description": "Complete IELTS preparation covering Reading, Writing, Listening, and Speaking with personalized feedback.",
+      "highlights": [
+        "All 4 Modules",
+        "Mock Tests",
+        "Band 7+ Strategies",
+        "Personal Feedback"
+      ],
+      "whatsappMessage": "Hi! I'm interested in IELTS preparation course."
+    },
+    {
+      "id": "spoken-english",
+      "title": "Spoken English",
+      "shortTitle": "Fluent English",
+      "emoji": "🗣️",
+      "icon": "english",
+      "duration": "6 Weeks",
+      "level": "Beginner to Advanced",
+      "mode": "Online & In-Person",
+      "batchSize": "Max 15 students",
+      "badge": "Beginner Friendly",
+      "badgeClass": "beginner",
+      "gradient": "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+      "gradientClass": "english-gradient",
+      "tagline": "Build confidence in everyday English communication through practice.",
+      "description": "Develop fluency and confidence in English speaking through interactive sessions and real conversations.",
+      "highlights": [
+        "Fluency Building",
+        "Pronunciation",
+        "Confidence Training",
+        "Daily Practice"
+      ],
+      "whatsappMessage": "Hi! I'm interested in the Spoken English course."
+    },
+    {
+      "id": "ai-graphics",
+      "title": "AI Graphics Design",
+      "shortTitle": "AI Graphics",
+      "emoji": "🎨",
+      "icon": "graphics",
+      "duration": "10 Weeks",
+      "level": "Intermediate",
+      "mode": "Online & In-Person",
+      "batchSize": "Max 15 students",
+      "badge": "Future Skills",
+      "badgeClass": "future",
+      "gradient": "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+      "gradientClass": "graphics-gradient",
+      "tagline": "Create stunning visuals using Midjourney, DALL-E, and Canva AI.",
+      "description": "Learn to create professional graphics using cutting-edge AI tools. No prior design experience needed.",
+      "highlights": [
+        "Midjourney",
+        "DALL-E 3",
+        "Canva AI",
+        "Portfolio Building"
+      ],
+      "whatsappMessage": "Hi! I'm interested in the AI Graphics Design course."
+    },
+    {
+      "id": "calligraphy",
+      "title": "Calligraphy",
+      "shortTitle": "Calligraphy",
+      "emoji": "✒️",
+      "icon": "calligraphy",
+      "duration": "8 Weeks",
+      "level": "All Levels",
+      "mode": "In-Person",
+      "batchSize": "Max 12 students",
+      "badge": "Art & Tradition",
+      "badgeClass": "art",
+      "gradient": "linear-gradient(135deg, #2c3e50, #4a6741)",
+      "gradientClass": "calligraphy-gradient",
+      "tagline": "Master the beautiful art of traditional and modern calligraphy.",
+      "description": "Learn traditional Nastaliq, Arabic scripts, and modern calligraphy styles with hands-on practice.",
+      "highlights": [
+        "Nastaliq Script",
+        "Arabic Calligraphy",
+        "Modern Styles",
+        "Materials Included"
+      ],
+      "whatsappMessage": "Hi! I'm interested in the Calligraphy course."
+    },
+    {
+      "id": "prompt-engineering",
+      "title": "Prompt Engineering Masterclass",
+      "shortTitle": "Prompt Engineering",
+      "emoji": "🧠",
+      "icon": "prompt",
+      "duration": "6 Weeks",
+      "level": "Beginner to Advanced",
+      "mode": "Online & In-Person",
+      "batchSize": "Max 15 students",
+      "badge": "NEW",
+      "badgeClass": "new",
+      "gradient": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+      "gradientClass": "prompt-gradient",
+      "tagline": "Master the art of communicating with AI to get exceptional results.",
+      "description": "Learn advanced prompting techniques for ChatGPT, Claude, Midjourney, and other AI tools to maximize productivity.",
+      "highlights": [
+        "Advanced Prompting",
+        "ChatGPT Mastery",
+        "Image Generation",
+        "Automation"
+      ],
+      "whatsappMessage": "Hi! I'm interested in the Prompt Engineering Masterclass."
+    },
+    {
+      "id": "cloud-computing",
+      "title": "Cloud Computing Essentials",
+      "shortTitle": "Cloud Computing",
+      "emoji": "☁️",
+      "icon": "cloud",
+      "duration": "10 Weeks",
+      "level": "Intermediate",
+      "mode": "Online & In-Person",
+      "batchSize": "Max 15 students",
+      "badge": "NEW",
+      "badgeClass": "new",
+      "gradient": "linear-gradient(135deg, #0052D4 0%, #4364F7 50%, #6FB1FC 100%)",
+      "gradientClass": "cloud-gradient",
+      "tagline": "Master AWS, Azure, and cloud infrastructure for modern businesses.",
+      "description": "Comprehensive cloud computing course covering AWS, Azure basics, deployment, and cloud architecture.",
+      "highlights": [
+        "AWS Fundamentals",
+        "Azure Basics",
+        "Cloud Deployment",
+        "DevOps Intro"
+      ],
+      "whatsappMessage": "Hi! I'm interested in the Cloud Computing Essentials course."
+    }
+  ],
+  "stats": {
+    "studentsCount": 1000,
+    "coursesCount": 7,
+    "successRate": 95,
+    "maxBatchSize": 15
+  },
+  "contact": {
+    "phone": "+92 321 5554125",
+    "phoneClean": "923215554125",
+    "email": "info@nips.com.pk",
+    "address": "K Block, Johar Town, Lahore",
+    "facebook": "https://www.facebook.com/NIPSLahore"
+  }
+}

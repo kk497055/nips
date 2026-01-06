@@ -789,6 +789,12 @@ h4 {
 .calligraphy-gradient {
   background: linear-gradient(135deg, #2c3e50, #4a6741);
 }
+.prompt-gradient {
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+}
+.cloud-gradient {
+  background: linear-gradient(135deg, #0052D4, #4364F7, #6FB1FC);
+}
 
 .course-badge {
   position: absolute;
