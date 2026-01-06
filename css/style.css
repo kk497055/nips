@@ -718,10 +718,8 @@ h4 {
 .partners-logos {
   display: flex;
   justify-content: center;
-  align-items: stretch;
-  gap: var(--space-xl);
-  max-width: 1200px;
-  margin: 0 auto;
+  align-items: center;
+  gap: var(--space-3xl);
   flex-wrap: wrap;
 }
 
@@ -729,61 +727,42 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-lg);
-  background: rgba(255, 255, 255, 0.8);
+  padding: var(--space-md) var(--space-xl);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.6);
   transition: all var(--transition-base);
   text-decoration: none;
-  min-height: 140px; /* Exact requested height */
-  flex: 0 1 calc(25% - var(--space-xl)); /* Match the stats-grid 1/4 width */
-  min-width: 260px; /* Prevent getting too squished */
 }
 
 .partner-logo:hover {
-  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-3px);
   box-shadow: var(--shadow-md);
-  background: var(--bg-primary);
 }
 
 .partner-logo img {
-  height: auto;
+  height: 50px;
   width: auto;
-  max-width: 160px; /* Allow wider logos */
-  max-height: 70px; /* Cap height */
   object-fit: contain;
   opacity: 0.9;
   transition: opacity var(--transition-base);
-  filter: grayscale(0%);
 }
 
 .partner-logo:hover img {
   opacity: 1;
 }
 
-@media (max-width: 992px) {
-  .partner-logo {
-    flex-basis: calc(33.33% - var(--space-lg));
-  }
-}
-
 @media (max-width: 768px) {
   .partners-logos {
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-md);
+    gap: var(--space-xl);
   }
   
   .partner-logo {
-    width: 100%;
-    max-width: 400px;
-    min-height: 100px;
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-lg);
   }
   
   .partner-logo img {
-    max-height: 50px;
-    max-width: 140px;
+    height: 40px;
   }
 }
 
