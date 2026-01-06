@@ -733,7 +733,7 @@ h4 {
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
   text-decoration: none;
-  min-height: 160px; /* Match stats height feel */
+  min-height: 140px; /* Exact requested height */
 }
 
 .partner-logo:hover {
