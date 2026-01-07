@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NIPS Admissions Services - Expert guidance for BS Programs, Associate Degrees (ADA, ADC, ADS), and LLB admissions. Get into your dream university.">
+    <title>Admissions Services - BS, ADA, ADC, ADS, LLB | NIPS Education Solutions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css?v=2">
+    <style>
+        /* Admissions-specific colors - Professional Purple theme for aspirational students */
+        .admissions-hero {
+            background: linear-gradient(135deg, #581c87 0%, #7c3aed 50%, #a855f7 100%);
+            padding: 160px 0 100px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .admissions-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        .admissions-hero .container {
+            position: relative;
+            z-index: 1;
+        }
+        .admissions-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        .admissions-hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 20px;
+            line-height: 1.1;
+        }
+        .admissions-hero p {
+            font-size: 1.25rem;
+            opacity: 0.95;
+            max-width: 600px;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+        .program-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: var(--space-xl);
+            margin-top: var(--space-2xl);
+        }
+        .program-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: var(--space-xl);
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-base);
+            border: 1px solid var(--border-light);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .program-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+        }
+        .program-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: var(--space-lg);
+        }
+        .program-icon.bs { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+        .program-icon.associate { background: linear-gradient(135deg, #ec4899, #be185d); }
+        .program-icon.llb { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+        .program-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+            color: var(--text-primary);
+        }
+        .program-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: var(--space-md);
+        }
+        .program-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .program-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        .program-list li:last-child {
+            border-bottom: none;
+        }
+        .program-list li::before {
+            content: '→';
+            margin-right: 8px;
+            color: #7c3aed;
+        }
+        .process-section {
+            background: var(--bg-secondary);
+            padding: var(--space-4xl) 0;
+        }
+        .process-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-xl);
+        }
+        .process-step {
+            text-align: center;
+            padding: var(--space-xl);
+            position: relative;
+        }
+        .step-number {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto var(--space-lg);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+        }
+        .process-step h4 {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+        }
+        .cta-section {
+            background: linear-gradient(135deg, #581c87 0%, #7c3aed 100%);
+            padding: var(--space-4xl) 0;
+            text-align: center;
+            color: white;
+        }
+        .cta-section h2 {
+            font-family: var(--font-display);
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            margin-bottom: var(--space-lg);
+        }
+        .cta-section p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto var(--space-xl);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <a href="../index.html" class="logo">
+                <img src="../assets/nips-logo-1.png" alt="NIPS Logo" class="logo-img">
+                <div class="logo-text"><span class="logo-main">NIPS</span><span class="logo-sub">Education Solutions</span></div>
+            </a>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="../index.html" class="nav-link">Home</a></li>
+                <li class="dropdown">
+                    <a href="../index.html#courses" class="nav-link dropdown-toggle">Courses <span class="arrow">▼</span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="../courses/applied-ai.html">Applied AI for Business</a></li>
+                        <li><a href="../courses/ielts.html">IELTS Preparation</a></li>
+                        <li><a href="../courses/spoken-english.html">Spoken English</a></li>
+                        <li><a href="../courses/ai-graphics.html">AI Graphics Design</a></li>
+                        <li><a href="../courses/calligraphy.html">Calligraphy</a></li>
+                        <li><a href="../courses/prompt-engineering.html">Prompt Engineering</a></li>
+                        <li><a href="../courses/cloud-computing.html">Cloud Computing</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="../academy/index.html" class="nav-link dropdown-toggle">Academy <span class="arrow">▼</span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="../academy/matric.html">Matric (9th & 10th)</a></li>
+                        <li><a href="../academy/intermediate.html">Intermediate (FA/FSc/ICS)</a></li>
+                        <li><a href="../academy/o-level.html">O-Level</a></li>
+                        <li><a href="../academy/a-level.html">A-Level</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="index.html" class="nav-link dropdown-toggle active">Admissions <span class="arrow">▼</span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="bs-programs.html">BS Programs</a></li>
+                        <li><a href="associate-degrees.html">ADA / ADC / ADS</a></li>
+                        <li><a href="llb.html">LLB (Law)</a></li>
+                    </ul>
+                </li>
+                <li><a href="../about.html" class="nav-link">About Us</a></li>
+                <li><a href="../contact.html" class="nav-link">Contact</a></li>
+            </ul>
+            <div class="nav-actions">
+                <a href="../contact.html#enroll" class="btn btn-primary">Get Started</a>
+                <button class="mobile-menu-btn" id="mobile-menu-btn"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admissions Hero -->
+    <header class="admissions-hero">
+        <div class="container">
+            <div class="admissions-badge">🎯 Expert Admission Guidance</div>
+            <h1>Admissions Services</h1>
+            <p>Get expert guidance for university admissions. We help you navigate the complex admission process for BS Programs, Associate Degrees, and LLB programs.</p>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <a href="../contact.html#enroll" class="btn btn-primary btn-lg">Book Consultation</a>
+                <a href="#programs" class="btn btn-outline btn-lg" style="border-color: white; color: white;">View Programs</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Programs Section -->
+    <section class="section" id="programs">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Admission Programs</span>
+                <h2 class="section-title">University Admission Guidance</h2>
+                <p class="section-subtitle">We provide complete support for your university admission journey - from application preparation to interview coaching.</p>
+            </div>
+            
+            <div class="program-grid">
+                <a href="bs-programs.html" class="program-card">
+                    <div class="program-icon bs">🎓</div>
+                    <h3>BS Programs</h3>
+                    <p>Guidance for Bachelor's degree admissions in top Pakistani universities.</p>
+                    <ul class="program-list">
+                        <li>BS Computer Science</li>
+                        <li>BS Business Administration</li>
+                        <li>BS Accounting & Finance</li>
+                        <li>BS Psychology</li>
+                        <li>BS Mass Communication</li>
+                        <li>And many more...</li>
+                    </ul>
+                </a>
+                
+                <a href="associate-degrees.html" class="program-card">
+                    <div class="program-icon associate">📚</div>
+                    <h3>Associate Degrees (ADA/ADC/ADS)</h3>
+                    <p>Support for 2-year associate degree program admissions.</p>
+                    <ul class="program-list">
+                        <li>ADA - Associate Degree in Arts</li>
+                        <li>ADC - Associate Degree in Commerce</li>
+                        <li>ADS - Associate Degree in Science</li>
+                        <li>University pathway programs</li>
+                    </ul>
+                </a>
+                
+                <a href="llb.html" class="program-card">
+                    <div class="program-icon llb">⚖️</div>
+                    <h3>LLB (Law)</h3>
+                    <p>Complete guidance for law school admissions and LAT preparation.</p>
+                    <ul class="program-list">
+                        <li>5-Year LLB Programs</li>
+                        <li>3-Year LLB (for graduates)</li>
+                        <li>LAT Test Preparation</li>
+                        <li>Top Law Schools Guidance</li>
+                    </ul>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Process Section -->
+    <section class="process-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Our Process</span>
+                <h2 class="section-title">How We Help You</h2>
+            </div>
+            
+            <div class="process-grid">
+                <div class="process-step">
+                    <div class="step-number">1</div>
+                    <h4>Consultation</h4>
+                    <p>We assess your academic profile and career goals to recommend the best programs.</p>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">2</div>
+                    <h4>University Selection</h4>
+                    <p>We help you shortlist universities based on your preferences and eligibility.</p>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">3</div>
+                    <h4>Application Support</h4>
+                    <p>Complete assistance with application forms, essays, and document preparation.</p>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">4</div>
+                    <h4>Test Preparation</h4>
+                    <p>Coaching for entry tests like NAT, NTS, LAT, and university-specific exams.</p>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">5</div>
+                    <h4>Interview Coaching</h4>
+                    <p>Mock interviews and tips to help you ace university admission interviews.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Ready to Start Your University Journey?</h2>
+            <p>Book a free consultation and let us guide you to your dream university.</p>
+            <a href="../contact.html#enroll" class="btn btn-primary btn-lg" style="background: white; color: #581c87;">Book Free Consultation</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="../index.html" class="footer-logo">
+                        <img src="../assets/nips-logo-1.png" alt="NIPS Logo">
+                        <div><span class="logo-main">NIPS</span><span class="logo-sub">Education Solutions</span></div>
+                    </a>
+                    <p class="footer-tagline">Dream · Connect · Achieve</p>
+                    <p class="footer-description">NIPS Education Solutions SMC Pvt Ltd provides expert admission guidance and academic support.</p>
+                    <div class="footer-social">
+                        <a href="https://www.facebook.com/NIPSLahore" target="_blank" rel="noopener" aria-label="Facebook">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <h4>Admission Programs</h4>
+                    <ul>
+                        <li><a href="bs-programs.html">BS Programs</a></li>
+                        <li><a href="associate-degrees.html">ADA / ADC / ADS</a></li>
+                        <li><a href="llb.html">LLB (Law)</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="../about.html">About Us</a></li>
+                        <li><a href="../academy/index.html">Online Academy</a></li>
+                        <li><a href="../index.html#courses">Professional Courses</a></li>
+                        <li><a href="../contact.html">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact">
+                    <h4>Contact Us</h4>
+                    <ul class="contact-list">
+                        <li>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>K Block, Johar Town, Lahore</span>
+                        </li>
+                        <li>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                            <a href="tel:+923215554125">+92 321 5554125</a>
+                        </li>
+                        <li>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 5L2 7"/></svg>
+                            <a href="mailto:info@nips.com.pk">info@nips.com.pk</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 NIPS Education Solutions SMC Pvt Ltd. All rights reserved.</p>
+                <div class="footer-legal"><a href="#">Privacy Policy</a><a href="#">Terms of Service</a></div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Float -->
+    <a href="https://wa.me/923215554125?text=Hi!%20I'm%20interested%20in%20NIPS%20admission%20services." class="whatsapp-float" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    </a>
+
+    <button class="back-to-top" id="back-to-top" aria-label="Back to top">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+    </button>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NIPS Online Academy - Expert tutoring for Matric, Intermediate, O-Level, and A-Level students. Quality education from home with experienced teachers.">
+    <title>Online Academy - Matric, Inter, O-Level, A-Level | NIPS Education Solutions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css?v=2">
+    <style>
+        /* Academy-specific colors - Energetic Blue theme for young learners */
+        .academy-hero {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #0ea5e9 100%);
+            padding: 160px 0 100px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .academy-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        .academy-hero .container {
+            position: relative;
+            z-index: 1;
+        }
+        .academy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        .academy-hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 20px;
+            line-height: 1.1;
+        }
+        .academy-hero p {
+            font-size: 1.25rem;
+            opacity: 0.95;
+            max-width: 600px;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+        .program-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-xl);
+            margin-top: var(--space-2xl);
+        }
+        .program-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: var(--space-xl);
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-base);
+            border: 1px solid var(--border-light);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .program-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+        }
+        .program-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: var(--space-lg);
+        }
+        .program-icon.matric { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .program-icon.inter { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .program-icon.olevel { background: linear-gradient(135deg, #10b981, #059669); }
+        .program-icon.alevel { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .program-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+            color: var(--text-primary);
+        }
+        .program-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: var(--space-md);
+        }
+        .program-subjects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .subject-tag {
+            background: var(--bg-secondary);
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .features-section {
+            background: var(--bg-secondary);
+            padding: var(--space-4xl) 0;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-xl);
+        }
+        .feature-item {
+            text-align: center;
+            padding: var(--space-xl);
+        }
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto var(--space-lg);
+            font-size: 2rem;
+            color: white;
+        }
+        .feature-item h4 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+        }
+        .cta-section {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: var(--space-4xl) 0;
+            text-align: center;
+            color: white;
+        }
+        .cta-section h2 {
+            font-family: var(--font-display);
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            margin-bottom: var(--space-lg);
+        }
+        .cta-section p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto var(--space-xl);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <a href="../index.html" class="logo">
+                <img src="../assets/nips-logo-1.png" alt="NIPS Logo" class="logo-img">
+                <div class="logo-text"><span class="logo-main">NIPS</span><span class="logo-sub">Education Solutions</span></div>
+            </a>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="../index.html" class="nav-link">Home</a></li>
+                <li class="dropdown">
+                    <a href="../index.html#courses" class="nav-link dropdown-toggle">Courses <span class="arrow">▼</span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="../courses/applied-ai.html">Applied AI for Business</a></li>
+                        <li><a href="../courses/ielts.html">IELTS Preparation</a></li>
+                        <li><a href="../courses/spoken-english.html">Spoken English</a></li>
+                        <li><a href="../courses/ai-graphics.html">AI Graphics Design</a></li>
+                        <li><a href="../courses/calligraphy.html">Calligraphy</a></li>
+                        <li><a href="../courses/prompt-engineering.html">Prompt Engineering</a></li>
+                        <li><a href="../courses/cloud-computing.html">Cloud Computing</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="index.html" class="nav-link dropdown-toggle active">Academy <span class="arrow">▼</span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="matric.html">Matric (9th & 10th)</a></li>
+                        <li><a href="intermediate.html">Intermediate (FA/FSc/ICS)</a></li>
+                        <li><a href="o-level.html">O-Level</a></li>
+                        <li><a href="a-level.html">A-Level</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="../admissions/index.html" class="nav-link dropdown-toggle">Admissions <span class="arrow">▼</span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="../admissions/bs-programs.html">BS Programs</a></li>
+                        <li><a href="../admissions/associate-degrees.html">ADA / ADC / ADS</a></li>
+                        <li><a href="../admissions/llb.html">LLB (Law)</a></li>
+                    </ul>
+                </li>
+                <li><a href="../about.html" class="nav-link">About Us</a></li>
+                <li><a href="../contact.html" class="nav-link">Contact</a></li>
+            </ul>
+            <div class="nav-actions">
+                <a href="../contact.html#enroll" class="btn btn-primary">Enroll Now</a>
+                <button class="mobile-menu-btn" id="mobile-menu-btn"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Academy Hero -->
+    <header class="academy-hero">
+        <div class="container">
+            <div class="academy-badge">📚 Online & In-Person Classes</div>
+            <h1>NIPS Online Academy</h1>
+            <p>Expert tutoring for Matric, Intermediate, O-Level, and A-Level students. Learn from experienced teachers in small batch sizes for personalized attention.</p>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <a href="../contact.html#enroll" class="btn btn-primary btn-lg">Get Started</a>
+                <a href="#programs" class="btn btn-outline btn-lg" style="border-color: white; color: white;">View Programs</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Programs Section -->
+    <section class="section" id="programs">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Our Programs</span>
+                <h2 class="section-title">Academic Programs</h2>
+                <p class="section-subtitle">Choose the program that fits your academic journey. All programs feature small batch sizes, experienced teachers, and comprehensive study materials.</p>
+            </div>
+            
+            <div class="program-grid">
+                <a href="matric.html" class="program-card">
+                    <div class="program-icon matric">📖</div>
+                    <h3>Matric (9th & 10th)</h3>
+                    <p>Complete preparation for SSC examinations with focus on conceptual understanding and board exam techniques.</p>
+                    <div class="program-subjects">
+                        <span class="subject-tag">Mathematics</span>
+                        <span class="subject-tag">Physics</span>
+                        <span class="subject-tag">Chemistry</span>
+                        <span class="subject-tag">Biology</span>
+                        <span class="subject-tag">English</span>
+                    </div>
+                </a>
+                
+                <a href="intermediate.html" class="program-card">
+                    <div class="program-icon inter">🎓</div>
+                    <h3>Intermediate (FA/FSc/ICS)</h3>
+                    <p>Comprehensive coaching for 11th and 12th grade students in Pre-Medical, Pre-Engineering, and ICS tracks.</p>
+                    <div class="program-subjects">
+                        <span class="subject-tag">Pre-Medical</span>
+                        <span class="subject-tag">Pre-Engineering</span>
+                        <span class="subject-tag">ICS</span>
+                        <span class="subject-tag">Commerce</span>
+                    </div>
+                </a>
+                
+                <a href="o-level.html" class="program-card">
+                    <div class="program-icon olevel">🌍</div>
+                    <h3>O-Level (Cambridge)</h3>
+                    <p>Expert guidance for Cambridge O-Level students with focus on exam techniques and practical applications.</p>
+                    <div class="program-subjects">
+                        <span class="subject-tag">Mathematics</span>
+                        <span class="subject-tag">Physics</span>
+                        <span class="subject-tag">Chemistry</span>
+                        <span class="subject-tag">English</span>
+                        <span class="subject-tag">Computer Science</span>
+                    </div>
+                </a>
+                
+                <a href="a-level.html" class="program-card">
+                    <div class="program-icon alevel">🏆</div>
+                    <h3>A-Level (Cambridge)</h3>
+                    <p>Advanced preparation for Cambridge A-Level examinations with university admission guidance.</p>
+                    <div class="program-subjects">
+                        <span class="subject-tag">Mathematics</span>
+                        <span class="subject-tag">Physics</span>
+                        <span class="subject-tag">Chemistry</span>
+                        <span class="subject-tag">Business</span>
+                        <span class="subject-tag">Economics</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Why NIPS Academy</span>
+                <h2 class="section-title">The NIPS Advantage</h2>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">👨‍🏫</div>
+                    <h4>Expert Teachers</h4>
+                    <p>Learn from experienced educators with proven track records in board and Cambridge examinations.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">👥</div>
+                    <h4>Small Batches</h4>
+                    <p>Maximum 15 students per batch ensures personalized attention and better learning outcomes.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📱</div>
+                    <h4>Hybrid Learning</h4>
+                    <p>Choose between online classes, in-person sessions, or a combination that works for you.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📝</div>
+                    <h4>Complete Materials</h4>
+                    <p>Comprehensive notes, past papers, and practice worksheets included with every program.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Ready to Excel in Your Studies?</h2>
+            <p>Join NIPS Online Academy and get the support you need to achieve your academic goals.</p>
+            <a href="../contact.html#enroll" class="btn btn-primary btn-lg" style="background: white; color: #1e3a8a;">Enroll Now</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="../index.html" class="footer-logo">
+                        <img src="../assets/nips-logo-1.png" alt="NIPS Logo">
+                        <div><span class="logo-main">NIPS</span><span class="logo-sub">Education Solutions</span></div>
+                    </a>
+                    <p class="footer-tagline">Dream · Connect · Achieve</p>
+                    <p class="footer-description">NIPS Education Solutions SMC Pvt Ltd is a premier educational institute offering professional courses and academic tutoring.</p>
+                    <div class="footer-social">
+                        <a href="https://www.facebook.com/NIPSLahore" target="_blank" rel="noopener" aria-label="Facebook">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <h4>Academy Programs</h4>
+                    <ul>
+                        <li><a href="matric.html">Matric (9th & 10th)</a></li>
+                        <li><a href="intermediate.html">Intermediate</a></li>
+                        <li><a href="o-level.html">O-Level</a></li>
+                        <li><a href="a-level.html">A-Level</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="../about.html">About Us</a></li>
+                        <li><a href="../index.html#courses">Professional Courses</a></li>
+                        <li><a href="../admissions/index.html">Admissions Services</a></li>
+                        <li><a href="../contact.html">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact">
+                    <h4>Contact Us</h4>
+                    <ul class="contact-list">
+                        <li>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>K Block, Johar Town, Lahore</span>
+                        </li>
+                        <li>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                            <a href="tel:+923215554125">+92 321 5554125</a>
+                        </li>
+                        <li>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 5L2 7"/></svg>
+                            <a href="mailto:info@nips.com.pk">info@nips.com.pk</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 NIPS Education Solutions SMC Pvt Ltd. All rights reserved.</p>
+                <div class="footer-legal"><a href="#">Privacy Policy</a><a href="#">Terms of Service</a></div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Float -->
+    <a href="https://wa.me/923215554125?text=Hi!%20I'm%20interested%20in%20NIPS%20Academy%20programs." class="whatsapp-float" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    </a>
+
+    <button class="back-to-top" id="back-to-top" aria-label="Back to top">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+    </button>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>

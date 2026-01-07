@@ -22,8 +22,24 @@
           <li><a href="{{ '/courses/cloud-computing.html' | relative_url }}">Cloud Computing</a></li>
         </ul>
       </li>
+      <li class="dropdown">
+        <a href="{{ '/academy/' | relative_url }}" class="nav-link dropdown-toggle{% if page.url contains '/academy/' %} active{% endif %}">Academy <span class="arrow">▼</span></a>
+        <ul class="dropdown-menu">
+          <li><a href="{{ '/academy/matric.html' | relative_url }}">Matric (9th & 10th)</a></li>
+          <li><a href="{{ '/academy/intermediate.html' | relative_url }}">Intermediate</a></li>
+          <li><a href="{{ '/academy/o-level.html' | relative_url }}">O-Level</a></li>
+          <li><a href="{{ '/academy/a-level.html' | relative_url }}">A-Level</a></li>
+        </ul>
+      </li>
+      <li class="dropdown">
+        <a href="{{ '/admissions/' | relative_url }}" class="nav-link dropdown-toggle{% if page.url contains '/admissions/' %} active{% endif %}">Admissions <span class="arrow">▼</span></a>
+        <ul class="dropdown-menu">
+          <li><a href="{{ '/admissions/bs-programs.html' | relative_url }}">BS Programs</a></li>
+          <li><a href="{{ '/admissions/associate-degrees.html' | relative_url }}">ADA / ADC / ADS</a></li>
+          <li><a href="{{ '/admissions/llb.html' | relative_url }}">LLB (Law)</a></li>
+        </ul>
+      </li>
       <li><a href="{{ '/about.html' | relative_url }}" class="nav-link{% if page.url == '/about.html' %} active{% endif %}">About Us</a></li>
-      <li><a href="{{ '/resources.html' | relative_url }}" class="nav-link{% if page.url == '/resources.html' %} active{% endif %}">Free Resources</a></li>
       <li><a href="{{ '/contact.html' | relative_url }}" class="nav-link{% if page.url == '/contact.html' %} active{% endif %}">Contact</a></li>
     </ul>
     <div class="nav-actions">
