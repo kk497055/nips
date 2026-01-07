@@ -4,3 +4,11 @@ docs/
 .env
 .DS_Store
 Thumbs.db
+
+# Jekyll build files (GitHub Pages builds these)
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+vendor/
+Gemfile.lock

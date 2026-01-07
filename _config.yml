@@ -1,0 +1,40 @@
+# NIPS Education Solutions - Jekyll Configuration
+# This file configures how GitHub Pages builds the site
+
+title: NIPS Education Solutions
+description: Premier institute for Applied AI, IELTS Preparation, Spoken English, and AI Graphics courses in Pakistan
+url: "https://nips.com.pk"
+baseurl: ""
+
+# Build settings
+markdown: kramdown
+permalink: pretty
+
+# Exclude files from build
+exclude:
+  - README.md
+  - LICENSE
+  - docs/
+  - "*.md"
+  - node_modules/
+
+# Include files that start with underscore
+include:
+  - _includes
+  - _layouts
+
+# Site settings
+author: NIPS Education Solutions SMC Pvt Ltd
+phone: "+92 321 5554125"
+email: "info@nips.com.pk"
+address: "K Block, Johar Town, Lahore"
+facebook: "https://www.facebook.com/NIPSLahore"
+whatsapp: "923215554125"
+
+# Default front matter
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"

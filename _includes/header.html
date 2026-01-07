@@ -1,0 +1,36 @@
+<!-- Navigation -->
+<nav class="navbar" id="navbar">
+  <div class="container nav-container">
+    <a href="{{ '/' | relative_url }}" class="logo">
+      <img src="{{ '/assets/nips-logo-1.png' | relative_url }}" alt="NIPS Logo" class="logo-img" />
+      <div class="logo-text">
+        <span class="logo-main">NIPS</span>
+        <span class="logo-sub">Education Solutions</span>
+      </div>
+    </a>
+    <ul class="nav-menu" id="nav-menu">
+      <li><a href="{{ '/' | relative_url }}" class="nav-link{% if page.url == '/' or page.url == '/index.html' %} active{% endif %}">Home</a></li>
+      <li class="dropdown">
+        <a href="{{ '/#courses' | relative_url }}" class="nav-link dropdown-toggle">Courses <span class="arrow">▼</span></a>
+        <ul class="dropdown-menu">
+          <li><a href="{{ '/courses/applied-ai.html' | relative_url }}">Applied AI for Business</a></li>
+          <li><a href="{{ '/courses/ielts.html' | relative_url }}">IELTS Preparation</a></li>
+          <li><a href="{{ '/courses/spoken-english.html' | relative_url }}">Spoken English</a></li>
+          <li><a href="{{ '/courses/ai-graphics.html' | relative_url }}">AI Graphics Design</a></li>
+          <li><a href="{{ '/courses/calligraphy.html' | relative_url }}">Calligraphy</a></li>
+          <li><a href="{{ '/courses/prompt-engineering.html' | relative_url }}">Prompt Engineering</a></li>
+          <li><a href="{{ '/courses/cloud-computing.html' | relative_url }}">Cloud Computing</a></li>
+        </ul>
+      </li>
+      <li><a href="{{ '/about.html' | relative_url }}" class="nav-link{% if page.url == '/about.html' %} active{% endif %}">About Us</a></li>
+      <li><a href="{{ '/resources.html' | relative_url }}" class="nav-link{% if page.url == '/resources.html' %} active{% endif %}">Free Resources</a></li>
+      <li><a href="{{ '/contact.html' | relative_url }}" class="nav-link{% if page.url == '/contact.html' %} active{% endif %}">Contact</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="{{ '/contact.html#enroll' | relative_url }}" class="btn btn-primary">Enroll Now</a>
+      <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
