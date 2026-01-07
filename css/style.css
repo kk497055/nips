@@ -1685,3 +1685,217 @@ textarea.form-control {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ========================================
+   Course Hero & Academy Styles
+   ======================================== */
+.course-hero {
+  padding: 160px 0 80px;
+  text-align: center;
+  color: white;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.course-hero h1 {
+  color: white;
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+  font-weight: 800;
+}
+
+.course-tagline {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 800px;
+  margin: 0 auto var(--space-lg);
+  line-height: 1.6;
+}
+
+.course-badge-lg {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.course-meta-hero {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+  flex-wrap: wrap;
+}
+
+.course-meta-hero span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.course-cta-hero {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+/* Gradients */
+.academy-gradient {
+  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+}
+
+.admissions-gradient {
+  background: linear-gradient(135deg, #581c87 0%, #7c3aed 100%);
+}
+
+.course-overview-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-2xl);
+}
+
+.course-sidebar {
+  position: sticky;
+  top: 100px;
+}
+
+.who-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-md) 0;
+}
+
+.who-list li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.who-list li::before {
+  content: "•";
+  color: var(--primary);
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.course-details-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-lg);
+}
+
+.course-details-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--bg-secondary);
+  font-size: 0.9rem;
+}
+
+.course-details-list li span:first-child {
+  color: var(--text-secondary);
+}
+
+.price-box {
+  background: var(--bg-secondary);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  text-align: center;
+  margin-bottom: var(--space-md);
+}
+
+.price-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.price-amount {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+}
+
+.price-note {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.module-header {
+  background: var(--bg-primary);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+  border: 1px solid var(--bg-secondary);
+}
+
+.module-num {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.module-weeks {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.module-topics {
+  list-style: none;
+  padding: 0 0 0 4rem;
+  margin-bottom: var(--space-lg);
+}
+
+.module-topics li {
+  position: relative;
+  padding-left: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.module-topics li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 50%;
+}
+
+@media (max-width: 768px) {
+  .course-overview-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .course-sidebar {
+    position: static;
+  }
+  
+  .course-hero h1 {
+    font-size: 2rem;
+  }
+}
