@@ -2,6 +2,8 @@ backend:
   name: git-gateway
   branch: main
 
+site_url: https://nips-2.netlify.app
+
 # Media files stored in images folder
 media_folder: "images"
 public_folder: "/images"
