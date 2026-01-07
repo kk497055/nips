@@ -3748,6 +3748,66 @@ textarea.form-control {
   box-shadow: var(--shadow-sm);
 }
 
+/* Success Stats */
+.success-stats {
+  display: flex;
+  gap: var(--space-lg);
+  margin: var(--space-lg) 0;
+  flex-wrap: wrap;
+}
+
+.success-stat {
+  text-align: center;
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  flex: 1;
+  min-width: 140px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.stat-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+/* Included Grid */
+.included-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.included-item {
+  background: var(--bg-primary);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 768px) {
+  .success-stats {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+  
+  .included-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Course Overview Content */
 .course-overview-content h2 {
   margin-bottom: var(--space-lg);
