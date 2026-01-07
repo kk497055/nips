@@ -1,9 +1,6 @@
 backend:
-  name: github
-  repo: kk497055/nips
+  name: git-gateway
   branch: main
-  base_url: https://api.netlify.com
-  auth_endpoint: auth
 
 # Media files stored in images folder
 media_folder: "images"

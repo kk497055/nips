@@ -1,0 +1,11 @@
+# Netlify configuration
+[build]
+  publish = "."
+  command = ""
+
+# No build processing needed - static HTML site
+[build.processing]
+  skip_processing = false
+
+[build.processing.html]
+  pretty_urls = false
