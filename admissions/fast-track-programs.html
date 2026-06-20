@@ -36,6 +36,24 @@
         .fast-track-page .included-grid {
             max-width: 980px;
         }
+
+        @media (max-width: 768px) {
+            .fast-track-page .course-cta-hero {
+                flex-direction: column;
+                align-items: center;
+                gap: var(--space-lg);
+            }
+
+            .fast-track-page .course-cta-hero .btn {
+                width: min(100%, 320px);
+                justify-content: center;
+                text-align: center;
+            }
+
+            .fast-track-page .whatsapp-float {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body class="fast-track-page">
