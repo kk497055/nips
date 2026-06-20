@@ -3120,13 +3120,17 @@ textarea.form-control {
 
     height: 100vh;
 
+    overflow-y: auto;
+
+    -webkit-overflow-scrolling: touch;
+
     background: var(--bg-dark);
 
     flex-direction: column;
 
     align-items: flex-start;
 
-    padding: 100px var(--space-xl) var(--space-xl);
+    padding: 100px var(--space-xl) var(--space-3xl);
 
     transition: right var(--transition-base);
 
@@ -3845,4 +3849,3 @@ textarea.form-control {
     grid-template-columns: 1fr;
   }
 }
-
