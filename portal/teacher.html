@@ -111,7 +111,21 @@
       const { error } = await sb.from("sessions").insert({
         batch_id: batchId, title, recording_url: url, ended_at: new Date().toISOString(), created_by: window._me.id
       });
-      alert(error ? ("Error: "+error.message) : "Recording link added — students can now see it.");
+      if (error) { alert("Error: " + error.message); return; }
+
+      // Notify enrolled students (non-blocking).
+      let note = "Recording link added — students can now see it.";
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "new_recording", batch_id: batchId, title })
+        });
+        const body = await res.json();
+        note += res.ok ? `\nEmailed ${body.sent} student(s).` : `\n(Email not sent: ${body.error})`;
+      } catch (e) { note += `\n(Email not sent: ${e.message})`; }
+      alert(note);
     }
   </script>
 </body>

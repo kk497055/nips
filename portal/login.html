@@ -104,8 +104,8 @@
         const full_name = document.getElementById("name").value.trim() || "New User";
         const { error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name } } });
         if (error) return show(error.message);
-        show("Account created. You can sign in now. An admin will enrol you after payment.", true);
-        setTimeout(() => document.getElementById("toggle").click(), 1500);
+        show("Account created! Please check your email and click the verification link before signing in.", true);
+        setTimeout(() => document.getElementById("toggle").click(), 2500);
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) return show(error.message);
