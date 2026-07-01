@@ -60,4 +60,12 @@ tr:last-child td{border-bottom:none}
 .empty{color:var(--muted);padding:20px;text-align:center}
 .daybtn{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;user-select:none}
 .daybtn input{margin:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stat .num{font-family:'Outfit',sans-serif;font-size:26px;font-weight:700;color:var(--primary)}
+.stat .num.amber{color:var(--secondary)}
+.stat .lbl{font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+.stat .hint{font-size:12px;color:var(--muted);margin-top:6px}
+.mini-tables{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media(max-width:760px){.mini-tables{grid-template-columns:1fr}}
 .row-actions{display:flex;gap:6px;flex-wrap:wrap}

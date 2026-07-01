@@ -20,6 +20,22 @@
     <h1>Admin Console</h1>
     <p class="sub">Manage batches, assign teachers, and unlock student access after confirming bank payment.</p>
 
+    <!-- BUSINESS OVERVIEW -->
+    <div class="section">
+      <h2>Business Overview</h2>
+      <div class="stats" id="stats"><p class="empty">Loading…</p></div>
+      <div class="mini-tables">
+        <div>
+          <h3 style="font-family:'Outfit',sans-serif;font-size:15px;margin:0 0 8px">Revenue by Batch</h3>
+          <div id="rev-table"></div>
+        </div>
+        <div>
+          <h3 style="font-family:'Outfit',sans-serif;font-size:15px;margin:0 0 8px">Teacher Load</h3>
+          <div id="teacher-table"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- CREATE BATCH -->
     <div class="section">
       <h2>Create Batch</h2>
@@ -90,8 +106,87 @@
       const p = await getProfile();
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
-      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople()]);
+      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview()]);
     })();
+
+    const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
+
+    async function loadOverview() {
+      // Admin RLS grants full read access to every table.
+      const [{ data: profiles }, { data: batches }, { data: enrollments }, { data: sessions }, { data: attendance }] =
+        await Promise.all([
+          sb.from("profiles").select("id,role"),
+          sb.from("batches").select("id,name,fee,teacher_id,is_active"),
+          sb.from("enrollments").select("batch_id,student_id,payment_status"),
+          sb.from("sessions").select("batch_id,started_at,ended_at,recording_url,created_by"),
+          sb.from("attendance").select("status")
+        ]);
+
+      const feeOf = Object.fromEntries((batches||[]).map(b => [b.id, Number(b.fee)||0]));
+      const students = (profiles||[]).filter(p => p.role === "student").length;
+      const teachers = (profiles||[]).filter(p => p.role === "teacher").length;
+      const activeBatches = (batches||[]).filter(b => b.is_active).length;
+
+      let collected = 0, pending = 0;
+      (enrollments||[]).forEach(e => {
+        const fee = feeOf[e.batch_id] || 0;
+        if (e.payment_status === "paid") collected += fee; else pending += fee;
+      });
+
+      // Teaching hours: sessions with both start and end timestamps.
+      let hours = 0, closed = 0;
+      (sessions||[]).forEach(s => {
+        if (s.started_at && s.ended_at) {
+          const h = (new Date(s.ended_at) - new Date(s.started_at)) / 3.6e6;
+          if (h > 0 && h < 24) { hours += h; closed++; }
+        }
+      });
+      const recordings = (sessions||[]).filter(s => s.recording_url).length;
+
+      const attTotal = (attendance||[]).length;
+      const attPresent = (attendance||[]).filter(a => a.status === "present").length;
+      const attRate = attTotal ? Math.round(attPresent / attTotal * 100) : null;
+
+      const paidCount = (enrollments||[]).filter(e => e.payment_status === "paid").length;
+      const pendCount = (enrollments||[]).filter(e => e.payment_status === "pending").length;
+
+      document.getElementById("stats").innerHTML = `
+        <div class="stat"><div class="num">${students}</div><div class="lbl">Students</div><div class="hint">${teachers} teachers</div></div>
+        <div class="stat"><div class="num">${activeBatches}</div><div class="lbl">Active Batches</div><div class="hint">${(batches||[]).length} total</div></div>
+        <div class="stat"><div class="num">${pkr(collected)}</div><div class="lbl">Collected</div><div class="hint">${paidCount} paid enrolments</div></div>
+        <div class="stat"><div class="num amber">${pkr(pending)}</div><div class="lbl">Pending</div><div class="hint">${pendCount} awaiting payment</div></div>
+        <div class="stat"><div class="num">${hours.toFixed(1)}</div><div class="lbl">Teaching Hours</div><div class="hint">${closed} sessions logged</div></div>
+        <div class="stat"><div class="num">${attRate===null?'—':attRate+'%'}</div><div class="lbl">Attendance</div><div class="hint">${recordings} recordings</div></div>`;
+
+      // Revenue by batch
+      const revRows = (batches||[]).map(b => {
+        const es = (enrollments||[]).filter(e => e.batch_id === b.id);
+        const paid = es.filter(e => e.payment_status === "paid").length;
+        const pend = es.filter(e => e.payment_status === "pending").length;
+        return { name: b.name, paid, pend, collected: paid * (feeOf[b.id]||0) };
+      }).sort((a,c) => c.collected - a.collected);
+      document.getElementById("rev-table").innerHTML = revRows.length ? `
+        <table><thead><tr><th>Batch</th><th>Paid</th><th>Pending</th><th>Collected</th></tr></thead><tbody>
+        ${revRows.map(r => `<tr><td>${r.name}</td><td>${r.paid}</td><td>${r.pend}</td><td>${pkr(r.collected)}</td></tr>`).join("")}
+        </tbody></table>` : '<p class="empty">No batches yet.</p>';
+
+      // Teacher load
+      const tmap = Object.fromEntries((profiles||[]).filter(p=>p.role==="teacher").map(t=>[t.id,t]));
+      const tRows = Object.keys(tmap).map(tid => {
+        const tBatches = (batches||[]).filter(b => b.teacher_id === tid);
+        const bids = new Set(tBatches.map(b => b.id));
+        const roster = (enrollments||[]).filter(e => bids.has(e.batch_id) && e.payment_status === "paid").length;
+        const sess = (sessions||[]).filter(s => s.created_by === tid || bids.has(s.batch_id)).length;
+        return { batches: tBatches.length, roster, sess, tid };
+      });
+      // Resolve teacher names
+      const { data: tprofs } = await sb.from("profiles").select("id,full_name").in("id", Object.keys(tmap).length?Object.keys(tmap):["00000000-0000-0000-0000-000000000000"]);
+      const nameOf = Object.fromEntries((tprofs||[]).map(t=>[t.id,t.full_name]));
+      document.getElementById("teacher-table").innerHTML = tRows.length ? `
+        <table><thead><tr><th>Teacher</th><th>Batches</th><th>Paid Students</th><th>Sessions</th></tr></thead><tbody>
+        ${tRows.map(r => `<tr><td>${nameOf[r.tid]||'—'}</td><td>${r.batches}</td><td>${r.roster}</td><td>${r.sess}</td></tr>`).join("")}
+        </tbody></table>` : '<p class="empty">No teachers yet.</p>';
+    }
 
     async function loadTeacherSelect() {
       const { data } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
