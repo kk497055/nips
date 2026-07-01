@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=3" />
+  <link rel="stylesheet" href="portal.css?v=5" />
 </head>
 <body>
   <div class="topbar">
@@ -135,6 +135,40 @@
     })();
 
     const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
+
+    // Reusable client-side search + pagination for a list container.
+    // opts: { placeholder, noun, empty, pageSize, match(item,term), render(pageItems) }
+    function mountList(key, containerId, items, opts) {
+      const st = (window._lists ||= {})[key] ||= { term: "", page: 1 };
+      const box = document.getElementById(containerId);
+      const pageSize = opts.pageSize || 10;
+      function draw() {
+        const term = st.term.trim().toLowerCase();
+        const filtered = term ? items.filter(it => opts.match(it, term)) : items;
+        const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        if (st.page > pages) st.page = pages;
+        if (st.page < 1) st.page = 1;
+        const pageItems = filtered.slice((st.page - 1) * pageSize, st.page * pageSize);
+        box.innerHTML = `
+          <div class="list-toolbar">
+            <input class="list-search" type="search" placeholder="${opts.placeholder || "Search…"}" value="${(st.term).replace(/"/g,"&quot;")}"/>
+            <span class="list-count">${filtered.length} ${opts.noun || "items"}</span>
+          </div>
+          ${filtered.length ? opts.render(pageItems) : `<p class="empty">${opts.empty || "Nothing found."}</p>`}
+          ${pages > 1 ? `<div class="pager">
+            <button class="btn sm" data-pg="prev" ${st.page <= 1 ? "disabled" : ""}>‹ Prev</button>
+            <span>Page ${st.page} of ${pages}</span>
+            <button class="btn sm" data-pg="next" ${st.page >= pages ? "disabled" : ""}>Next ›</button>
+          </div>` : ""}`;
+        const search = box.querySelector(".list-search");
+        search.oninput = (e) => { st.term = e.target.value; st.page = 1; draw();
+          const s = box.querySelector(".list-search"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); };
+        box.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => {
+          st.page += b.dataset.pg === "next" ? 1 : -1; draw();
+        });
+      }
+      draw();
+    }
 
     async function loadOverview() {
       // Admin RLS grants full read access to every table.
@@ -270,24 +304,32 @@
     };
 
     async function loadBatches() {
-      const { data: batches } = await sb.from("batches").select("*").order("created_at",{ascending:false});
-      const { data: teachers } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
+      // Fetch batches, teachers and enrollments once (no per-batch queries).
+      const [{ data: batches }, { data: teachers }, { data: enrollments }] = await Promise.all([
+        sb.from("batches").select("*").order("created_at",{ascending:false}),
+        sb.from("profiles").select("id,full_name").eq("role","teacher"),
+        sb.from("enrollments").select("batch_id,payment_status")
+      ]);
       const tmap = Object.fromEntries((teachers||[]).map(t=>[t.id,t.full_name]));
+      const paidByBatch = {};
+      (enrollments||[]).forEach(e => { if (e.payment_status === "paid") paidByBatch[e.batch_id] = (paidByBatch[e.batch_id]||0)+1; });
       const box = document.getElementById("batches");
       if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches yet.</p>'; return; }
-      box.innerHTML = "";
-      for (const b of batches) {
-        const { count } = await sb.from("enrollments").select("*",{count:"exact",head:true}).eq("batch_id",b.id).eq("payment_status","paid");
-        box.innerHTML += `<div class="card" style="margin-bottom:12px">
+
+      mountList("batches", "batches", batches, {
+        placeholder: "Search batches by name, category…",
+        noun: "batches", empty: "No batches match your search.", pageSize: 8,
+        match: (b, t) => `${b.name} ${b.category||''} ${b.schedule||''} ${tmap[b.teacher_id]||''}`.toLowerCase().includes(t),
+        render: (items) => items.map(b => `<div class="card" style="margin-bottom:12px">
           <h3>${b.name} ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
-          <div class="meta">${b.category||''} · ${b.schedule||'—'} · Fee PKR ${b.fee||0} · Teacher: ${tmap[b.teacher_id]||'unassigned'} · ${count||0} paid</div>
+          <div class="meta">${b.category||''} · ${b.schedule||'—'} · Fee PKR ${b.fee||0} · Teacher: ${tmap[b.teacher_id]||'unassigned'} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
             <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Teacher</button>
             <button class="btn sm" onclick="toggleBatch('${b.id}',${b.is_active})">${b.is_active?'Deactivate':'Activate'}</button>
           </div>
-        </div>`;
-      }
+        </div>`).join("")
+      });
     }
 
     async function assignTeacher(batchId) {
@@ -311,11 +353,13 @@
       const { data: people } = await sb.from("profiles").select("*").order("created_at",{ascending:false});
       const { data: batches } = await sb.from("batches").select("id,name");
       const box = document.getElementById("people");
+      window._batches = batches || [];
+      renderBatchSelect();
       if (!people || !people.length) { box.innerHTML = '<p class="empty">No users yet.</p>'; return; }
-      let rows = people.map(u => {
+
+      const rowHtml = (u) => {
         const isSelf = u.id === window._meId;
-        return `
-        <tr>
+        return `<tr>
           <td>${u.full_name}${isSelf?' <span class="pill">you</span>':''}</td>
           <td><span class="badge">${u.role}</span></td>
           <td class="row-actions">
@@ -326,10 +370,14 @@
             <button class="btn soft sm" onclick="enrol('${u.id}','demo')">Enrol Demo</button>
             <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}`}
           </td>
-        </tr>`; }).join("");
-      box.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
-      window._batches = batches || [];
-      renderBatchSelect();
+        </tr>`; };
+
+      mountList("people", "people", people, {
+        placeholder: "Search people by name or role…",
+        noun: "people", empty: "No people match your search.", pageSize: 10,
+        match: (u, t) => `${u.full_name||''} ${u.role||''}`.toLowerCase().includes(t),
+        render: (items) => `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table>`
+      });
     }
 
     async function setRole(id, role) {
@@ -396,17 +444,29 @@
         box.innerHTML = '<p class="empty">No pending payments.</p>';
         return;
       }
-      box.innerHTML = `<table><thead><tr><th>Student</th><th>Batch</th><th>Fee</th><th>Actions</th></tr></thead><tbody>
-        ${enrollments.map(e => `<tr>
-          <td>${pmap[e.student_id] || 'Student'}</td>
-          <td>${bmap[e.batch_id]?.name || 'Batch'}</td>
-          <td>${pkr(bmap[e.batch_id]?.fee || 0)}</td>
-          <td class="row-actions">
-            <button class="btn sm" onclick="sendPaymentReminder('${e.student_id}','${e.batch_id}')">Send Reminder</button>
-            <button class="btn green sm" onclick="markPaid('${e.student_id}','${e.batch_id}')">Mark Paid</button>
-          </td>
-        </tr>`).join("")}
-      </tbody></table>`;
+      // Precompute display fields so search can match student and batch names.
+      const rows = enrollments.map(e => ({
+        ...e,
+        studentName: pmap[e.student_id] || "Student",
+        batchName: bmap[e.batch_id]?.name || "Batch",
+        fee: bmap[e.batch_id]?.fee || 0
+      }));
+      mountList("pending", "pending-payments", rows, {
+        placeholder: "Search by student or batch…",
+        noun: "pending", empty: "No pending payments match your search.", pageSize: 10,
+        match: (r, t) => `${r.studentName} ${r.batchName}`.toLowerCase().includes(t),
+        render: (items) => `<table><thead><tr><th>Student</th><th>Batch</th><th>Fee</th><th>Actions</th></tr></thead><tbody>
+          ${items.map(e => `<tr>
+            <td>${e.studentName}</td>
+            <td>${e.batchName}</td>
+            <td>${pkr(e.fee)}</td>
+            <td class="row-actions">
+              <button class="btn sm" onclick="sendPaymentReminder('${e.student_id}','${e.batch_id}')">Send Reminder</button>
+              <button class="btn green sm" onclick="markPaid('${e.student_id}','${e.batch_id}')">Mark Paid</button>
+            </td>
+          </tr>`).join("")}
+        </tbody></table>`
+      });
     }
 
     async function sendPaymentReminder(student_id, batch_id) {

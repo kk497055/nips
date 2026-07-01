@@ -80,6 +80,13 @@ th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);fo
 th{background:var(--primary);color:#fff;font-weight:600}
 tr:last-child td{border-bottom:none}
 
+/* Searchable / paginated lists */
+.list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.list-search{flex:1;min-width:200px;max-width:360px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit}
+.list-count{color:var(--muted);font-size:13px;white-space:nowrap}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px;font-size:14px;color:var(--muted)}
+.pager .btn[disabled]{opacity:.45;cursor:not-allowed}
+
 /* Forms */
 .field{margin-bottom:14px}
 .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
