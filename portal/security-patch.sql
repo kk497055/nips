@@ -7,7 +7,10 @@
 create or replace function public.protect_role()
 returns trigger language plpgsql security definer as $$
 begin
-  if new.role is distinct from old.role and not public.is_admin() then
+  -- auth.uid() is null in the SQL editor / service role (trusted); only guard app users.
+  if new.role is distinct from old.role
+     and auth.uid() is not null
+     and not public.is_admin() then
     raise exception 'Only admins can change roles';
   end if;
   return new;

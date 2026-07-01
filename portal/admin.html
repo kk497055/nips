@@ -106,6 +106,7 @@
       const p = await getProfile();
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
+      window._meId = p.id;
       await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview()]);
     })();
 
@@ -284,16 +285,19 @@
       const { data: batches } = await sb.from("batches").select("id,name");
       const box = document.getElementById("people");
       if (!people || !people.length) { box.innerHTML = '<p class="empty">No users yet.</p>'; return; }
-      let rows = people.map(u => `
+      let rows = people.map(u => {
+        const isSelf = u.id === window._meId;
+        return `
         <tr>
-          <td>${u.full_name}</td>
+          <td>${u.full_name}${isSelf?' <span class="pill">you</span>':''}</td>
           <td><span class="badge">${u.role}</span></td>
           <td class="row-actions">
+            ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
-            ${u.role==='student'?`<button class="btn green sm" onclick="enrol('${u.id}')">Enrol + Mark Paid</button>`:''}
+            ${u.role==='student'?`<button class="btn green sm" onclick="enrol('${u.id}')">Enrol + Mark Paid</button>`:''}`}
           </td>
-        </tr>`).join("");
+        </tr>`; }).join("");
       box.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
       window._batches = batches || [];
     }
