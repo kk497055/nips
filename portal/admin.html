@@ -154,7 +154,9 @@
       let collected = 0, pending = 0;
       (enrollments||[]).forEach(e => {
         const fee = feeOf[e.batch_id] || 0;
-        if (e.payment_status === "paid") collected += fee; else pending += fee;
+        if (e.payment_status === "paid") collected += fee;
+        else if (e.payment_status === "pending") pending += fee;
+        // 'demo' is trial access — never counted as revenue.
       });
 
       // Teaching hours: sessions with both start and end timestamps.
@@ -173,9 +175,10 @@
 
       const paidCount = (enrollments||[]).filter(e => e.payment_status === "paid").length;
       const pendCount = (enrollments||[]).filter(e => e.payment_status === "pending").length;
+      const demoCount = (enrollments||[]).filter(e => e.payment_status === "demo").length;
 
       document.getElementById("stats").innerHTML = `
-        <div class="stat"><div class="num">${students}</div><div class="lbl">Students</div><div class="hint">${teachers} teachers</div></div>
+        <div class="stat"><div class="num">${students}</div><div class="lbl">Students</div><div class="hint">${teachers} teachers · ${demoCount} demo</div></div>
         <div class="stat"><div class="num">${activeBatches}</div><div class="lbl">Active Batches</div><div class="hint">${(batches||[]).length} total</div></div>
         <div class="stat"><div class="num">${pkr(collected)}</div><div class="lbl">Collected</div><div class="hint">${paidCount} paid enrolments</div></div>
         <div class="stat"><div class="num amber">${pkr(pending)}</div><div class="lbl">Pending</div><div class="hint">${pendCount} awaiting payment</div></div>
@@ -319,6 +322,7 @@
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
             ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
+            <button class="btn soft sm" onclick="enrol('${u.id}','demo')">Enrol Demo</button>
             <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}`}
           </td>
         </tr>`; }).join("");
@@ -428,7 +432,9 @@
       const batches = window._batches || [];
       if (!batches.length) return alert("Create a batch first.");
       const list = batches.map((b,i)=>`${i+1}. ${b.name}`).join("\n");
-      const label = status === "paid" ? "payment confirmed = marked PAID" : "payment pending";
+      const label = status === "paid" ? "payment confirmed = marked PAID"
+                  : status === "demo" ? "DEMO access — no payment, full class access"
+                  : "payment pending";
       const pick = prompt(`Enrol into which batch? (${label})\n`+list+"\n\nEnter number:");
       const idx = parseInt(pick)-1;
       if (isNaN(idx) || !batches[idx]) return;
@@ -438,7 +444,9 @@
       );
       if (error) { alert("Error: " + error.message); return; }
 
-      let note = status === "paid" ? "Enrolled & marked paid. Student now has access." : "Enrolled as pending. Student does not have class access yet.";
+      let note = status === "paid" ? "Enrolled & marked paid. Student now has access."
+               : status === "demo" ? "Enrolled for DEMO. Student has full class access (not counted as revenue)."
+               : "Enrolled as pending. Student does not have class access yet.";
       if (status === "paid") {
         try {
           const body = await sendNotify({ type: "enrolment_paid", student_id: studentId, batch_id: batches[idx].id });

@@ -42,7 +42,7 @@ create table if not exists public.enrollments (
   id             uuid primary key default gen_random_uuid(),
   batch_id       uuid not null references public.batches(id) on delete cascade,
   student_id     uuid not null references public.profiles(id) on delete cascade,
-  payment_status text not null default 'pending' check (payment_status in ('pending','paid')),
+  payment_status text not null default 'pending' check (payment_status in ('pending','paid','demo')),
   amount         numeric default 0,
   enrolled_at    timestamptz not null default now(),
   unique (batch_id, student_id)
@@ -99,7 +99,7 @@ create or replace function public.enrolled_paid(b uuid)
 returns boolean language sql security definer stable as $$
   select exists(
     select 1 from public.enrollments
-    where batch_id = b and student_id = auth.uid() and payment_status = 'paid'
+    where batch_id = b and student_id = auth.uid() and payment_status in ('paid','demo')
   );
 $$;
 
