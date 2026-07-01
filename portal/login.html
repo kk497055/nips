@@ -110,6 +110,16 @@
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) return show(error.message);
         const p = await getProfile();
+        if (p?.role === "student" && !p.welcome_sent_at) {
+          sb.auth.getSession().then(({ data: { session } }) => {
+            if (!session) return;
+            return fetch(`${SUPABASE_URL}/functions/v1/notify`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "welcome", student_id: p.id })
+            });
+          }).catch(() => {});
+        }
         routeByRole(p ? p.role : "student");
       }
     };

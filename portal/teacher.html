@@ -64,6 +64,7 @@
             <div class="row-actions">
               <a class="btn green" href="classroom.html?batch=${b.id}">Start Class</a>
               <button class="btn" onclick="openAttendance('${b.id}','${b.name.replace(/'/g,"")}')">Mark Attendance</button>
+              <button class="btn sm" onclick="sendClassReminder('${b.id}')">Class reminder</button>
               <button class="btn sm" onclick="addRecording('${b.id}')">+ Recording link</button>
             </div>
           </div>`;
@@ -125,6 +126,21 @@
         const body = await res.json();
         note += res.ok ? `\nEmailed ${body.sent} student(s).` : `\n(Email not sent: ${body.error})`;
       } catch (e) { note += `\n(Email not sent: ${e.message})`; }
+      alert(note);
+    }
+
+    async function sendClassReminder(batchId) {
+      let note = "Class reminder requested.";
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "class_reminder", batch_id: batchId })
+        });
+        const body = await res.json();
+        note = res.ok ? `Class reminder emailed to ${body.sent}/${body.total} student(s).` : `Email not sent: ${body.error}`;
+      } catch (e) { note = `Email not sent: ${e.message}`; }
       alert(note);
     }
   </script>

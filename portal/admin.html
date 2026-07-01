@@ -90,6 +90,29 @@
       <div id="batches"><p class="empty">Loading…</p></div>
     </div>
 
+    <!-- NOTIFICATIONS -->
+    <div class="section">
+      <h2>Notifications</h2>
+      <div class="card">
+        <div class="msg" id="notify-msg"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Batch</label><select id="n-batch"></select></div>
+          <div class="field"><label>Announcement Title</label><input id="n-title" placeholder="Important update"/></div>
+          <div class="field" style="grid-column:1 / -1"><label>Announcement Message</label><textarea id="n-message" rows="4" placeholder="Write the message students should receive."></textarea></div>
+        </div>
+        <div class="row-actions">
+          <button class="btn green" onclick="sendAnnouncement()">Send Announcement</button>
+          <button class="btn" onclick="sendClassReminder()">Send Class Reminder</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PENDING PAYMENTS -->
+    <div class="section">
+      <h2>Pending Payments</h2>
+      <div id="pending-payments"><p class="empty">Loading…</p></div>
+    </div>
+
     <!-- PEOPLE -->
     <div class="section">
       <h2>People</h2>
@@ -107,7 +130,7 @@
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;
-      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview()]);
+      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments()]);
     })();
 
     const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
@@ -295,11 +318,13 @@
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
-            ${u.role==='student'?`<button class="btn green sm" onclick="enrol('${u.id}')">Enrol + Mark Paid</button>`:''}`}
+            ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
+            <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}`}
           </td>
         </tr>`; }).join("");
       box.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
       window._batches = batches || [];
+      renderBatchSelect();
     }
 
     async function setRole(id, role) {
@@ -308,34 +333,122 @@
       await Promise.all([loadPeople(), loadTeacherSelect()]);
     }
 
-    async function enrol(studentId) {
+    function renderBatchSelect() {
+      const sel = document.getElementById("n-batch");
+      if (!sel) return;
+      const batches = window._batches || [];
+      sel.innerHTML = batches.length
+        ? batches.map(b => `<option value="${b.id}">${b.name}</option>`).join("")
+        : '<option value="">No batches yet</option>';
+    }
+
+    async function sendNotify(payload) {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Email request failed");
+      return body;
+    }
+
+    const notifyMsg = document.getElementById("notify-msg");
+    const showNotifyMsg = (t, ok=false) => { notifyMsg.className = "msg " + (ok?"ok":"err"); notifyMsg.textContent = t; };
+
+    async function sendAnnouncement() {
+      const batch_id = document.getElementById("n-batch").value;
+      const title = document.getElementById("n-title").value.trim() || "A note from NIPS";
+      const message = document.getElementById("n-message").value.trim();
+      if (!batch_id) return showNotifyMsg("Select a batch first.");
+      if (!message) return showNotifyMsg("Write an announcement message.");
+      try {
+        const body = await sendNotify({ type: "announcement", batch_id, title, message });
+        showNotifyMsg(`Announcement sent to ${body.sent}/${body.total} paid student(s).`, true);
+      } catch (e) { showNotifyMsg(e.message); }
+    }
+
+    async function sendClassReminder() {
+      const batch_id = document.getElementById("n-batch").value;
+      if (!batch_id) return showNotifyMsg("Select a batch first.");
+      try {
+        const body = await sendNotify({ type: "class_reminder", batch_id });
+        showNotifyMsg(`Class reminder sent to ${body.sent}/${body.total} paid student(s).`, true);
+      } catch (e) { showNotifyMsg(e.message); }
+    }
+
+    async function loadPendingPayments() {
+      const [{ data: enrollments }, { data: batches }, { data: profiles }] = await Promise.all([
+        sb.from("enrollments").select("id,batch_id,student_id,payment_status").eq("payment_status","pending"),
+        sb.from("batches").select("id,name,fee"),
+        sb.from("profiles").select("id,full_name")
+      ]);
+      const box = document.getElementById("pending-payments");
+      const bmap = Object.fromEntries((batches||[]).map(b=>[b.id,b]));
+      const pmap = Object.fromEntries((profiles||[]).map(p=>[p.id,p.full_name]));
+      if (!enrollments || !enrollments.length) {
+        box.innerHTML = '<p class="empty">No pending payments.</p>';
+        return;
+      }
+      box.innerHTML = `<table><thead><tr><th>Student</th><th>Batch</th><th>Fee</th><th>Actions</th></tr></thead><tbody>
+        ${enrollments.map(e => `<tr>
+          <td>${pmap[e.student_id] || 'Student'}</td>
+          <td>${bmap[e.batch_id]?.name || 'Batch'}</td>
+          <td>${pkr(bmap[e.batch_id]?.fee || 0)}</td>
+          <td class="row-actions">
+            <button class="btn sm" onclick="sendPaymentReminder('${e.student_id}','${e.batch_id}')">Send Reminder</button>
+            <button class="btn green sm" onclick="markPaid('${e.student_id}','${e.batch_id}')">Mark Paid</button>
+          </td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    }
+
+    async function sendPaymentReminder(student_id, batch_id) {
+      try {
+        const body = await sendNotify({ type: "payment_reminder", student_id, batch_id });
+        alert(`Payment reminder sent to ${body.sent}/${body.total} student(s).`);
+      } catch (e) { alert("Email not sent: " + e.message); }
+    }
+
+    async function markPaid(student_id, batch_id) {
+      const { error } = await sb.from("enrollments").upsert(
+        { batch_id, student_id, payment_status: "paid" },
+        { onConflict: "batch_id,student_id" }
+      );
+      if (error) return alert("Error: " + error.message);
+      try {
+        const body = await sendNotify({ type: "enrolment_paid", student_id, batch_id });
+        alert(`Marked paid. Confirmation email sent to ${body.sent}/${body.total} student(s).`);
+      } catch (e) { alert("Marked paid. Email not sent: " + e.message); }
+      await Promise.all([loadPendingPayments(), loadOverview(), loadBatches()]);
+    }
+
+    async function enrol(studentId, status) {
       const batches = window._batches || [];
       if (!batches.length) return alert("Create a batch first.");
       const list = batches.map((b,i)=>`${i+1}. ${b.name}`).join("\n");
-      const pick = prompt("Enrol into which batch? (payment confirmed = marked PAID)\n"+list+"\n\nEnter number:");
+      const label = status === "paid" ? "payment confirmed = marked PAID" : "payment pending";
+      const pick = prompt(`Enrol into which batch? (${label})\n`+list+"\n\nEnter number:");
       const idx = parseInt(pick)-1;
       if (isNaN(idx) || !batches[idx]) return;
       const { error } = await sb.from("enrollments").upsert(
-        { batch_id: batches[idx].id, student_id: studentId, payment_status: "paid" },
+        { batch_id: batches[idx].id, student_id: studentId, payment_status: status },
         { onConflict: "batch_id,student_id" }
       );
       if (error) { alert("Error: " + error.message); return; }
 
-      // Fire the enrolment-confirmation email (non-blocking — access is granted regardless).
-      let note = "Enrolled & marked paid. Student now has access.";
-      try {
-        const { data: { session } } = await sb.auth.getSession();
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "enrolment_paid", student_id: studentId, batch_id: batches[idx].id })
-        });
-        const body = await res.json();
-        note += res.ok ? `\nConfirmation email sent to ${body.sentTo}.` : `\n(Email not sent: ${body.error})`;
-      } catch (e) {
-        note += `\n(Email not sent: ${e.message})`;
+      let note = status === "paid" ? "Enrolled & marked paid. Student now has access." : "Enrolled as pending. Student does not have class access yet.";
+      if (status === "paid") {
+        try {
+          const body = await sendNotify({ type: "enrolment_paid", student_id: studentId, batch_id: batches[idx].id });
+          note += `\nConfirmation email sent to ${body.sent}/${body.total} student(s).`;
+        } catch (e) {
+          note += `\n(Email not sent: ${e.message})`;
+        }
       }
       alert(note);
+      await Promise.all([loadPendingPayments(), loadOverview(), loadBatches()]);
     }
   </script>
 </body>
