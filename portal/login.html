@@ -25,6 +25,10 @@
       <label>Password</label>
       <input id="password" type="password" placeholder="••••••••" />
     </div>
+    <div id="signup-confirm" class="field" style="display:none">
+      <label>Confirm Password</label>
+      <input id="password2" type="password" placeholder="••••••••" />
+    </div>
 
     <button class="btn" id="submit">Sign In</button>
     <p class="toggle">
@@ -53,6 +57,7 @@
       document.getElementById("tag").textContent = isUp ? "Create your student account" : "Sign in to your account";
       document.getElementById("submit").textContent = isUp ? "Create Account" : "Sign In";
       document.getElementById("signup-name").style.display = isUp ? "block" : "none";
+      document.getElementById("signup-confirm").style.display = isUp ? "block" : "none";
       document.getElementById("toggle-text").textContent = isUp ? "Already registered?" : "New student?";
       document.getElementById("toggle").textContent = isUp ? "Sign in" : "Create an account";
       msg.className = "msg";
@@ -64,6 +69,9 @@
       if (!email || !password) return show("Enter email and password.");
 
       if (mode === "signup") {
+        const password2 = document.getElementById("password2").value;
+        if (password.length < 6) return show("Password must be at least 6 characters.");
+        if (password !== password2) return show("Passwords do not match.");
         const full_name = document.getElementById("name").value.trim() || "New User";
         const { error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name } } });
         if (error) return show(error.message);
