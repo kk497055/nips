@@ -319,7 +319,23 @@
         { batch_id: batches[idx].id, student_id: studentId, payment_status: "paid" },
         { onConflict: "batch_id,student_id" }
       );
-      alert(error ? ("Error: "+error.message) : "Enrolled & marked paid. Student now has access.");
+      if (error) { alert("Error: " + error.message); return; }
+
+      // Fire the enrolment-confirmation email (non-blocking — access is granted regardless).
+      let note = "Enrolled & marked paid. Student now has access.";
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "enrolment_paid", student_id: studentId, batch_id: batches[idx].id })
+        });
+        const body = await res.json();
+        note += res.ok ? `\nConfirmation email sent to ${body.sentTo}.` : `\n(Email not sent: ${body.error})`;
+      } catch (e) {
+        note += `\n(Email not sent: ${e.message})`;
+      }
+      alert(note);
     }
   </script>
 </body>
