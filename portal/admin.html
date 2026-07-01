@@ -127,6 +127,7 @@
     (async () => {
       await requireAuth();
       const p = await getProfile();
+      if (!p) return logout();
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;

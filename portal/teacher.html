@@ -42,6 +42,7 @@
     (async () => {
       await requireAuth();
       const p = await getProfile();
+      if (!p) return logout();
       if (p.role !== "teacher" && p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._me = p;

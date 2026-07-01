@@ -40,6 +40,11 @@
     (async () => {
       await requireAuth();
       const p = await getProfile();
+      if (!p) {
+        document.getElementById("batches").innerHTML =
+          '<p class="empty">We couldn\'t load your profile. Please log out and back in, or contact NIPS support.</p>';
+        return;
+      }
       if (p.role !== "student") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
 
