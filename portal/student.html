@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Student</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=3" />
+  <link rel="stylesheet" href="portal.css?v=4" />
 </head>
 <body>
   <div class="topbar">
@@ -17,8 +17,17 @@
   </div>
 
   <div class="wrap">
-    <h1>My Classes</h1>
-    <p class="sub">Join live sessions and view past recordings for batches you're enrolled in.</p>
+    <div class="student-head">
+      <div>
+        <p class="eyebrow">Student Dashboard</p>
+        <h1>My Classes</h1>
+        <p class="sub">Join live sessions and view past recordings for batches you're enrolled in.</p>
+      </div>
+      <div class="support-chip">
+        <span>Need help?</span>
+        <a href="https://wa.me/923215554125" target="_blank">Message NIPS</a>
+      </div>
+    </div>
 
     <div class="section">
       <div id="batches" class="grid"><p class="empty">Loading…</p></div>
@@ -35,11 +44,37 @@
       document.getElementById("who").textContent = p.full_name + " ";
 
       // RLS returns only batches where this student is PAID + enrolled.
-      const { data: batches } = await sb.from("batches").select("*").eq("is_active", true);
+      const [{ data: batches }, { data: enrollments }] = await Promise.all([
+        sb.from("batches").select("*").eq("is_active", true),
+        sb.from("enrollments").select("payment_status")
+      ]);
       const box = document.getElementById("batches");
 
       if (!batches || !batches.length) {
-        box.innerHTML = '<p class="empty">No active classes yet. Once your payment is confirmed by admin, your batches appear here.</p>';
+        const hasPending = (enrollments || []).some(e => e.payment_status === "pending");
+        box.className = "student-empty-wrap";
+        box.innerHTML = `
+          <div class="student-empty">
+            <div class="empty-mark">
+              <img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/>
+            </div>
+            <div>
+              <p class="eyebrow">${hasPending ? "Payment Review" : "Account Ready"}</p>
+              <h2>${hasPending ? "Your enrolment is being confirmed" : "No active classes yet"}</h2>
+              <p class="empty-lead">${hasPending
+                ? "Your account is verified and your enrolment is in progress. Classes will appear here as soon as payment is marked paid by the NIPS team."
+                : "Your account is verified. Once the team enrols you and confirms payment, your live classes and recordings will appear here."}</p>
+              <div class="progress-row">
+                <div class="progress-step done"><span>1</span><strong>Email verified</strong></div>
+                <div class="progress-step ${hasPending ? "active" : ""}"><span>2</span><strong>Payment confirmation</strong></div>
+                <div class="progress-step"><span>3</span><strong>Class access</strong></div>
+              </div>
+              <div class="empty-actions">
+                <a class="btn green" href="https://wa.me/923215554125" target="_blank">Contact Support</a>
+                <a class="btn soft" href="../contact.html">Admissions Help</a>
+              </div>
+            </div>
+          </div>`;
         return;
       }
 
@@ -50,15 +85,19 @@
           .not("recording_url","is",null).order("started_at",{ascending:false}).limit(5);
 
         const recHtml = (recs && recs.length)
-          ? recs.map(r => `<div style="font-size:13px;margin-top:4px">🎥 <a href="${r.recording_url}" target="_blank">${new Date(r.started_at).toLocaleDateString()} — ${r.title||'Session'}</a></div>`).join("")
-          : '<div style="font-size:13px;color:var(--muted);margin-top:4px">No recordings yet</div>';
+          ? recs.map(r => `<div class="recording-link"><span>Video</span><a href="${r.recording_url}" target="_blank">${new Date(r.started_at).toLocaleDateString()} — ${r.title||'Session'}</a></div>`).join("")
+          : '<div class="recording-empty">No recordings yet</div>';
 
         box.innerHTML += `
-          <div class="card">
+          <div class="card class-card">
+            <div class="class-top">
+              <span class="pill paid">Active</span>
+              <span class="class-category">${b.category||'NIPS Class'}</span>
+            </div>
             <h3>${b.name}</h3>
-            <div class="meta">${b.category||''} · ${b.schedule||'Schedule TBA'}</div>
+            <div class="meta">${b.schedule||'Schedule TBA'}</div>
             <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
-            <div style="margin-top:12px"><strong style="font-size:13px">Recordings</strong>${recHtml}</div>
+            <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
           </div>`;
       }
     })();
