@@ -408,6 +408,20 @@ h4 {
 
 }
 
+/* Portal button in the navbar: solid amber so it's always visible,
+   whether the navbar is transparent (top) or white (scrolled). */
+.nav-actions .btn-outline {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: #3a2a06;
+}
+
+.nav-actions .btn-outline:hover {
+  background: #dd8f10;
+  border-color: #dd8f10;
+  color: #3a2a06;
+}
+
 
 
 .btn-lg {

@@ -5,36 +5,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Login</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=2" />
+  <link rel="stylesheet" href="portal.css?v=3" />
 </head>
 <body class="auth">
-  <div class="box">
-    <h1>NIPS Portal</h1>
-    <p class="tag" id="tag">Sign in to your account</p>
-    <div class="msg" id="msg"></div>
+  <div class="auth-card">
+    <!-- Brand / marketing panel -->
+    <div class="auth-brand">
+      <div class="logo-row">
+        <img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/>
+        <span class="name">NIPS<small>Education Solutions</small></span>
+      </div>
 
-    <div id="signup-name" class="field" style="display:none">
-      <label>Full Name</label>
-      <input id="name" type="text" placeholder="Your full name" />
-    </div>
-    <div class="field">
-      <label>Email</label>
-      <input id="email" type="email" placeholder="you@example.com" />
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="password" type="password" placeholder="••••••••" />
-    </div>
-    <div id="signup-confirm" class="field" style="display:none">
-      <label>Confirm Password</label>
-      <input id="password2" type="password" placeholder="••••••••" />
+      <div class="kicker">Dream · Connect · Achieve</div>
+      <h2>Your classroom, online.</h2>
+      <p class="lead">The secure learning portal for NIPS students and teachers — live classes, recorded lessons, and progress you can track, all in one place.</p>
+
+      <ul>
+        <li><span class="tick">✓</span><span>Live, interactive classes with your NIPS teachers</span></li>
+        <li><span class="tick">✓</span><span>Every session recorded — revisit lessons anytime</span></li>
+        <li><span class="tick">✓</span><span>Attendance &amp; enrolment always up to date</span></li>
+        <li><span class="tick">✓</span><span>Private and secure — your details stay protected</span></li>
+      </ul>
+
+      <div class="brand-foot">
+        K Block, Johar Town, Lahore · +92 321 5554125 · info@nips.com.pk<br/>
+        © 2026 NIPS Education Solutions SMC (Pvt) Ltd.
+      </div>
     </div>
 
-    <button class="btn" id="submit">Sign In</button>
-    <p class="toggle">
-      <span id="toggle-text">New student?</span>
-      <a href="#" id="toggle">Create an account</a>
-    </p>
+    <!-- Form panel -->
+    <div class="auth-form">
+      <h1>NIPS Portal</h1>
+      <p class="tag" id="tag">Sign in to your account</p>
+      <div class="msg" id="msg"></div>
+
+      <div id="signup-name" class="field" style="display:none">
+        <label>Full Name</label>
+        <input id="name" type="text" placeholder="Your full name" />
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input id="email" type="email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="password" type="password" placeholder="••••••••" />
+      </div>
+      <div id="signup-confirm" class="field" style="display:none">
+        <label>Confirm Password</label>
+        <input id="password2" type="password" placeholder="••••••••" />
+      </div>
+
+      <button class="btn" id="submit">Sign In</button>
+      <p class="toggle">
+        <span id="toggle-text">New student?</span>
+        <a href="#" id="toggle">Create an account</a>
+      </p>
+
+      <p class="fine">Accounts are verified by NIPS staff. Access to classes is granted once your enrolment and payment are confirmed.</p>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
