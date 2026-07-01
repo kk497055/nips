@@ -102,7 +102,14 @@
         if (password.length < 6) return show("Password must be at least 6 characters.");
         if (password !== password2) return show("Passwords do not match.");
         const full_name = document.getElementById("name").value.trim() || "New User";
-        const { error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name } } });
+        const { error } = await sb.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name },
+            emailRedirectTo: "https://nips.com.pk/portal/login.html"
+          }
+        });
         if (error) return show(error.message);
         show("Account created! Please check your email and click the verification link before signing in.", true);
         setTimeout(() => document.getElementById("toggle").click(), 2500);
