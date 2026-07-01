@@ -5,6 +5,13 @@ docs/
 .DS_Store
 Thumbs.db
 
+# Secrets — JaaS private keys, supabase env
+*.pem
+*.pk
+*.key
+supabase/.env
+supabase/.temp/
+
 # Jekyll build files (GitHub Pages builds these)
 _site/
 .sass-cache/
