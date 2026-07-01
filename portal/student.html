@@ -35,7 +35,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
+  <script src="config.js?v=2"></script>
   <script>
     (async () => {
       await requireAuth();
@@ -90,17 +90,17 @@
           .not("recording_url","is",null).order("started_at",{ascending:false}).limit(5);
 
         const recHtml = (recs && recs.length)
-          ? recs.map(r => `<div class="recording-link"><span>Video</span><a href="${r.recording_url}" target="_blank">${new Date(r.started_at).toLocaleDateString()} — ${r.title||'Session'}</a></div>`).join("")
+          ? recs.map(r => `<div class="recording-link"><span>Video</span><a href="${safeUrl(r.recording_url)}" target="_blank" rel="noopener noreferrer">${new Date(r.started_at).toLocaleDateString()} — ${esc(r.title||'Session')}</a></div>`).join("")
           : '<div class="recording-empty">No recordings yet</div>';
 
         box.innerHTML += `
           <div class="card class-card">
             <div class="class-top">
               <span class="pill paid">Active</span>
-              <span class="class-category">${b.category||'NIPS Class'}</span>
+              <span class="class-category">${esc(b.category||'NIPS Class')}</span>
             </div>
-            <h3>${b.name}</h3>
-            <div class="meta">${b.schedule||'Schedule TBA'}</div>
+            <h3>${esc(b.name)}</h3>
+            <div class="meta">${esc(b.schedule||'Schedule TBA')}</div>
             <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
             <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
           </div>`;

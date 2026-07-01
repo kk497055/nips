@@ -5,6 +5,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_qPM05rVcSDylY3K_viaksw_D-31dW90";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Escape any DB/user-controlled string before inserting into innerHTML (prevents stored XSS).
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Only allow safe http(s) links; anything else (javascript:, data:) becomes inert.
+function safeUrl(u) {
+  const s = String(u || "").trim();
+  return /^https?:\/\//i.test(s) ? s : "#";
+}
+
 // Redirect to login if not authenticated. Returns the session.
 async function requireAuth() {
   const { data: { session } } = await sb.auth.getSession();

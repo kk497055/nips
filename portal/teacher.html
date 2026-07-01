@@ -36,7 +36,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
+  <script src="config.js?v=2"></script>
   <script>
     let currentBatch = null, roster = [];
     (async () => {
@@ -56,15 +56,17 @@
       if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches assigned yet. Ask admin to assign you.</p>'; return; }
 
       box.innerHTML = "";
+      window._batchNames = {};
       for (const b of batches) {
+        window._batchNames[b.id] = b.name;
         const { count } = await sb.from("enrollments").select("*",{count:"exact",head:true}).eq("batch_id",b.id).eq("payment_status","paid");
         box.innerHTML += `
           <div class="card" style="margin-bottom:14px">
-            <h3>${b.name}</h3>
-            <div class="meta">${b.category||''} · ${b.schedule||'Schedule TBA'} · ${count||0} paid students</div>
+            <h3>${esc(b.name)}</h3>
+            <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'Schedule TBA')} · ${count||0} paid students</div>
             <div class="row-actions">
               <a class="btn green" href="classroom.html?batch=${b.id}">Start Class</a>
-              <button class="btn" onclick="openAttendance('${b.id}','${b.name.replace(/'/g,"")}')">Mark Attendance</button>
+              <button class="btn" onclick="openAttendance('${b.id}')">Mark Attendance</button>
               <button class="btn sm" onclick="sendClassReminder('${b.id}')">Class reminder</button>
               <button class="btn sm" onclick="addRecording('${b.id}')">+ Recording link</button>
             </div>
@@ -72,9 +74,9 @@
       }
     }
 
-    async function openAttendance(batchId, name) {
+    async function openAttendance(batchId) {
       currentBatch = batchId;
-      document.getElementById("att-title").textContent = "Attendance — " + name;
+      document.getElementById("att-title").textContent = "Attendance — " + ((window._batchNames||{})[batchId] || "");
       const today = new Date().toISOString().slice(0,10);
       document.getElementById("att-date").textContent = today;
 
@@ -87,7 +89,7 @@
       list.innerHTML = roster.length ? "" : '<p class="empty">No paid students.</p>';
       roster.forEach(s => {
         list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span>${s.full_name}</span>
+          <span>${esc(s.full_name)}</span>
           <select data-sid="${s.id}"><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option></select>
         </div>`;
       });

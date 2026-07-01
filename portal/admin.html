@@ -122,7 +122,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
+  <script src="config.js?v=2"></script>
   <script>
     (async () => {
       await requireAuth();
@@ -229,7 +229,7 @@
       }).sort((a,c) => c.collected - a.collected);
       document.getElementById("rev-table").innerHTML = revRows.length ? `
         <table><thead><tr><th>Batch</th><th>Paid</th><th>Pending</th><th>Collected</th></tr></thead><tbody>
-        ${revRows.map(r => `<tr><td>${r.name}</td><td>${r.paid}</td><td>${r.pend}</td><td>${pkr(r.collected)}</td></tr>`).join("")}
+        ${revRows.map(r => `<tr><td>${esc(r.name)}</td><td>${r.paid}</td><td>${r.pend}</td><td>${pkr(r.collected)}</td></tr>`).join("")}
         </tbody></table>` : '<p class="empty">No batches yet.</p>';
 
       // Teacher load
@@ -246,14 +246,14 @@
       const nameOf = Object.fromEntries((tprofs||[]).map(t=>[t.id,t.full_name]));
       document.getElementById("teacher-table").innerHTML = tRows.length ? `
         <table><thead><tr><th>Teacher</th><th>Batches</th><th>Paid Students</th><th>Sessions</th></tr></thead><tbody>
-        ${tRows.map(r => `<tr><td>${nameOf[r.tid]||'—'}</td><td>${r.batches}</td><td>${r.roster}</td><td>${r.sess}</td></tr>`).join("")}
+        ${tRows.map(r => `<tr><td>${esc(nameOf[r.tid]||'—')}</td><td>${r.batches}</td><td>${r.roster}</td><td>${r.sess}</td></tr>`).join("")}
         </tbody></table>` : '<p class="empty">No teachers yet.</p>';
     }
 
     async function loadTeacherSelect() {
       const { data } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
       const sel = document.getElementById("b-teacher");
-      sel.innerHTML = '<option value="">— none —</option>' + (data||[]).map(t=>`<option value="${t.id}">${t.full_name}</option>`).join("");
+      sel.innerHTML = '<option value="">— none —</option>' + (data||[]).map(t=>`<option value="${t.id}">${esc(t.full_name)}</option>`).join("");
     }
 
     const batchMsg = document.getElementById("batch-msg");
@@ -321,8 +321,8 @@
         noun: "batches", empty: "No batches match your search.", pageSize: 8,
         match: (b, t) => `${b.name} ${b.category||''} ${b.schedule||''} ${tmap[b.teacher_id]||''}`.toLowerCase().includes(t),
         render: (items) => items.map(b => `<div class="card" style="margin-bottom:12px">
-          <h3>${b.name} ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
-          <div class="meta">${b.category||''} · ${b.schedule||'—'} · Fee PKR ${b.fee||0} · Teacher: ${tmap[b.teacher_id]||'unassigned'} · ${paidByBatch[b.id]||0} paid</div>
+          <h3>${esc(b.name)} ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
+          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · Teacher: ${esc(tmap[b.teacher_id]||'unassigned')} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
             <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Teacher</button>
@@ -360,7 +360,7 @@
       const rowHtml = (u) => {
         const isSelf = u.id === window._meId;
         return `<tr>
-          <td>${u.full_name}${isSelf?' <span class="pill">you</span>':''}</td>
+          <td>${esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}</td>
           <td><span class="badge">${u.role}</span></td>
           <td class="row-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `
@@ -391,7 +391,7 @@
       if (!sel) return;
       const batches = window._batches || [];
       sel.innerHTML = batches.length
-        ? batches.map(b => `<option value="${b.id}">${b.name}</option>`).join("")
+        ? batches.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join("")
         : '<option value="">No batches yet</option>';
     }
 
@@ -457,8 +457,8 @@
         match: (r, t) => `${r.studentName} ${r.batchName}`.toLowerCase().includes(t),
         render: (items) => `<table><thead><tr><th>Student</th><th>Batch</th><th>Fee</th><th>Actions</th></tr></thead><tbody>
           ${items.map(e => `<tr>
-            <td>${e.studentName}</td>
-            <td>${e.batchName}</td>
+            <td>${esc(e.studentName)}</td>
+            <td>${esc(e.batchName)}</td>
             <td>${pkr(e.fee)}</td>
             <td class="row-actions">
               <button class="btn sm" onclick="sendPaymentReminder('${e.student_id}','${e.batch_id}')">Send Reminder</button>
