@@ -7,13 +7,41 @@ import { T, sendEmail } from "../_shared/templates.ts";
 
 const FROM = Deno.env.get("NOTIFY_FROM") || "NIPS Portal <noreply@nips.com.pk>";
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const TIME_ZONE = "Asia/Karachi";
+const REMINDER_WINDOW_MINUTES = 90;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-function scheduleMatchesToday(schedule = "", now = new Date()) {
-  const day = WEEKDAYS[now.getDay()];
-  return new RegExp(`\\b${day}\\b`, "i").test(schedule);
+function localParts(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    weekday: value("weekday"),
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    minutes: Number(value("hour")) * 60 + Number(value("minute")),
+  };
+}
+
+function shouldSendReminder(schedule = "", now = new Date()) {
+  const local = localParts(now);
+  if (!new RegExp(`\\b${local.weekday}\\b`, "i").test(schedule)) return false;
+
+  const time = schedule.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if (!time) return true;
+
+  const classMinutes = Number(time[1]) * 60 + Number(time[2]);
+  const minutesUntilClass = classMinutes - local.minutes;
+  return minutesUntilClass >= 0 && minutesUntilClass <= REMINDER_WINDOW_MINUTES;
 }
 
 Deno.serve(async (req) => {
@@ -32,7 +60,7 @@ Deno.serve(async (req) => {
     }
 
     const force = new URL(req.url).searchParams.get("force") === "1";
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localParts().date;
     const svc = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     const { data: batches, error: batchError } = await svc
@@ -46,7 +74,7 @@ Deno.serve(async (req) => {
     const failures: string[] = [];
 
     for (const batch of batches ?? []) {
-      if (!force && !scheduleMatchesToday(batch.schedule)) {
+      if (!force && !shouldSendReminder(batch.schedule)) {
         skipped++;
         continue;
       }
