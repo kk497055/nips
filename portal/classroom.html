@@ -63,12 +63,13 @@
         userInfo: { displayName: tok.name || profile.full_name },
         configOverwrite: {
           startWithAudioMuted: !tok.moderator,
-          prejoinPageEnabled: false
+          prejoinPageEnabled: false,
+          whiteboard: { enabled: true }
         },
         interfaceConfigOverwrite: {
           TOOLBAR_BUTTONS: tok.moderator
-            ? ['microphone','camera','desktop','chat','raisehand','tileview','recording','hangup','settings']
-            : ['microphone','camera','chat','raisehand','tileview','hangup']
+            ? ['microphone','camera','desktop','chat','whiteboard','raisehand','tileview','recording','hangup','settings']
+            : ['microphone','camera','chat','whiteboard','raisehand','tileview','hangup']
         }
       });
 
