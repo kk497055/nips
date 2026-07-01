@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIPS Portal — Student</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Portal</div>
+    <div class="right">
+      <span id="who"></span><span class="badge">Student</span>
+      <button class="btn ghost sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>My Classes</h1>
+    <p class="sub">Join live sessions and view past recordings for batches you're enrolled in.</p>
+
+    <div class="section">
+      <div id="batches" class="grid"><p class="empty">Loading…</p></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    (async () => {
+      await requireAuth();
+      const p = await getProfile();
+      if (p.role !== "student") return routeByRole(p.role);
+      document.getElementById("who").textContent = p.full_name + " ";
+
+      // RLS returns only batches where this student is PAID + enrolled.
+      const { data: batches } = await sb.from("batches").select("*").eq("is_active", true);
+      const box = document.getElementById("batches");
+
+      if (!batches || !batches.length) {
+        box.innerHTML = '<p class="empty">No active classes yet. Once your payment is confirmed by admin, your batches appear here.</p>';
+        return;
+      }
+
+      box.innerHTML = "";
+      for (const b of batches) {
+        const { data: recs } = await sb.from("sessions")
+          .select("title,started_at,recording_url").eq("batch_id", b.id)
+          .not("recording_url","is",null).order("started_at",{ascending:false}).limit(5);
+
+        const recHtml = (recs && recs.length)
+          ? recs.map(r => `<div style="font-size:13px;margin-top:4px">🎥 <a href="${r.recording_url}" target="_blank">${new Date(r.started_at).toLocaleDateString()} — ${r.title||'Session'}</a></div>`).join("")
+          : '<div style="font-size:13px;color:var(--muted);margin-top:4px">No recordings yet</div>';
+
+        box.innerHTML += `
+          <div class="card">
+            <h3>${b.name}</h3>
+            <div class="meta">${b.category||''} · ${b.schedule||'Schedule TBA'}</div>
+            <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
+            <div style="margin-top:12px"><strong style="font-size:13px">Recordings</strong>${recHtml}</div>
+          </div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

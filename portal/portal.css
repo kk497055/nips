@@ -1,0 +1,63 @@
+/* NIPS Portal styles — matches main site brand tokens */
+:root{
+  --primary:#1a5336; --primary-dark:#0f3321; --primary-light:#2d7a4f;
+  --secondary:#f4a020; --accent:#00c9a7;
+  --bg:#f5f7f6; --card:#fff; --text:#1a1a1a; --muted:#6b7280; --border:#e5e7eb;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+a{color:var(--primary);text-decoration:none}
+
+/* Top bar */
+.topbar{background:var(--primary);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-family:'Outfit',sans-serif;font-weight:700}
+.topbar .brand img{height:32px}
+.topbar .right{display:flex;align-items:center;gap:14px;font-size:14px}
+.badge{background:var(--secondary);color:#000;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;text-transform:capitalize}
+.btn{background:var(--secondary);color:#000;border:none;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}
+.btn:hover{filter:brightness(.95)}
+.btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.green{background:var(--primary);color:#fff}
+.btn.danger{background:#dc2626;color:#fff}
+
+/* Layout */
+.wrap{max-width:1100px;margin:24px auto;padding:0 20px}
+.wrap h1{font-family:'Outfit',sans-serif;margin-bottom:4px;font-size:26px}
+.wrap .sub{color:var(--muted);margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+.card h3{font-family:'Outfit',sans-serif;margin-bottom:6px}
+.card .meta{color:var(--muted);font-size:13px;margin-bottom:12px}
+.section{margin-bottom:32px}
+.section h2{font-family:'Outfit',sans-serif;font-size:19px;margin-bottom:12px;border-left:4px solid var(--secondary);padding-left:10px}
+
+/* Table */
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
+th{background:var(--primary);color:#fff;font-weight:600}
+tr:last-child td{border-bottom:none}
+
+/* Forms */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit}
+
+/* Login */
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--primary),var(--primary-dark))}
+.auth .box{background:#fff;border-radius:16px;padding:34px;width:100%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.auth .box h1{font-family:'Outfit',sans-serif;text-align:center;margin-bottom:4px}
+.auth .box p.tag{text-align:center;color:var(--muted);margin-bottom:22px;font-size:14px}
+.auth .btn{width:100%;margin-top:8px}
+.auth .toggle{text-align:center;margin-top:16px;font-size:14px}
+.msg{padding:10px;border-radius:8px;font-size:14px;margin-bottom:14px;display:none}
+.msg.err{background:#fee2e2;color:#991b1b;display:block}
+.msg.ok{background:#dcfce7;color:#166534;display:block}
+
+.pill{padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600}
+.pill.paid{background:#dcfce7;color:#166534}
+.pill.pending{background:#fef3c7;color:#92400e}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.daybtn{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;user-select:none}
+.daybtn input{margin:0}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}

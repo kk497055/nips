@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIPS Portal — Teacher</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Portal</div>
+    <div class="right">
+      <span id="who"></span><span class="badge">Teacher</span>
+      <button class="btn ghost sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>My Batches</h1>
+    <p class="sub">Start classes, mark attendance, and add recording links. Student contact details are not shared with you.</p>
+    <div id="batches"><p class="empty">Loading…</p></div>
+  </div>
+
+  <!-- Attendance modal -->
+  <div id="att" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center">
+    <div class="card" style="width:100%;max-width:520px;max-height:85vh;overflow:auto">
+      <h3 id="att-title">Attendance</h3>
+      <div class="meta">Date: <span id="att-date"></span></div>
+      <div id="att-list"></div>
+      <div class="row-actions" style="margin-top:14px">
+        <button class="btn green" id="att-save">Save Attendance</button>
+        <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('att').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    let currentBatch = null, roster = [];
+    (async () => {
+      await requireAuth();
+      const p = await getProfile();
+      if (p.role !== "teacher" && p.role !== "admin") return routeByRole(p.role);
+      document.getElementById("who").textContent = p.full_name + " ";
+      window._me = p;
+      render();
+    })();
+
+    async function render() {
+      // RLS returns only batches this teacher is assigned to.
+      const { data: batches } = await sb.from("batches").select("*").eq("teacher_id", window._me.id);
+      const box = document.getElementById("batches");
+      if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches assigned yet. Ask admin to assign you.</p>'; return; }
+
+      box.innerHTML = "";
+      for (const b of batches) {
+        const { count } = await sb.from("enrollments").select("*",{count:"exact",head:true}).eq("batch_id",b.id).eq("payment_status","paid");
+        box.innerHTML += `
+          <div class="card" style="margin-bottom:14px">
+            <h3>${b.name}</h3>
+            <div class="meta">${b.category||''} · ${b.schedule||'Schedule TBA'} · ${count||0} paid students</div>
+            <div class="row-actions">
+              <a class="btn green" href="classroom.html?batch=${b.id}">Start Class</a>
+              <button class="btn" onclick="openAttendance('${b.id}','${b.name.replace(/'/g,"")}')">Mark Attendance</button>
+              <button class="btn sm" onclick="addRecording('${b.id}')">+ Recording link</button>
+            </div>
+          </div>`;
+      }
+    }
+
+    async function openAttendance(batchId, name) {
+      currentBatch = batchId;
+      document.getElementById("att-title").textContent = "Attendance — " + name;
+      const today = new Date().toISOString().slice(0,10);
+      document.getElementById("att-date").textContent = today;
+
+      const { data: enr } = await sb.from("enrollments").select("student_id").eq("batch_id",batchId).eq("payment_status","paid");
+      const ids = (enr||[]).map(e=>e.student_id);
+      const { data: profs } = await sb.from("profiles").select("id,full_name").in("id", ids.length?ids:["00000000-0000-0000-0000-000000000000"]);
+      roster = profs || [];
+
+      const list = document.getElementById("att-list");
+      list.innerHTML = roster.length ? "" : '<p class="empty">No paid students.</p>';
+      roster.forEach(s => {
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>${s.full_name}</span>
+          <select data-sid="${s.id}"><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option></select>
+        </div>`;
+      });
+      document.getElementById("att").style.display = "flex";
+    }
+
+    document.getElementById("att-save").onclick = async () => {
+      const today = new Date().toISOString().slice(0,10);
+      const rows = [...document.querySelectorAll("#att-list select")].map(sel => ({
+        batch_id: currentBatch, student_id: sel.dataset.sid, session_date: today,
+        status: sel.value, marked_by: window._me.id
+      }));
+      if (!rows.length) return;
+      const { error } = await sb.from("attendance").upsert(rows, { onConflict: "batch_id,student_id,session_date" });
+      alert(error ? ("Error: "+error.message) : "Attendance saved.");
+      if (!error) document.getElementById("att").style.display = "none";
+    };
+
+    async function addRecording(batchId) {
+      const url = prompt("Paste the recording link (Dropbox/Drive) for the latest session:");
+      if (!url) return;
+      const title = prompt("Session title (optional):") || "Recorded session";
+      const { error } = await sb.from("sessions").insert({
+        batch_id: batchId, title, recording_url: url, ended_at: new Date().toISOString(), created_by: window._me.id
+      });
+      alert(error ? ("Error: "+error.message) : "Recording link added — students can now see it.");
+    }
+  </script>
+</body>
+</html>

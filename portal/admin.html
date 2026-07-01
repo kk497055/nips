@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIPS Portal — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Portal</div>
+    <div class="right">
+      <span id="who"></span><span class="badge">Admin</span>
+      <button class="btn ghost sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>Admin Console</h1>
+    <p class="sub">Manage batches, assign teachers, and unlock student access after confirming bank payment.</p>
+
+    <!-- CREATE BATCH -->
+    <div class="section">
+      <h2>Create Batch</h2>
+      <div class="card">
+        <div class="msg" id="batch-msg"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Batch Name *</label><input id="b-name" placeholder="Matric Batch 1"/></div>
+          <div class="field"><label>Category *</label>
+            <select id="b-cat">
+              <option value="">— select program —</option>
+              <optgroup label="Academy">
+                <option>Matric (9th &amp; 10th)</option>
+                <option>Intermediate</option>
+                <option>O-Level</option>
+                <option>A-Level</option>
+              </optgroup>
+              <optgroup label="Courses">
+                <option>Applied AI for Business</option>
+                <option>IELTS Preparation</option>
+                <option>Spoken English</option>
+                <option>AI Graphics Design</option>
+                <option>Calligraphy</option>
+                <option>Prompt Engineering</option>
+                <option>Cloud Computing</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="field"><label>Start Date *</label><input id="b-date" type="date"/></div>
+          <div class="field"><label>Class Time *</label><input id="b-time" type="time"/></div>
+          <div class="field" style="grid-column:1 / -1"><label>Class Days</label>
+            <div id="b-days" style="display:flex;gap:6px;flex-wrap:wrap">
+              <label class="daybtn"><input type="checkbox" value="Mon"/> Mon</label>
+              <label class="daybtn"><input type="checkbox" value="Tue"/> Tue</label>
+              <label class="daybtn"><input type="checkbox" value="Wed"/> Wed</label>
+              <label class="daybtn"><input type="checkbox" value="Thu"/> Thu</label>
+              <label class="daybtn"><input type="checkbox" value="Fri"/> Fri</label>
+              <label class="daybtn"><input type="checkbox" value="Sat"/> Sat</label>
+              <label class="daybtn"><input type="checkbox" value="Sun"/> Sun</label>
+            </div>
+          </div>
+          <div class="field"><label>Fee (PKR)</label><input id="b-fee" type="number" min="0" step="1" placeholder="5000"/></div>
+          <div class="field"><label>Assign Teacher</label><select id="b-teacher"></select></div>
+          <div class="field" style="grid-column:1 / -1"><label>Room slug (optional)</label><input id="b-room" placeholder="auto-generated if blank"/></div>
+        </div>
+        <button class="btn green" id="create-batch">Create Batch</button>
+      </div>
+    </div>
+
+    <!-- BATCHES -->
+    <div class="section">
+      <h2>Batches</h2>
+      <div id="batches"><p class="empty">Loading…</p></div>
+    </div>
+
+    <!-- PEOPLE -->
+    <div class="section">
+      <h2>People</h2>
+      <p class="meta" style="margin-bottom:8px">Promote a signed-up user to Teacher, or enrol a student into a batch and mark them paid.</p>
+      <div id="people"><p class="empty">Loading…</p></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    (async () => {
+      await requireAuth();
+      const p = await getProfile();
+      if (p.role !== "admin") return routeByRole(p.role);
+      document.getElementById("who").textContent = p.full_name + " ";
+      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople()]);
+    })();
+
+    async function loadTeacherSelect() {
+      const { data } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
+      const sel = document.getElementById("b-teacher");
+      sel.innerHTML = '<option value="">— none —</option>' + (data||[]).map(t=>`<option value="${t.id}">${t.full_name}</option>`).join("");
+    }
+
+    const batchMsg = document.getElementById("batch-msg");
+    const showBatchMsg = (t, ok=false) => { batchMsg.className = "msg " + (ok?"ok":"err"); batchMsg.textContent = t; };
+
+    document.getElementById("create-batch").onclick = async () => {
+      const btn = document.getElementById("create-batch");
+      const name = document.getElementById("b-name").value.trim();
+      const category = document.getElementById("b-cat").value;
+      const date = document.getElementById("b-date").value;   // YYYY-MM-DD (canonical)
+      const time = document.getElementById("b-time").value;   // HH:MM 24h (canonical)
+      const feeRaw = document.getElementById("b-fee").value.trim();
+      const days = [...document.querySelectorAll("#b-days input:checked")].map(c => c.value);
+
+      // --- validation ---
+      if (!name) return showBatchMsg("Batch name is required.");
+      if (!category) return showBatchMsg("Please select a category.");
+      if (!date) return showBatchMsg("Please pick a start date.");
+      if (isNaN(Date.parse(date))) return showBatchMsg("Start date is invalid.");
+      if (!time) return showBatchMsg("Please pick a class time.");
+      let fee = 0;
+      if (feeRaw !== "") {
+        fee = Number(feeRaw);
+        if (!Number.isFinite(fee) || fee < 0) return showBatchMsg("Fee must be a number of 0 or more.");
+      }
+
+      // Compose a clean, unambiguous schedule string for storage/display.
+      const daysPart = days.length ? days.join("/") + " · " : "";
+      const schedule = `${daysPart}${time} (from ${date})`;
+
+      const room = (document.getElementById("b-room").value.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")
+                    || name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""))
+                   + "-" + Math.random().toString(36).slice(2,6);
+      const teacher = document.getElementById("b-teacher").value || null;
+
+      btn.disabled = true; btn.textContent = "Creating…";
+      const { error } = await sb.from("batches").insert({
+        name, category, schedule, fee, teacher_id: teacher, jitsi_room: room
+      });
+      btn.disabled = false; btn.textContent = "Create Batch";
+      if (error) return showBatchMsg("Error: " + error.message);
+
+      showBatchMsg(`Batch "${name}" created.`, true);
+      ["b-name","b-date","b-time","b-fee","b-room"].forEach(id=>document.getElementById(id).value="");
+      document.getElementById("b-cat").value = "";
+      document.querySelectorAll("#b-days input:checked").forEach(c => c.checked = false);
+      loadBatches();
+    };
+
+    async function loadBatches() {
+      const { data: batches } = await sb.from("batches").select("*").order("created_at",{ascending:false});
+      const { data: teachers } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
+      const tmap = Object.fromEntries((teachers||[]).map(t=>[t.id,t.full_name]));
+      const box = document.getElementById("batches");
+      if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches yet.</p>'; return; }
+      box.innerHTML = "";
+      for (const b of batches) {
+        const { count } = await sb.from("enrollments").select("*",{count:"exact",head:true}).eq("batch_id",b.id).eq("payment_status","paid");
+        box.innerHTML += `<div class="card" style="margin-bottom:12px">
+          <h3>${b.name} ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
+          <div class="meta">${b.category||''} · ${b.schedule||'—'} · Fee PKR ${b.fee||0} · Teacher: ${tmap[b.teacher_id]||'unassigned'} · ${count||0} paid</div>
+          <div class="row-actions">
+            <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
+            <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Teacher</button>
+            <button class="btn sm" onclick="toggleBatch('${b.id}',${b.is_active})">${b.is_active?'Deactivate':'Activate'}</button>
+          </div>
+        </div>`;
+      }
+    }
+
+    async function assignTeacher(batchId) {
+      const { data: teachers } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
+      if (!teachers || !teachers.length) return alert("No teachers yet. Promote a user to Teacher first.");
+      const list = teachers.map((t,i)=>`${i+1}. ${t.full_name}`).join("\n");
+      const pick = prompt("Assign which teacher?\n"+list+"\n\nEnter number:");
+      const idx = parseInt(pick)-1;
+      if (isNaN(idx) || !teachers[idx]) return;
+      const { error } = await sb.from("batches").update({ teacher_id: teachers[idx].id }).eq("id",batchId);
+      if (error) return alert("Error: "+error.message);
+      loadBatches();
+    }
+
+    async function toggleBatch(id, active) {
+      await sb.from("batches").update({ is_active: !active }).eq("id",id);
+      loadBatches();
+    }
+
+    async function loadPeople() {
+      const { data: people } = await sb.from("profiles").select("*").order("created_at",{ascending:false});
+      const { data: batches } = await sb.from("batches").select("id,name");
+      const box = document.getElementById("people");
+      if (!people || !people.length) { box.innerHTML = '<p class="empty">No users yet.</p>'; return; }
+      let rows = people.map(u => `
+        <tr>
+          <td>${u.full_name}</td>
+          <td><span class="badge">${u.role}</span></td>
+          <td class="row-actions">
+            ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
+            ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
+            ${u.role==='student'?`<button class="btn green sm" onclick="enrol('${u.id}')">Enrol + Mark Paid</button>`:''}
+          </td>
+        </tr>`).join("");
+      box.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+      window._batches = batches || [];
+    }
+
+    async function setRole(id, role) {
+      const { error } = await sb.from("profiles").update({ role }).eq("id",id);
+      if (error) return alert("Error: "+error.message);
+      await Promise.all([loadPeople(), loadTeacherSelect()]);
+    }
+
+    async function enrol(studentId) {
+      const batches = window._batches || [];
+      if (!batches.length) return alert("Create a batch first.");
+      const list = batches.map((b,i)=>`${i+1}. ${b.name}`).join("\n");
+      const pick = prompt("Enrol into which batch? (payment confirmed = marked PAID)\n"+list+"\n\nEnter number:");
+      const idx = parseInt(pick)-1;
+      if (isNaN(idx) || !batches[idx]) return;
+      const { error } = await sb.from("enrollments").upsert(
+        { batch_id: batches[idx].id, student_id: studentId, payment_status: "paid" },
+        { onConflict: "batch_id,student_id" }
+      );
+      alert(error ? ("Error: "+error.message) : "Enrolled & marked paid. Student now has access.");
+    }
+  </script>
+</body>
+</html>

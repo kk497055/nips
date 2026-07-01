@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIPS Portal — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body class="auth">
+  <div class="box">
+    <h1>NIPS Portal</h1>
+    <p class="tag" id="tag">Sign in to your account</p>
+    <div class="msg" id="msg"></div>
+
+    <div id="signup-name" class="field" style="display:none">
+      <label>Full Name</label>
+      <input id="name" type="text" placeholder="Your full name" />
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input id="email" type="email" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••" />
+    </div>
+
+    <button class="btn" id="submit">Sign In</button>
+    <p class="toggle">
+      <span id="toggle-text">New student?</span>
+      <a href="#" id="toggle">Create an account</a>
+    </p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    let mode = "signin";
+    const msg = document.getElementById("msg");
+    const show = (t, ok=false) => { msg.className = "msg " + (ok?"ok":"err"); msg.textContent = t; };
+
+    // If already logged in, route straight to dashboard.
+    (async () => {
+      const { data:{ session } } = await sb.auth.getSession();
+      if (session) { const p = await getProfile(); if (p) routeByRole(p.role); }
+    })();
+
+    document.getElementById("toggle").onclick = (e) => {
+      e.preventDefault();
+      mode = mode === "signin" ? "signup" : "signin";
+      const isUp = mode === "signup";
+      document.getElementById("tag").textContent = isUp ? "Create your student account" : "Sign in to your account";
+      document.getElementById("submit").textContent = isUp ? "Create Account" : "Sign In";
+      document.getElementById("signup-name").style.display = isUp ? "block" : "none";
+      document.getElementById("toggle-text").textContent = isUp ? "Already registered?" : "New student?";
+      document.getElementById("toggle").textContent = isUp ? "Sign in" : "Create an account";
+      msg.className = "msg";
+    };
+
+    document.getElementById("submit").onclick = async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      if (!email || !password) return show("Enter email and password.");
+
+      if (mode === "signup") {
+        const full_name = document.getElementById("name").value.trim() || "New User";
+        const { error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name } } });
+        if (error) return show(error.message);
+        show("Account created. You can sign in now. An admin will enrol you after payment.", true);
+        setTimeout(() => document.getElementById("toggle").click(), 1500);
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) return show(error.message);
+        const p = await getProfile();
+        routeByRole(p ? p.role : "student");
+      }
+    };
+  </script>
+</body>
+</html>

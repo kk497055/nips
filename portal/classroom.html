@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIPS Portal — Classroom</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css" />
+  <style>
+    #jitsi{height:calc(100vh - 58px);width:100%}
+    .cbar{background:var(--primary);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+    .cbar .info{font-family:'Outfit',sans-serif;font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="cbar">
+    <div class="info" id="title">Loading class…</div>
+    <div><a class="btn ghost sm" id="back">← Leave</a></div>
+  </div>
+  <div id="jitsi"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://meet.jit.si/external_api.js"></script>
+  <script src="config.js"></script>
+  <script>
+    (async () => {
+      await requireAuth();
+      const profile = await getProfile();
+      const params = new URLSearchParams(location.search);
+      const batchId = params.get("batch");
+      if (!batchId) { alert("No batch specified."); history.back(); return; }
+
+      // RLS ensures only paid students / assigned teacher / admin can read this batch.
+      const { data: batch, error } = await sb.from("batches").select("*").eq("id", batchId).single();
+      if (error || !batch) { alert("You don't have access to this class."); location.href = "login.html"; return; }
+
+      document.getElementById("title").textContent = batch.name + " — " + (batch.schedule || "");
+      const isTeacher = profile.role === "teacher" || profile.role === "admin";
+      document.getElementById("back").href = isTeacher ? "teacher.html" : "student.html";
+      if (profile.role === "admin") document.getElementById("back").href = "admin.html";
+
+      // Log the session start (teacher/admin only — RLS blocks students).
+      if (isTeacher) {
+        sb.from("sessions").insert({ batch_id: batchId, title: batch.name, created_by: profile.id }).then(()=>{});
+      }
+
+      const domain = "meet.jit.si";
+      const api = new JitsiMeetExternalAPI(domain, {
+        roomName: "NIPS_" + batch.jitsi_room,
+        parentNode: document.getElementById("jitsi"),
+        userInfo: { displayName: profile.full_name },
+        configOverwrite: {
+          startWithAudioMuted: !isTeacher,
+          disableThirdPartyRequests: false,   // needed for Dropbox recording auth
+          prejoinPageEnabled: false
+        },
+        interfaceConfigOverwrite: {
+          // Students get a limited toolbar; teachers get recording controls.
+          TOOLBAR_BUTTONS: isTeacher
+            ? ['microphone','camera','desktop','chat','raisehand','tileview','recording','hangup','settings']
+            : ['microphone','camera','chat','raisehand','tileview','hangup']
+        }
+      });
+
+      api.addEventListener("readyToClose", () => { location.href = document.getElementById("back").href; });
+    })();
+  </script>
+</body>
+</html>
