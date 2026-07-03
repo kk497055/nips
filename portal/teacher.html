@@ -64,7 +64,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=2"></script>
+  <script src="config.js?v=3"></script>
   <script>
     let currentBatch = null, roster = [];
     (async () => {
@@ -99,6 +99,7 @@
               <button class="btn sm" onclick="addRecording('${b.id}')">+ Recording link</button>
               <button class="btn soft sm" onclick="openMaterials('${b.id}')">Materials</button>
               <button class="btn soft sm" onclick="openAssignments('${b.id}')">Assignments</button>
+              <button class="btn soft sm" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>
             </div>
           </div>`;
       }

@@ -37,7 +37,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=2"></script>
+  <script src="config.js?v=3"></script>
   <script>
     (async () => {
       await requireAuth();
@@ -139,7 +139,10 @@
             </div>
             <h3>${esc(b.name)}</h3>
             <div class="meta">${esc(b.schedule||'Schedule TBA')}</div>
-            <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
+            <div class="row-actions">
+              <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
+              <button class="btn soft" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>
+            </div>
             <div class="recordings"><strong>Materials</strong>${matHtml}</div>
             <div class="recordings"><strong>Assignments</strong>${asgHtml}</div>
             <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
