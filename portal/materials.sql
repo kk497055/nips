@@ -26,10 +26,11 @@ create policy mat_teacher on public.materials for all using (public.teaches_batc
 drop policy if exists mat_student on public.materials;
 create policy mat_student on public.materials for select using (public.enrolled_paid(batch_id));
 
--- 2. Private storage bucket. Files are keyed as "<batch_id>/<file>".
-insert into storage.buckets (id, name, public)
-values ('materials', 'materials', false)
-on conflict (id) do nothing;
+-- 2. Private storage bucket with a hard 50 MB per-file cap (server-enforced,
+--    so a client can't bypass the UI limit). Files are keyed as "<batch_id>/<file>".
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('materials', 'materials', false, 52428800)
+on conflict (id) do update set file_size_limit = excluded.file_size_limit;
 
 -- 3. Storage access mirrors the table: the first path folder is the batch_id.
 drop policy if exists materials_read on storage.objects;
