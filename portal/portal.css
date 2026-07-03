@@ -80,6 +80,12 @@ th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);fo
 th{background:var(--primary);color:#fff;font-weight:600}
 tr:last-child td{border-bottom:none}
 
+/* Live "class is on now" banner */
+.live-banner{display:flex;align-items:center;gap:10px;background:#fff4e6;border:1px solid var(--secondary);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:14px}
+.live-banner a{margin-left:auto}
+.live-dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%;background:#dc2626;animation:livepulse 1.5s infinite}
+@keyframes livepulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,.6)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+
 /* Searchable / paginated lists */
 .list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
 .list-search{flex:1;min-width:200px;max-width:360px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit}

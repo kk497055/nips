@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Student</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=5" />
+  <link rel="stylesheet" href="portal.css?v=6" />
 </head>
 <body>
   <div class="topbar">
@@ -29,6 +29,8 @@
       </div>
     </div>
 
+    <div id="live-banner"></div>
+
     <div class="section">
       <div id="batches" class="grid"><p class="empty">Loading…</p></div>
     </div>
@@ -48,6 +50,12 @@
       if (p.role !== "student") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._sid = p.id;
+
+      // Live "class is on now" banner + realtime updates.
+      refreshLive();
+      sb.channel("live-sessions")
+        .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, refreshLive)
+        .subscribe();
 
       // RLS returns only batches where this student is PAID + enrolled.
       const [{ data: batches }, { data: enrollments }] = await Promise.all([
@@ -138,6 +146,22 @@
           </div>`;
       }
     })();
+
+    async function refreshLive() {
+      const since = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+      const { data: live } = await sb.from("sessions")
+        .select("batch_id,started_at").is("ended_at", null).gt("started_at", since);
+      const el = document.getElementById("live-banner");
+      if (!live || !live.length) { el.innerHTML = ""; return; }
+      const ids = [...new Set(live.map(s => s.batch_id))];
+      const { data: bs } = await sb.from("batches").select("id,name").in("id", ids);
+      const nameOf = Object.fromEntries((bs || []).map(b => [b.id, b.name]));
+      el.innerHTML = ids.map(id => `<div class="live-banner">
+        <span class="live-dot"></span>
+        <span><strong>${esc(nameOf[id] || 'Your class')}</strong> is live now</span>
+        <a class="btn green sm" href="classroom.html?batch=${id}">Join now</a>
+      </div>`).join("");
+    }
 
     async function openSigned(bucket, path) {
       const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 120);

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Classroom</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=5" />
+  <link rel="stylesheet" href="portal.css?v=6" />
   <style>
     #jitsi{height:calc(100vh - 58px);width:100%}
     .cbar{background:var(--primary);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
@@ -52,8 +52,17 @@
       document.getElementById("title").textContent = tok.room;
 
       // Log the session start (teacher/admin only — RLS blocks students).
+      // Keep the row id so we can mark it ended when the teacher leaves — that
+      // drives the students' "class is live now" banner.
+      let sessionId = null;
+      const endSession = () => {
+        if (sessionId) { sb.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId).then(()=>{}); sessionId = null; }
+      };
       if (isTeacher) {
-        sb.from("sessions").insert({ batch_id: batchId, title: tok.room, created_by: profile.id }).then(()=>{});
+        const { data } = await sb.from("sessions")
+          .insert({ batch_id: batchId, title: tok.room, created_by: profile.id }).select().single();
+        sessionId = data?.id;
+        window.addEventListener("pagehide", endSession);
       }
 
       const api = new JitsiMeetExternalAPI("8x8.vc", {
@@ -73,7 +82,7 @@
         }
       });
 
-      api.addEventListener("readyToClose", () => { location.href = document.getElementById("back").href; });
+      api.addEventListener("readyToClose", () => { endSession(); location.href = document.getElementById("back").href; });
     })();
   </script>
 </body>
