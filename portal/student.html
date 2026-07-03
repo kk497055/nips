@@ -47,6 +47,7 @@
       }
       if (p.role !== "student") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
+      window._sid = p.id;
 
       // RLS returns only batches where this student is PAID + enrolled.
       const [{ data: batches }, { data: enrollments }] = await Promise.all([
@@ -99,6 +100,29 @@
           ? mats.map(m => `<div class="recording-link"><span>File</span><a href="#" onclick="downloadMaterial('${m.storage_path.replace(/'/g,"\\'")}');return false;">${esc(m.title)}</a></div>`).join("")
           : '<div class="recording-empty">No materials yet</div>';
 
+        const { data: asgs } = await sb.from("assignments")
+          .select("id,title,instructions,due_date").eq("batch_id", b.id).order("created_at",{ascending:false});
+        const { data: mySubs } = await sb.from("submissions").select("assignment_id,storage_path,grade,feedback");
+        const subOf = Object.fromEntries((mySubs||[]).map(s=>[s.assignment_id,s]));
+        const asgHtml = (asgs && asgs.length)
+          ? asgs.map(a => {
+              const s = subOf[a.id];
+              const status = s
+                ? (s.grade ? `<span class="pill paid">Graded: ${esc(s.grade)}</span>${s.feedback?` <span class="meta">${esc(s.feedback)}</span>`:''}`
+                           : '<span class="pill pending">Submitted</span>')
+                : '<span class="meta">Not submitted</span>';
+              return `<div class="recording-link" style="flex-direction:column;align-items:stretch;gap:6px">
+                <div><strong>${esc(a.title)}</strong>${a.due_date?` <span class="meta">· due ${a.due_date}</span>`:''} ${status}</div>
+                ${a.instructions?`<div class="meta">${esc(a.instructions)}</div>`:''}
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <input type="file" id="sf-${a.id}" style="font-size:12px"/>
+                  <button class="btn green sm" onclick="submitAssignment('${a.id}')">${s?'Resubmit':'Submit'}</button>
+                  ${s?.storage_path?`<a class="btn sm" href="#" onclick="downloadSubmission('${s.storage_path.replace(/'/g,"\\'")}');return false;">My file</a>`:''}
+                </div>
+              </div>`;
+            }).join("")
+          : '<div class="recording-empty">No assignments yet</div>';
+
         box.innerHTML += `
           <div class="card class-card">
             <div class="class-top">
@@ -109,15 +133,38 @@
             <div class="meta">${esc(b.schedule||'Schedule TBA')}</div>
             <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
             <div class="recordings"><strong>Materials</strong>${matHtml}</div>
+            <div class="recordings"><strong>Assignments</strong>${asgHtml}</div>
             <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
           </div>`;
       }
     })();
 
-    async function downloadMaterial(path) {
-      const { data, error } = await sb.storage.from("materials").createSignedUrl(path, 120);
+    async function openSigned(bucket, path) {
+      const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 120);
       if (error) return alert("Could not open file: " + error.message);
       window.open(data.signedUrl, "_blank");
+    }
+    const downloadMaterial = (path) => openSigned("materials", path);
+    const downloadSubmission = (path) => openSigned("submissions", path);
+
+    async function submitAssignment(assignmentId) {
+      const input = document.getElementById("sf-" + assignmentId);
+      const file = input.files[0];
+      if (!file) return alert("Choose a file to submit.");
+      if (file.size > 50 * 1024 * 1024) return alert("File too large (max 50 MB).");
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const path = `${assignmentId}/${window._sid}/${crypto.randomUUID()}-${safe}`;
+      const up = await sb.storage.from("submissions").upload(path, file);
+      if (up.error) return alert("Upload failed: " + up.error.message);
+      const { error } = await sb.from("submissions").upsert(
+        { assignment_id: assignmentId, student_id: window._sid, storage_path: path,
+          file_type: file.type, size_bytes: file.size, submitted_at: new Date().toISOString(),
+          grade: null, feedback: null, graded_by: null, graded_at: null },
+        { onConflict: "assignment_id,student_id" }
+      );
+      if (error) return alert("Saved file but record failed: " + error.message);
+      alert("Submitted! Your teacher will review it.");
+      location.reload();
     }
   </script>
 </body>

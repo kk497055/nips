@@ -51,6 +51,18 @@
     </div>
   </div>
 
+  <!-- Assignments modal -->
+  <div id="asg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center">
+    <div class="card" style="width:100%;max-width:620px;max-height:88vh;overflow:auto">
+      <h3 id="asg-title">Assignments</h3>
+      <div class="msg" id="asg-msg"></div>
+      <div id="asg-content"></div>
+      <div class="row-actions" style="margin-top:14px">
+        <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('asg').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=2"></script>
   <script>
@@ -86,6 +98,7 @@
               <button class="btn sm" onclick="sendClassReminder('${b.id}')">Class reminder</button>
               <button class="btn sm" onclick="addRecording('${b.id}')">+ Recording link</button>
               <button class="btn soft sm" onclick="openMaterials('${b.id}')">Materials</button>
+              <button class="btn soft sm" onclick="openAssignments('${b.id}')">Assignments</button>
             </div>
           </div>`;
       }
@@ -205,6 +218,86 @@
       await sb.storage.from("materials").remove([path]);
       await sb.from("materials").delete().eq("id", id);
       await renderMaterials();
+    }
+
+    let asgBatch = null;
+    const asgMsg = (t, ok=false) => { const m=document.getElementById("asg-msg"); m.className="msg "+(ok?"ok":"err"); m.textContent=t; };
+
+    async function openAssignments(batchId) {
+      asgBatch = batchId;
+      document.getElementById("asg-title").textContent = "Assignments — " + ((window._batchNames||{})[batchId] || "");
+      document.getElementById("asg-msg").className = "msg";
+      document.getElementById("asg").style.display = "flex";
+      await renderAsgList();
+    }
+
+    async function renderAsgList() {
+      const { data } = await sb.from("assignments").select("*").eq("batch_id", asgBatch).order("created_at",{ascending:false});
+      const rows = (data||[]).map(a => `<div class="recording-link" style="justify-content:space-between;align-items:center">
+        <div><strong>${esc(a.title)}</strong>${a.due_date?` <span class="meta">· due ${a.due_date}</span>`:''}</div>
+        <div class="row-actions">
+          <button class="btn sm" onclick="reviewAssignment('${a.id}','${esc(a.title).replace(/'/g,"&#39;")}')">Review</button>
+          <button class="btn danger sm" onclick="deleteAssignment('${a.id}')">Delete</button>
+        </div>
+      </div>`).join("") || '<p class="empty">No assignments yet.</p>';
+      document.getElementById("asg-content").innerHTML = `
+        <div class="field"><label>Title</label><input id="asg-t" placeholder="e.g. Essay: My City"/></div>
+        <div class="field"><label>Instructions</label><textarea id="asg-i" rows="3" placeholder="What should students do?"></textarea></div>
+        <div class="field"><label>Due date (optional)</label><input id="asg-d" type="date"/></div>
+        <div class="row-actions" style="margin-bottom:14px"><button class="btn green" onclick="createAssignment()">Create Assignment</button></div>
+        <div class="section" style="margin:0"><h3 style="font-family:'Outfit',sans-serif;font-size:15px;margin:0 0 8px">Existing</h3>${rows}</div>`;
+    }
+
+    async function createAssignment() {
+      const title = document.getElementById("asg-t").value.trim();
+      const instructions = document.getElementById("asg-i").value.trim();
+      const due_date = document.getElementById("asg-d").value || null;
+      if (!title) return asgMsg("Enter a title.");
+      const { error } = await sb.from("assignments").insert({ batch_id: asgBatch, title, instructions, due_date, created_by: window._me.id });
+      if (error) return asgMsg("Error: " + error.message);
+      asgMsg("Assignment created.", true);
+      await renderAsgList();
+    }
+
+    async function deleteAssignment(id) {
+      if (!confirm("Delete this assignment and all its submissions?")) return;
+      await sb.from("assignments").delete().eq("id", id);
+      await renderAsgList();
+    }
+
+    async function reviewAssignment(assignmentId, title) {
+      const { data: subs } = await sb.from("submissions").select("*").eq("assignment_id", assignmentId).order("submitted_at",{ascending:false});
+      const ids = (subs||[]).map(s=>s.student_id);
+      const { data: profs } = await sb.from("profiles").select("id,full_name").in("id", ids.length?ids:["00000000-0000-0000-0000-000000000000"]);
+      const nameOf = Object.fromEntries((profs||[]).map(p=>[p.id,p.full_name]));
+      const rows = (subs||[]).map(s => `<div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <strong>${esc(nameOf[s.student_id]||'Student')}</strong>
+          ${s.storage_path?`<a class="btn sm" href="#" onclick="downloadSub('${s.storage_path.replace(/'/g,"\\'")}');return false;">Download</a>`:'<span class="meta">no file</span>'}
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-top:8px">
+          <input id="g-${s.id}" placeholder="Grade" value="${esc(s.grade||'')}"/>
+          <input id="f-${s.id}" placeholder="Feedback" value="${esc(s.feedback||'')}"/>
+        </div>
+        <div class="row-actions" style="margin-top:8px"><button class="btn green sm" onclick="saveGrade('${s.id}')">Save grade</button>
+          ${s.graded_at?`<span class="meta">graded ${new Date(s.graded_at).toLocaleDateString()}</span>`:''}</div>
+      </div>`).join("") || '<p class="empty">No submissions yet.</p>';
+      document.getElementById("asg-content").innerHTML = `
+        <div class="row-actions" style="margin-bottom:10px"><button class="btn sm" onclick="renderAsgList()">‹ Back to assignments</button></div>
+        <h3 style="font-family:'Outfit',sans-serif;font-size:16px;margin:0 0 10px">${title} — submissions</h3>${rows}`;
+    }
+
+    async function saveGrade(subId) {
+      const grade = document.getElementById("g-"+subId).value.trim();
+      const feedback = document.getElementById("f-"+subId).value.trim();
+      const { error } = await sb.from("submissions").update({ grade, feedback, graded_by: window._me.id, graded_at: new Date().toISOString() }).eq("id", subId);
+      asgMsg(error ? ("Error: "+error.message) : "Grade saved.", !error);
+    }
+
+    async function downloadSub(path) {
+      const { data, error } = await sb.storage.from("submissions").createSignedUrl(path, 120);
+      if (error) return alert("Could not open file: " + error.message);
+      window.open(data.signedUrl, "_blank");
     }
 
     async function sendClassReminder(batchId) {
