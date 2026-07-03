@@ -35,6 +35,21 @@
     </div>
   </div>
 
+  <!-- Materials modal -->
+  <div id="mat" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center">
+    <div class="card" style="width:100%;max-width:560px;max-height:85vh;overflow:auto">
+      <h3 id="mat-title">Materials</h3>
+      <div class="msg" id="mat-msg"></div>
+      <div class="field"><label>Title</label><input id="mat-name" placeholder="e.g. Chapter 3 notes"/></div>
+      <div class="field"><label>File</label><input id="mat-file" type="file"/></div>
+      <div class="row-actions" style="margin:4px 0 14px">
+        <button class="btn green" id="mat-upload">Upload</button>
+        <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('mat').style.display='none'">Close</button>
+      </div>
+      <div id="mat-list"></div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=2"></script>
   <script>
@@ -69,6 +84,7 @@
               <button class="btn" onclick="openAttendance('${b.id}')">Mark Attendance</button>
               <button class="btn sm" onclick="sendClassReminder('${b.id}')">Class reminder</button>
               <button class="btn sm" onclick="addRecording('${b.id}')">+ Recording link</button>
+              <button class="btn soft sm" onclick="openMaterials('${b.id}')">Materials</button>
             </div>
           </div>`;
       }
@@ -130,6 +146,64 @@
         note += res.ok ? `\nEmailed ${body.sent} student(s).` : `\n(Email not sent: ${body.error})`;
       } catch (e) { note += `\n(Email not sent: ${e.message})`; }
       alert(note);
+    }
+
+    let matBatch = null;
+    const matMsg = (t, ok=false) => { const m=document.getElementById("mat-msg"); m.className="msg "+(ok?"ok":"err"); m.textContent=t; };
+
+    async function openMaterials(batchId) {
+      matBatch = batchId;
+      document.getElementById("mat-title").textContent = "Materials — " + ((window._batchNames||{})[batchId] || "");
+      document.getElementById("mat-msg").className = "msg";
+      document.getElementById("mat-name").value = "";
+      document.getElementById("mat-file").value = "";
+      document.getElementById("mat").style.display = "flex";
+      await renderMaterials();
+    }
+
+    async function renderMaterials() {
+      const { data } = await sb.from("materials").select("*").eq("batch_id", matBatch).order("created_at",{ascending:false});
+      const list = document.getElementById("mat-list");
+      if (!data || !data.length) { list.innerHTML = '<p class="empty">No materials yet.</p>'; return; }
+      list.innerHTML = data.map(m => `<div class="recording-link" style="justify-content:space-between">
+        <a href="#" onclick="downloadMaterial('${m.storage_path.replace(/'/g,"\\'")}');return false;">📄 ${esc(m.title)}</a>
+        <button class="btn danger sm" onclick="deleteMaterial('${m.id}','${m.storage_path.replace(/'/g,"\\'")}')">Delete</button>
+      </div>`).join("");
+    }
+
+    document.getElementById("mat-upload").onclick = async () => {
+      const title = document.getElementById("mat-name").value.trim();
+      const file = document.getElementById("mat-file").files[0];
+      if (!title) return matMsg("Enter a title.");
+      if (!file) return matMsg("Choose a file.");
+      if (file.size > 50 * 1024 * 1024) return matMsg("File too large (max 50 MB).");
+      const btn = document.getElementById("mat-upload");
+      btn.disabled = true; btn.textContent = "Uploading…";
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g,"_");
+      const path = `${matBatch}/${crypto.randomUUID()}-${safe}`;
+      const up = await sb.storage.from("materials").upload(path, file);
+      if (up.error) { btn.disabled=false; btn.textContent="Upload"; return matMsg("Upload failed: " + up.error.message); }
+      const { error } = await sb.from("materials").insert({
+        batch_id: matBatch, title, storage_path: path, file_type: file.type, size_bytes: file.size, created_by: window._me.id
+      });
+      btn.disabled = false; btn.textContent = "Upload";
+      if (error) return matMsg("Saved file but metadata failed: " + error.message);
+      matMsg("Uploaded — students can now download it.", true);
+      document.getElementById("mat-name").value = ""; document.getElementById("mat-file").value = "";
+      await renderMaterials();
+    };
+
+    async function downloadMaterial(path) {
+      const { data, error } = await sb.storage.from("materials").createSignedUrl(path, 120);
+      if (error) return alert("Could not open file: " + error.message);
+      window.open(data.signedUrl, "_blank");
+    }
+
+    async function deleteMaterial(id, path) {
+      if (!confirm("Delete this material?")) return;
+      await sb.storage.from("materials").remove([path]);
+      await sb.from("materials").delete().eq("id", id);
+      await renderMaterials();
     }
 
     async function sendClassReminder(batchId) {

@@ -209,6 +209,25 @@ create policy sess_student on public.sessions for select using (public.enrolled_
 drop policy if exists notify_logs_admin on public.notification_logs;
 create policy notify_logs_admin on public.notification_logs for select using (public.is_admin());
 
+-- MATERIALS: teachers/admin upload per batch; enrolled students read. See materials.sql.
+create table if not exists public.materials (
+  id           uuid primary key default gen_random_uuid(),
+  batch_id     uuid not null references public.batches(id) on delete cascade,
+  title        text not null,
+  storage_path text not null,
+  file_type    text,
+  size_bytes   bigint,
+  created_by   uuid references public.profiles(id),
+  created_at   timestamptz not null default now()
+);
+alter table public.materials enable row level security;
+drop policy if exists mat_admin on public.materials;
+create policy mat_admin on public.materials for all using (public.is_admin());
+drop policy if exists mat_teacher on public.materials;
+create policy mat_teacher on public.materials for all using (public.teaches_batch(batch_id));
+drop policy if exists mat_student on public.materials;
+create policy mat_student on public.materials for select using (public.enrolled_paid(batch_id));
+
 -- ============================================================
 -- AFTER RUNNING THIS:
 -- 1. Sign up once through the portal login page.

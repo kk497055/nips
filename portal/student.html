@@ -93,6 +93,12 @@
           ? recs.map(r => `<div class="recording-link"><span>Video</span><a href="${safeUrl(r.recording_url)}" target="_blank" rel="noopener noreferrer">${new Date(r.started_at).toLocaleDateString()} — ${esc(r.title||'Session')}</a></div>`).join("")
           : '<div class="recording-empty">No recordings yet</div>';
 
+        const { data: mats } = await sb.from("materials")
+          .select("id,title,storage_path").eq("batch_id", b.id).order("created_at",{ascending:false});
+        const matHtml = (mats && mats.length)
+          ? mats.map(m => `<div class="recording-link"><span>File</span><a href="#" onclick="downloadMaterial('${m.storage_path.replace(/'/g,"\\'")}');return false;">${esc(m.title)}</a></div>`).join("")
+          : '<div class="recording-empty">No materials yet</div>';
+
         box.innerHTML += `
           <div class="card class-card">
             <div class="class-top">
@@ -102,10 +108,17 @@
             <h3>${esc(b.name)}</h3>
             <div class="meta">${esc(b.schedule||'Schedule TBA')}</div>
             <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
+            <div class="recordings"><strong>Materials</strong>${matHtml}</div>
             <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
           </div>`;
       }
     })();
+
+    async function downloadMaterial(path) {
+      const { data, error } = await sb.storage.from("materials").createSignedUrl(path, 120);
+      if (error) return alert("Could not open file: " + error.message);
+      window.open(data.signedUrl, "_blank");
+    }
   </script>
 </body>
 </html>
