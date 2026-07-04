@@ -109,3 +109,79 @@ async function replyQA(parentId) {
   if (error) return alert("Error: " + error.message);
   await renderQA();
 }
+
+// ---------- Take a quiz (student) ----------
+async function callQuiz(payload) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/quiz`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || "Quiz error");
+  return body;
+}
+
+function ensureQuizModal() {
+  let m = document.getElementById("quiz-modal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "quiz-modal";
+    m.style.cssText = "display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;align-items:center;justify-content:center;padding:16px";
+    m.innerHTML = `<div class="card" style="width:100%;max-width:600px;max-height:88vh;overflow:auto">
+      <h3 id="quiz-title">Quiz</h3><div id="quiz-body"></div>
+      <div class="row-actions" style="margin-top:12px">
+        <button class="btn green" id="quiz-submit">Submit</button>
+        <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('quiz-modal').style.display='none'">Close</button>
+      </div></div>`;
+    document.body.appendChild(m);
+  }
+  return m;
+}
+
+async function openQuiz(quizId) {
+  ensureQuizModal().style.display = "flex";
+  document.getElementById("quiz-body").innerHTML = '<p class="empty">Loading…</p>';
+  let data;
+  try { data = await callQuiz({ action: "take", quiz_id: quizId }); }
+  catch (e) { document.getElementById("quiz-body").innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
+  window._quiz = { id: quizId, questions: data.questions };
+  document.getElementById("quiz-title").textContent = data.title;
+  const priorNote = data.prior ? `<div class="msg ok" style="display:block">Previous score: ${data.prior.score}/${data.prior.total}. You can retake it.</div>` : "";
+  document.getElementById("quiz-body").innerHTML = priorNote + data.questions.map((q, i) => `
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-weight:500;margin-bottom:6px">${i + 1}. ${esc(q.prompt)}</div>
+      ${(q.options || []).map((opt, oi) => `<label style="display:flex;gap:8px;align-items:center;padding:4px 0">
+        <input type="radio" name="q-${q.id}" value="${oi}"/> ${esc(opt)}</label>`).join("")}
+    </div>`).join("");
+  document.getElementById("quiz-submit").onclick = submitQuiz;
+  document.getElementById("quiz-submit").style.display = "";
+}
+
+async function submitQuiz() {
+  const answers = {};
+  window._quiz.questions.forEach(q => {
+    const sel = document.querySelector(`input[name="q-${q.id}"]:checked`);
+    if (sel) answers[q.id] = Number(sel.value);
+  });
+  let res;
+  try { res = await callQuiz({ action: "submit", quiz_id: window._quiz.id, answers }); }
+  catch (e) { alert(e.message); return; }
+  document.getElementById("quiz-submit").style.display = "none";
+  // Show score and mark correct/incorrect.
+  window._quiz.questions.forEach(q => {
+    const chosen = answers[q.id];
+    const right = res.correct[q.id];
+    document.querySelectorAll(`input[name="q-${q.id}"]`).forEach(inp => {
+      const oi = Number(inp.value);
+      const lbl = inp.parentElement;
+      if (oi === right) lbl.style.color = "#166534";
+      else if (oi === chosen) lbl.style.color = "#991b1b";
+      inp.disabled = true;
+    });
+  });
+  const b = document.getElementById("quiz-body");
+  b.insertAdjacentHTML("afterbegin", `<div class="msg ok" style="display:block">You scored ${res.score}/${res.total} 🎉</div>`);
+  if (typeof onQuizSubmitted === "function") onQuizSubmitted();
+}

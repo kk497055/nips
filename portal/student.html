@@ -41,7 +41,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=4"></script>
+  <script src="config.js?v=5"></script>
   <script>
     (async () => {
       await requireAuth();
@@ -137,6 +137,16 @@
             }).join("")
           : '<div class="recording-empty">No assignments yet</div>';
 
+        const { data: quizzes } = await sb.from("quizzes").select("id,title").eq("batch_id", b.id).order("created_at",{ascending:false});
+        const { data: myAtt } = await sb.from("quiz_attempts").select("quiz_id,score,total").eq("student_id", window._sid);
+        const attOf = Object.fromEntries((myAtt||[]).map(a=>[a.quiz_id,a]));
+        const quizHtml = (quizzes && quizzes.length)
+          ? quizzes.map(q => { const a = attOf[q.id];
+              return `<div class="recording-link" style="justify-content:space-between">
+                <span>📝 ${esc(q.title)} ${a?`<span class="pill paid">${a.score}/${a.total}</span>`:''}</span>
+                <button class="btn green sm" onclick="openQuiz('${q.id}')">${a?'Retake':'Take'}</button></div>`; }).join("")
+          : '<div class="recording-empty">No quizzes yet</div>';
+
         box.innerHTML += `
           <div class="card class-card">
             <div class="class-top">
@@ -151,6 +161,7 @@
             </div>
             <div class="recordings"><strong>Materials</strong>${matHtml}</div>
             <div class="recordings"><strong>Assignments</strong>${asgHtml}</div>
+            <div class="recordings"><strong>Quizzes</strong>${quizHtml}</div>
             <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
           </div>`;
       }

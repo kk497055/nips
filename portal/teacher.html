@@ -66,8 +66,20 @@
     </div>
   </div>
 
+  <!-- Quizzes modal -->
+  <div id="tq" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
+    <div class="card" style="width:100%;max-width:640px;max-height:88vh;overflow:auto">
+      <h3 id="tq-title">Quizzes</h3>
+      <div class="msg" id="tq-msg"></div>
+      <div id="tq-content"></div>
+      <div class="row-actions" style="margin-top:12px">
+        <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('tq').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=4"></script>
+  <script src="config.js?v=5"></script>
   <script>
     let currentBatch = null, roster = [];
     (async () => {
@@ -103,6 +115,7 @@
               <button class="btn soft sm" onclick="openMaterials('${b.id}')">Materials</button>
               <button class="btn soft sm" onclick="openAssignments('${b.id}')">Assignments</button>
               <button class="btn soft sm" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>
+              <button class="btn soft sm" onclick="openQuizzes('${b.id}')">Quizzes</button>
             </div>
           </div>`;
       }
@@ -302,6 +315,79 @@
       const { data, error } = await sb.storage.from("submissions").createSignedUrl(path, 120);
       if (error) return alert("Could not open file: " + error.message);
       window.open(data.signedUrl, "_blank");
+    }
+
+    let tqBatch = null;
+    const tqMsg = (t, ok=false) => { const m=document.getElementById("tq-msg"); m.className="msg "+(ok?"ok":"err"); m.textContent=t; };
+    async function openQuizzes(batchId) {
+      tqBatch = batchId;
+      document.getElementById("tq-title").textContent = "Quizzes — " + ((window._batchNames||{})[batchId] || "");
+      document.getElementById("tq-msg").className = "msg";
+      document.getElementById("tq").style.display = "flex";
+      await renderQuizList();
+    }
+    async function renderQuizList() {
+      const { data: qs } = await sb.from("quizzes").select("*").eq("batch_id", tqBatch).order("created_at",{ascending:false});
+      let counts = {};
+      if (qs && qs.length) {
+        const { data: qq } = await sb.from("quiz_questions").select("quiz_id").in("quiz_id", qs.map(q=>q.id));
+        (qq||[]).forEach(r => counts[r.quiz_id] = (counts[r.quiz_id]||0)+1);
+      }
+      const rows = (qs||[]).map(q => `<div class="recording-link" style="justify-content:space-between;align-items:center">
+        <div><strong>${esc(q.title)}</strong> <span class="meta">· ${counts[q.id]||0} questions</span></div>
+        <div class="row-actions">
+          <button class="btn sm" onclick="quizQuestions('${q.id}','${esc(q.title).replace(/'/g,"&#39;")}')">Questions</button>
+          <button class="btn sm" onclick="quizBoard('${q.id}','${esc(q.title).replace(/'/g,"&#39;")}')">Leaderboard</button>
+          <button class="btn danger sm" onclick="deleteQuiz('${q.id}')">Delete</button>
+        </div></div>`).join("") || '<p class="empty">No quizzes yet.</p>';
+      document.getElementById("tq-content").innerHTML = `
+        <div class="field"><label>Quiz title</label><input id="tq-t" placeholder="e.g. Algebra Quiz 1"/></div>
+        <div class="row-actions" style="margin-bottom:14px"><button class="btn green" onclick="createQuiz()">Create quiz</button></div>
+        <div class="section" style="margin:0"><h3 style="font-family:'Outfit',sans-serif;font-size:15px;margin:0 0 8px">Existing</h3>${rows}</div>`;
+    }
+    async function createQuiz() {
+      const title = document.getElementById("tq-t").value.trim();
+      if (!title) return tqMsg("Enter a title.");
+      const { error } = await sb.from("quizzes").insert({ batch_id: tqBatch, title, created_by: window._me.id });
+      if (error) return tqMsg("Error: " + error.message);
+      tqMsg("Quiz created — add questions.", true); await renderQuizList();
+    }
+    async function deleteQuiz(id) { if (!confirm("Delete this quiz?")) return; await sb.from("quizzes").delete().eq("id", id); await renderQuizList(); }
+    async function quizQuestions(quizId, title) {
+      const { data: qq } = await sb.from("quiz_questions").select("*").eq("quiz_id", quizId).order("position");
+      const list = (qq||[]).map((q,i) => `<div class="card" style="margin-bottom:8px">
+        <div style="font-weight:500">${i+1}. ${esc(q.prompt)}</div>
+        <div class="meta">${(q.options||[]).map((o,oi)=>`${oi===q.correct_index?'✅ ':''}${esc(o)}`).join(" · ")}</div>
+        <button class="btn danger sm" style="margin-top:6px" onclick="delQuestion('${q.id}','${quizId}','${title.replace(/'/g,"&#39;")}')">Delete</button></div>`).join("") || '<p class="empty">No questions yet.</p>';
+      document.getElementById("tq-content").innerHTML = `
+        <div class="row-actions" style="margin-bottom:10px"><button class="btn sm" onclick="renderQuizList()">‹ Back</button></div>
+        <h3 style="font-family:'Outfit',sans-serif;font-size:16px;margin:0 0 10px">${title} — questions</h3>
+        <div class="field"><label>Question</label><input id="qq-p" placeholder="Question prompt"/></div>
+        ${[0,1,2,3].map(i=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input type="radio" name="qq-correct" value="${i}" ${i===0?'checked':''} title="Mark correct"/><input id="qq-o${i}" placeholder="Option ${i+1}" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px"/></div>`).join("")}
+        <div class="meta" style="margin-bottom:8px">Select the radio next to the correct option.</div>
+        <div class="row-actions" style="margin-bottom:14px"><button class="btn green" onclick="addQuestion('${quizId}','${title.replace(/'/g,"&#39;")}')">Add question</button></div>
+        <div>${list}</div>`;
+    }
+    async function addQuestion(quizId, title) {
+      const prompt = document.getElementById("qq-p").value.trim();
+      const options = [0,1,2,3].map(i => document.getElementById("qq-o"+i).value.trim());
+      const correct = Number(document.querySelector("input[name=qq-correct]:checked").value);
+      if (!prompt) return tqMsg("Enter a question.");
+      if (options.filter(o=>o).length < 2) return tqMsg("Enter at least 2 options.");
+      if (!options[correct]) return tqMsg("The option marked correct is empty.");
+      let arr = options.slice(); while (arr.length && !arr[arr.length-1]) arr.pop();
+      const { error } = await sb.from("quiz_questions").insert({ quiz_id: quizId, prompt, options: arr, correct_index: correct, position: Date.now()%100000 });
+      if (error) return tqMsg("Error: " + error.message);
+      tqMsg("Question added.", true); await quizQuestions(quizId, title);
+    }
+    async function delQuestion(id, quizId, title) { await sb.from("quiz_questions").delete().eq("id", id); await quizQuestions(quizId, title); }
+    async function quizBoard(quizId, title) {
+      const { data: att } = await sb.from("quiz_attempts").select("student_name,score,total").eq("quiz_id", quizId).order("score",{ascending:false});
+      const rows = (att||[]).map((a,i) => `<tr><td>${i+1}</td><td>${esc(a.student_name||'Student')}</td><td>${a.score}/${a.total}</td></tr>`).join("") || '<tr><td colspan="3" class="empty">No attempts yet.</td></tr>';
+      document.getElementById("tq-content").innerHTML = `
+        <div class="row-actions" style="margin-bottom:10px"><button class="btn sm" onclick="renderQuizList()">‹ Back</button></div>
+        <h3 style="font-family:'Outfit',sans-serif;font-size:16px;margin:0 0 10px">${title} — leaderboard</h3>
+        <table><thead><tr><th>#</th><th>Student</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 
     async function sendClassReminder(batchId) {

@@ -298,6 +298,46 @@ drop policy if exists qa_delete on public.posts;
 create policy qa_delete on public.posts for delete using (
   author_id = auth.uid() or public.teaches_batch(batch_id) or public.is_admin());
 
+-- QUIZZES / QUESTIONS / ATTEMPTS. Full definition in quiz.sql.
+create table if not exists public.quizzes (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null references public.batches(id) on delete cascade,
+  title text not null, created_by uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+create table if not exists public.quiz_questions (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes(id) on delete cascade,
+  prompt text not null, options jsonb not null, correct_index int not null, position int not null default 0
+);
+create table if not exists public.quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes(id) on delete cascade,
+  batch_id uuid not null references public.batches(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  student_name text, score int not null, total int not null,
+  submitted_at timestamptz not null default now(), unique (quiz_id, student_id)
+);
+create or replace function public.quiz_batch(q uuid)
+returns uuid language sql security definer stable as $$ select batch_id from public.quizzes where id = q; $$;
+alter table public.quizzes enable row level security;
+alter table public.quiz_questions enable row level security;
+alter table public.quiz_attempts enable row level security;
+drop policy if exists quiz_admin on public.quizzes;
+create policy quiz_admin on public.quizzes for all using (public.is_admin());
+drop policy if exists quiz_teacher on public.quizzes;
+create policy quiz_teacher on public.quizzes for all using (public.teaches_batch(batch_id));
+drop policy if exists quiz_student on public.quizzes;
+create policy quiz_student on public.quizzes for select using (public.enrolled_paid(batch_id));
+drop policy if exists qq_teacher on public.quiz_questions;
+create policy qq_teacher on public.quiz_questions for all
+  using (public.teaches_batch(public.quiz_batch(quiz_id)) or public.is_admin());
+drop policy if exists qa_attempts_read on public.quiz_attempts;
+create policy qa_attempts_read on public.quiz_attempts for select using (
+  public.enrolled_paid(batch_id) or public.teaches_batch(batch_id) or public.is_admin());
+drop policy if exists qa_attempts_admin on public.quiz_attempts;
+create policy qa_attempts_admin on public.quiz_attempts for all using (public.is_admin());
+
 -- ============================================================
 -- AFTER RUNNING THIS:
 -- 1. Sign up once through the portal login page.
