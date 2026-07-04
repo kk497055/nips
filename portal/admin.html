@@ -134,6 +134,25 @@
       </div>
     </div>
 
+    <!-- BULK ENROL -->
+    <div class="section">
+      <h2>Bulk Enrol</h2>
+      <div class="card">
+        <div class="msg" id="be-msg"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Batch</label><select id="be-batch"></select></div>
+          <div class="field"><label>Status</label>
+            <select id="be-status"><option value="paid">Paid</option><option value="demo">Demo</option><option value="pending">Pending</option></select></div>
+        </div>
+        <input id="be-search" class="list-search" placeholder="Search students…" style="width:100%;max-width:none;margin-bottom:8px"/>
+        <div id="be-list" style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px"><p class="empty">Loading…</p></div>
+        <div class="row-actions" style="margin-top:12px;align-items:center">
+          <span class="list-count" id="be-count">0 selected</span>
+          <button class="btn green" id="be-btn">Enrol selected</button>
+        </div>
+      </div>
+    </div>
+
     <!-- PEOPLE -->
     <div class="section">
       <h2>People</h2>
@@ -152,8 +171,54 @@
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;
-      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments()]);
+      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadBulkEnrol()]);
     })();
+
+    // ---------- Bulk enrol ----------
+    window._beSel = new Set();
+    let _beStudents = [];
+    async function loadBulkEnrol() {
+      const [{ data: students }, { data: batches }] = await Promise.all([
+        sb.from("profiles").select("id,full_name").eq("role","student").order("full_name"),
+        sb.from("batches").select("id,name").order("created_at",{ascending:false})
+      ]);
+      _beStudents = students || [];
+      document.getElementById("be-batch").innerHTML =
+        (batches||[]).map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("") || '<option value="">No batches</option>';
+      renderBEList();
+      document.getElementById("be-search").oninput = renderBEList;
+    }
+    function renderBEList() {
+      const term = document.getElementById("be-search").value.trim().toLowerCase();
+      const rows = _beStudents.filter(s => (s.full_name||"").toLowerCase().includes(term));
+      const list = document.getElementById("be-list");
+      list.innerHTML = rows.length ? rows.map(s => `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:14px">
+        <input type="checkbox" data-sid="${s.id}" ${window._beSel.has(s.id)?"checked":""}/> ${esc(s.full_name)}</label>`).join("") : '<p class="empty">No students.</p>';
+      list.querySelectorAll("input[type=checkbox]").forEach(cb => cb.onchange = () => {
+        cb.checked ? window._beSel.add(cb.dataset.sid) : window._beSel.delete(cb.dataset.sid);
+        document.getElementById("be-count").textContent = window._beSel.size + " selected";
+      });
+      document.getElementById("be-count").textContent = window._beSel.size + " selected";
+    }
+    document.getElementById("be-btn").onclick = async () => {
+      const beMsg = document.getElementById("be-msg");
+      const show = (t, ok=false) => { beMsg.className = "msg " + (ok?"ok":"err"); beMsg.textContent = t; };
+      const batch_id = document.getElementById("be-batch").value;
+      const status = document.getElementById("be-status").value;
+      const sel = [...window._beSel];
+      if (!batch_id) return show("Select a batch.");
+      if (!sel.length) return show("Select at least one student.");
+      const btn = document.getElementById("be-btn");
+      btn.disabled = true; btn.textContent = "Enrolling…";
+      const rows = sel.map(student_id => ({ batch_id, student_id, payment_status: status }));
+      const { error } = await sb.from("enrollments").upsert(rows, { onConflict: "batch_id,student_id" });
+      btn.disabled = false; btn.textContent = "Enrol selected";
+      if (error) return show("Error: " + error.message);
+      show(`Enrolled ${sel.length} student(s) as ${status}.`, true);
+      window._beSel.clear();
+      renderBEList();
+      await Promise.all([loadOverview(), loadBatches(), loadPendingPayments()]);
+    };
 
     const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
 
