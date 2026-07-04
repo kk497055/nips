@@ -1,0 +1,5 @@
+/portal/manifest.webmanifest
+  Content-Type: application/manifest+json
+/portal/sw.js
+  Content-Type: application/javascript
+  Service-Worker-Allowed: /portal/
