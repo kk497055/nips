@@ -1,0 +1,15 @@
+{
+  "name": "NIPS Portal",
+  "short_name": "NIPS",
+  "description": "NIPS Education Solutions — live classes, materials, homework and more.",
+  "start_url": "/portal/login.html",
+  "scope": "/portal/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f3321",
+  "theme_color": "#1a5336",
+  "icons": [
+    { "src": "/assets/nips-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/nips-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

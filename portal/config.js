@@ -5,6 +5,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_qPM05rVcSDylY3K_viaksw_D-31dW90";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Register the PWA service worker (makes the portal installable, offline-tolerant).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/portal/sw.js").catch(() => {}));
+}
+
 // Escape any DB/user-controlled string before inserting into innerHTML (prevents stored XSS).
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>

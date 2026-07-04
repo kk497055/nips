@@ -6,6 +6,9 @@
   <title>NIPS Portal — Student</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="portal.css?v=6" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1a5336" />
+  <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
 </head>
 <body>
   <div class="topbar">
@@ -37,7 +40,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=3"></script>
+  <script src="config.js?v=4"></script>
   <script>
     (async () => {
       await requireAuth();
