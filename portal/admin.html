@@ -116,6 +116,24 @@
       <div id="pending-payments"><p class="empty">Loading…</p></div>
     </div>
 
+    <!-- CREATE ACCOUNT -->
+    <div class="section">
+      <h2>Create Account</h2>
+      <div class="card">
+        <p class="meta" style="margin-bottom:10px">Create a pre-verified account directly (no email confirmation needed). Share the password with the user.</p>
+        <div class="msg" id="cu-msg"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Full Name</label><input id="cu-name" placeholder="Full name"/></div>
+          <div class="field"><label>Email</label><input id="cu-email" type="email" placeholder="user@example.com"/></div>
+          <div class="field"><label>Temporary Password</label><input id="cu-pass" placeholder="min 6 characters"/></div>
+          <div class="field"><label>Role</label>
+            <select id="cu-role"><option value="student">Student</option><option value="teacher">Teacher</option></select>
+          </div>
+        </div>
+        <button class="btn green" id="cu-btn">Create Account</button>
+      </div>
+    </div>
+
     <!-- PEOPLE -->
     <div class="section">
       <h2>People</h2>
@@ -522,6 +540,34 @@
       alert(note);
       await Promise.all([loadPendingPayments(), loadOverview(), loadBatches()]);
     }
+
+    document.getElementById("cu-btn").onclick = async () => {
+      const cuMsg = document.getElementById("cu-msg");
+      const show = (t, ok=false) => { cuMsg.className = "msg " + (ok?"ok":"err"); cuMsg.textContent = t; };
+      const full_name = document.getElementById("cu-name").value.trim();
+      const email = document.getElementById("cu-email").value.trim();
+      const password = document.getElementById("cu-pass").value;
+      const role = document.getElementById("cu-role").value;
+      if (!full_name) return show("Enter a full name.");
+      if (!email) return show("Enter an email.");
+      if (password.length < 6) return show("Password must be at least 6 characters.");
+      const btn = document.getElementById("cu-btn");
+      btn.disabled = true; btn.textContent = "Creating…";
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name, email, password, role })
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Failed");
+        show(`Created ${role} account for ${email}. They can sign in now.`, true);
+        ["cu-name","cu-email","cu-pass"].forEach(id => document.getElementById(id).value = "");
+        await Promise.all([loadPeople(), loadTeacherSelect()]);
+      } catch (e) { show("Error: " + e.message); }
+      btn.disabled = false; btn.textContent = "Create Account";
+    };
   </script>
 </body>
 </html>
