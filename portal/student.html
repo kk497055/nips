@@ -33,6 +33,7 @@
     </div>
 
     <div id="live-banner"></div>
+    <div id="progress"></div>
 
     <div class="section">
       <div id="batches" class="grid"><p class="empty">Loading…</p></div>
@@ -59,6 +60,8 @@
       sb.channel("live-sessions")
         .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, refreshLive)
         .subscribe();
+
+      renderProgress();
 
       // RLS returns only batches where this student is PAID + enrolled.
       const [{ data: batches }, { data: enrollments }] = await Promise.all([
@@ -152,6 +155,26 @@
           </div>`;
       }
     })();
+
+    async function renderProgress() {
+      const [{ data: att }, { data: asg }, { data: subs }, { data: recs }] = await Promise.all([
+        sb.from("attendance").select("status"),
+        sb.from("assignments").select("id"),
+        sb.from("submissions").select("grade"),
+        sb.from("sessions").select("id").not("recording_url", "is", null)
+      ]);
+      const el = document.getElementById("progress");
+      const total = (att || []).length, present = (att || []).filter(a => a.status === "present").length;
+      const submitted = (subs || []).length, graded = (subs || []).filter(s => s.grade).length;
+      if (!((att || []).length || (asg || []).length || (recs || []).length)) { el.innerHTML = ""; return; }
+      const attRate = total ? Math.round(present / total * 100) : null;
+      el.innerHTML = `<div class="section"><h2>My Progress</h2><div class="stats">
+        <div class="stat"><div class="num">${attRate === null ? '—' : attRate + '%'}</div><div class="lbl">Attendance</div><div class="hint">${present}/${total} classes</div></div>
+        <div class="stat"><div class="num">${submitted}</div><div class="lbl">Submitted</div><div class="hint">${graded} graded</div></div>
+        <div class="stat"><div class="num">${(asg || []).length}</div><div class="lbl">Assignments</div></div>
+        <div class="stat"><div class="num">${(recs || []).length}</div><div class="lbl">Recordings</div></div>
+      </div></div>`;
+    }
 
     async function refreshLive() {
       const since = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
