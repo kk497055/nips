@@ -562,12 +562,21 @@
       } catch (e) { alert("Email not sent: " + e.message); }
     }
 
+    // Log a payment once per student+batch (for fee history / receipts).
+    async function recordPayment(student_id, batch_id) {
+      const { count } = await sb.from("payments").select("*",{count:"exact",head:true}).eq("student_id",student_id).eq("batch_id",batch_id);
+      if (count) return;
+      const { data: b } = await sb.from("batches").select("name,fee").eq("id",batch_id).single();
+      await sb.from("payments").insert({ student_id, batch_id, amount: b?.fee || 0, note: `Fee — ${b?.name || 'batch'}`, recorded_by: window._meId });
+    }
+
     async function markPaid(student_id, batch_id) {
       const { error } = await sb.from("enrollments").upsert(
         { batch_id, student_id, payment_status: "paid" },
         { onConflict: "batch_id,student_id" }
       );
       if (error) return alert("Error: " + error.message);
+      await recordPayment(student_id, batch_id);
       try {
         const body = await sendNotify({ type: "enrolment_paid", student_id, batch_id });
         alert(`Marked paid. Confirmation email sent to ${body.sent}/${body.total} student(s).`);
@@ -595,6 +604,7 @@
                : status === "demo" ? "Enrolled for DEMO. Student has full class access (not counted as revenue)."
                : "Enrolled as pending. Student does not have class access yet.";
       if (status === "paid") {
+        await recordPayment(studentId, batches[idx].id);
         try {
           const body = await sendNotify({ type: "enrolment_paid", student_id: studentId, batch_id: batches[idx].id });
           note += `\nConfirmation email sent to ${body.sent}/${body.total} student(s).`;

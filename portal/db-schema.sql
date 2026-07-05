@@ -338,6 +338,21 @@ create policy qa_attempts_read on public.quiz_attempts for select using (
 drop policy if exists qa_attempts_admin on public.quiz_attempts;
 create policy qa_attempts_admin on public.quiz_attempts for all using (public.is_admin());
 
+-- ENGAGEMENT: dashboard "seen" marker + payments log. See engagement.sql.
+alter table public.profiles add column if not exists dashboard_seen_at timestamptz;
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  batch_id uuid references public.batches(id) on delete set null,
+  amount numeric not null default 0, note text,
+  paid_on timestamptz not null default now(), recorded_by uuid references public.profiles(id)
+);
+alter table public.payments enable row level security;
+drop policy if exists pay_admin on public.payments;
+create policy pay_admin on public.payments for all using (public.is_admin());
+drop policy if exists pay_student on public.payments;
+create policy pay_student on public.payments for select using (student_id = auth.uid());
+
 -- ============================================================
 -- AFTER RUNNING THIS:
 -- 1. Sign up once through the portal login page.

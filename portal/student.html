@@ -38,6 +38,8 @@
     <div class="section">
       <div id="batches" class="grid"><p class="empty">Loading…</p></div>
     </div>
+
+    <div id="fees"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -54,6 +56,7 @@
       if (p.role !== "student") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._sid = p.id;
+      window._seenTs = p.dashboard_seen_at ? new Date(p.dashboard_seen_at).getTime() : null;
 
       // Live "class is on now" banner + realtime updates.
       refreshLive();
@@ -109,13 +112,13 @@
           : '<div class="recording-empty">No recordings yet</div>';
 
         const { data: mats } = await sb.from("materials")
-          .select("id,title,storage_path").eq("batch_id", b.id).order("created_at",{ascending:false});
+          .select("id,title,storage_path,created_at").eq("batch_id", b.id).order("created_at",{ascending:false});
         const matHtml = (mats && mats.length)
           ? mats.map(m => `<div class="recording-link"><span>File</span><a href="#" onclick="downloadMaterial('${m.storage_path.replace(/'/g,"\\'")}');return false;">${esc(m.title)}</a></div>`).join("")
           : '<div class="recording-empty">No materials yet</div>';
 
         const { data: asgs } = await sb.from("assignments")
-          .select("id,title,instructions,due_date").eq("batch_id", b.id).order("created_at",{ascending:false});
+          .select("id,title,instructions,due_date,created_at").eq("batch_id", b.id).order("created_at",{ascending:false});
         const { data: mySubs } = await sb.from("submissions").select("assignment_id,storage_path,grade,feedback");
         const subOf = Object.fromEntries((mySubs||[]).map(s=>[s.assignment_id,s]));
         const asgHtml = (asgs && asgs.length)
@@ -137,7 +140,7 @@
             }).join("")
           : '<div class="recording-empty">No assignments yet</div>';
 
-        const { data: quizzes } = await sb.from("quizzes").select("id,title").eq("batch_id", b.id).order("created_at",{ascending:false});
+        const { data: quizzes } = await sb.from("quizzes").select("id,title,created_at").eq("batch_id", b.id).order("created_at",{ascending:false});
         const { data: myAtt } = await sb.from("quiz_attempts").select("quiz_id,score,total").eq("student_id", window._sid);
         const attOf = Object.fromEntries((myAtt||[]).map(a=>[a.quiz_id,a]));
         const quizHtml = (quizzes && quizzes.length)
@@ -147,11 +150,22 @@
                 <button class="btn green sm" onclick="openQuiz('${q.id}')">${a?'Retake':'Take'}</button></div>`; }).join("")
           : '<div class="recording-empty">No quizzes yet</div>';
 
+        // "New since last visit" — count items created after the last dashboard view.
+        let newCount = 0;
+        if (window._seenTs) {
+          const after = (d) => d && new Date(d).getTime() > window._seenTs;
+          newCount = (mats||[]).filter(m=>after(m.created_at)).length
+                   + (asgs||[]).filter(a=>after(a.created_at)).length
+                   + (quizzes||[]).filter(q=>after(q.created_at)).length
+                   + (recs||[]).filter(r=>after(r.started_at)).length;
+        }
+        const newBadge = newCount > 0 ? `<span class="pill pending">${newCount} new</span>` : "";
+
         box.innerHTML += `
           <div class="card class-card">
             <div class="class-top">
               <span class="pill paid">Active</span>
-              <span class="class-category">${esc(b.category||'NIPS Class')}</span>
+              <span class="class-category">${esc(b.category||'NIPS Class')} ${newBadge}</span>
             </div>
             <h3>${esc(b.name)}</h3>
             <div class="meta">${esc(b.schedule||'Schedule TBA')}</div>
@@ -165,11 +179,55 @@
             <div class="recordings"><strong>Recordings</strong>${recHtml}</div>
           </div>`;
       }
+
+      // Mark the dashboard as seen so next visit's "new" badges reset.
+      sb.from("profiles").update({ dashboard_seen_at: new Date().toISOString() }).eq("id", window._sid).then(()=>{});
+
+      renderFees();
     })();
+
+    async function renderFees() {
+      const { data: pays } = await sb.from("payments").select("*").order("paid_on", { ascending: false });
+      const el = document.getElementById("fees");
+      if (!pays || !pays.length) { el.innerHTML = ""; return; }
+      window._pays = Object.fromEntries(pays.map(p => [p.id, p]));
+      const total = pays.reduce((s, p) => s + Number(p.amount || 0), 0);
+      el.innerHTML = `<div class="section"><h2>My Fees</h2>
+        <table><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th>Receipt</th></tr></thead><tbody>
+        ${pays.map(p => `<tr>
+          <td>${new Date(p.paid_on).toLocaleDateString()}</td>
+          <td>PKR ${Number(p.amount||0).toLocaleString()}</td>
+          <td>${esc(p.note||'Fee payment')}</td>
+          <td><button class="btn sm" onclick="printReceipt('${p.id}')">Receipt</button></td>
+        </tr>`).join("")}
+        <tr><td><strong>Total</strong></td><td colspan="3"><strong>PKR ${total.toLocaleString()}</strong></td></tr>
+        </tbody></table></div>`;
+    }
+
+    function printReceipt(id) {
+      const p = (window._pays || {})[id];
+      if (!p) return;
+      const who = document.getElementById("who").textContent.trim();
+      const w = window.open("", "_blank", "width=520,height=640");
+      w.document.write(`<html><head><title>NIPS Receipt</title></head>
+        <body style="font-family:Arial,sans-serif;color:#1a1a1a;padding:28px;max-width:480px;margin:0 auto">
+        <div style="background:#1a5336;color:#fff;padding:18px 20px;border-radius:10px">
+          <div style="font-size:18px;font-weight:bold">NIPS Education Solutions</div>
+          <div style="font-size:11px;opacity:.85">Payment Receipt</div></div>
+        <table style="width:100%;margin-top:18px;font-size:14px;border-collapse:collapse">
+          <tr><td style="padding:8px 0;color:#6b7280">Student</td><td style="text-align:right">${esc(who)}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Date</td><td style="text-align:right">${new Date(p.paid_on).toLocaleString()}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Note</td><td style="text-align:right">${esc(p.note||'Fee payment')}</td></tr>
+          <tr><td style="padding:14px 0;font-size:18px;font-weight:bold">Amount</td><td style="text-align:right;font-size:18px;font-weight:bold">PKR ${Number(p.amount||0).toLocaleString()}</td></tr>
+        </table>
+        <p style="color:#9ca3af;font-size:11px;margin-top:18px">K Block, Johar Town, Lahore · +92 321 5554125 · This is a system-generated receipt.</p>
+        <script>window.onload=function(){window.print()}<\/script></body></html>`);
+      w.document.close();
+    }
 
     async function renderProgress() {
       const [{ data: att }, { data: asg }, { data: subs }, { data: recs }] = await Promise.all([
-        sb.from("attendance").select("status"),
+        sb.from("attendance").select("status,session_date"),
         sb.from("assignments").select("id"),
         sb.from("submissions").select("grade"),
         sb.from("sessions").select("id").not("recording_url", "is", null)
@@ -179,8 +237,16 @@
       const submitted = (subs || []).length, graded = (subs || []).filter(s => s.grade).length;
       if (!((att || []).length || (asg || []).length || (recs || []).length)) { el.innerHTML = ""; return; }
       const attRate = total ? Math.round(present / total * 100) : null;
+
+      // Current attendance streak: trailing consecutive 'present' by date.
+      let streak = 0;
+      const sorted = [...(att || [])].sort((a, b) => (a.session_date < b.session_date ? -1 : 1));
+      for (let i = sorted.length - 1; i >= 0; i--) { if (sorted[i].status === "present") streak++; else break; }
+      const streakLabel = streak >= 3 ? `🔥 ${streak}` : String(streak);
+
       el.innerHTML = `<div class="section"><h2>My Progress</h2><div class="stats">
         <div class="stat"><div class="num">${attRate === null ? '—' : attRate + '%'}</div><div class="lbl">Attendance</div><div class="hint">${present}/${total} classes</div></div>
+        <div class="stat"><div class="num">${streakLabel}</div><div class="lbl">Streak</div><div class="hint">classes in a row</div></div>
         <div class="stat"><div class="num">${submitted}</div><div class="lbl">Submitted</div><div class="hint">${graded} graded</div></div>
         <div class="stat"><div class="num">${(asg || []).length}</div><div class="lbl">Assignments</div></div>
         <div class="stat"><div class="num">${(recs || []).length}</div><div class="lbl">Recordings</div></div>
