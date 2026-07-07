@@ -224,10 +224,11 @@
 
     async function loadOverview() {
       // Admin RLS grants full read access to every table.
-      const [{ data: profiles }, { data: batches }, { data: enrollments }, { data: sessions }, { data: attendance }] =
+      const [{ data: profiles }, { data: batches }, { data: batchTeachers }, { data: enrollments }, { data: sessions }, { data: attendance }] =
         await Promise.all([
           sb.from("profiles").select("id,role"),
           sb.from("batches").select("id,name,fee,teacher_id,is_active"),
+          sb.from("batch_teachers").select("batch_id,teacher_id"),
           sb.from("enrollments").select("batch_id,student_id,payment_status"),
           sb.from("sessions").select("batch_id,started_at,ended_at,recording_url,created_by"),
           sb.from("attendance").select("status")
@@ -289,11 +290,11 @@
       // Teacher load
       const tmap = Object.fromEntries((profiles||[]).filter(p=>p.role==="teacher").map(t=>[t.id,t]));
       const tRows = Object.keys(tmap).map(tid => {
-        const tBatches = (batches||[]).filter(b => b.teacher_id === tid);
-        const bids = new Set(tBatches.map(b => b.id));
+        const bids = new Set((batches||[]).filter(b => b.teacher_id === tid).map(b => b.id));
+        (batchTeachers||[]).filter(bt => bt.teacher_id === tid).forEach(bt => bids.add(bt.batch_id));
         const roster = (enrollments||[]).filter(e => bids.has(e.batch_id) && e.payment_status === "paid").length;
         const sess = (sessions||[]).filter(s => s.created_by === tid || bids.has(s.batch_id)).length;
-        return { batches: tBatches.length, roster, sess, tid };
+        return { batches: bids.size, roster, sess, tid };
       });
       // Resolve teacher names
       const { data: tprofs } = await sb.from("profiles").select("id,full_name").in("id", Object.keys(tmap).length?Object.keys(tmap):["00000000-0000-0000-0000-000000000000"]);
@@ -361,12 +362,20 @@
 
     async function loadBatches() {
       // Fetch batches, teachers and enrollments once (no per-batch queries).
-      const [{ data: batches }, { data: teachers }, { data: enrollments }] = await Promise.all([
+      const [{ data: batches }, { data: teachers }, { data: enrollments }, { data: batchTeachers }] = await Promise.all([
         sb.from("batches").select("*").order("created_at",{ascending:false}),
         sb.from("profiles").select("id,full_name").eq("role","teacher"),
-        sb.from("enrollments").select("batch_id,payment_status")
+        sb.from("enrollments").select("batch_id,payment_status"),
+        sb.from("batch_teachers").select("batch_id,teacher_id,role")
       ]);
       const tmap = Object.fromEntries((teachers||[]).map(t=>[t.id,t.full_name]));
+      window._batchList = batches || [];
+      window._teacherList = teachers || [];
+      window._batchTeacherRows = batchTeachers || [];
+      const coByBatch = {};
+      (batchTeachers||[]).forEach(bt => {
+        (coByBatch[bt.batch_id] ||= []).push(bt);
+      });
       const paidByBatch = {};
       (enrollments||[]).forEach(e => { if (e.payment_status === "paid") paidByBatch[e.batch_id] = (paidByBatch[e.batch_id]||0)+1; });
       const box = document.getElementById("batches");
@@ -375,16 +384,25 @@
       mountList("batches", "batches", batches, {
         placeholder: "Search batches by name, category…",
         noun: "batches", empty: "No batches match your search.", pageSize: 8,
-        match: (b, t) => `${b.name} ${b.category||''} ${b.schedule||''} ${tmap[b.teacher_id]||''}`.toLowerCase().includes(t),
-        render: (items) => items.map(b => `<div class="card" style="margin-bottom:12px">
+        match: (b, t) => {
+          const coNames = (coByBatch[b.id]||[]).map(bt => tmap[bt.teacher_id]).join(" ");
+          return `${b.name} ${b.category||''} ${b.schedule||''} ${tmap[b.teacher_id]||''} ${coNames}`.toLowerCase().includes(t);
+        },
+        render: (items) => items.map(b => {
+          const coRows = (coByBatch[b.id]||[]).filter(bt => bt.teacher_id !== b.teacher_id);
+          const coNames = coRows.map(bt => esc(tmap[bt.teacher_id]||"Teacher")).join(", ") || "none";
+          return `<div class="card" style="margin-bottom:12px">
           <h3>${esc(b.name)} ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
-          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · Teacher: ${esc(tmap[b.teacher_id]||'unassigned')} · ${paidByBatch[b.id]||0} paid</div>
+          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
-            <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Teacher</button>
+            <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Primary</button>
+            <button class="btn soft sm" onclick="addCoTeacher('${b.id}')">Add Co-teacher</button>
+            <button class="btn soft sm" onclick="removeCoTeacher('${b.id}')">Remove Co-teacher</button>
             <button class="btn sm" onclick="toggleBatch('${b.id}',${b.is_active})">${b.is_active?'Deactivate':'Activate'}</button>
           </div>
-        </div>`).join("")
+        </div>`;
+        }).join("")
       });
     }
 
@@ -396,6 +414,40 @@
       const idx = parseInt(pick)-1;
       if (isNaN(idx) || !teachers[idx]) return;
       const { error } = await sb.from("batches").update({ teacher_id: teachers[idx].id }).eq("id",batchId);
+      if (error) return alert("Error: "+error.message);
+      loadBatches();
+    }
+
+    async function addCoTeacher(batchId) {
+      const teachers = window._teacherList || [];
+      const batch = (window._batchList || []).find(b => b.id === batchId);
+      const rows = (window._batchTeacherRows || []).filter(bt => bt.batch_id === batchId);
+      const already = new Set(rows.map(bt => bt.teacher_id));
+      if (batch?.teacher_id) already.add(batch.teacher_id);
+      const available = teachers.filter(t => !already.has(t.id));
+      if (!available.length) return alert("No available teachers to add.");
+      const list = available.map((t,i)=>`${i+1}. ${t.full_name}`).join("\n");
+      const pick = prompt("Add which co-teacher?\n"+list+"\n\nEnter number:");
+      const idx = parseInt(pick)-1;
+      if (isNaN(idx) || !available[idx]) return;
+      const { error } = await sb.from("batch_teachers").upsert(
+        { batch_id: batchId, teacher_id: available[idx].id, role: "co_teacher" },
+        { onConflict: "batch_id,teacher_id" }
+      );
+      if (error) return alert("Error: "+error.message);
+      loadBatches();
+    }
+
+    async function removeCoTeacher(batchId) {
+      const teachers = window._teacherList || [];
+      const tmap = Object.fromEntries(teachers.map(t=>[t.id,t.full_name]));
+      const rows = (window._batchTeacherRows || []).filter(bt => bt.batch_id === batchId);
+      if (!rows.length) return alert("This batch has no co-teachers.");
+      const list = rows.map((bt,i)=>`${i+1}. ${tmap[bt.teacher_id] || 'Teacher'}`).join("\n");
+      const pick = prompt("Remove which co-teacher?\n"+list+"\n\nEnter number:");
+      const idx = parseInt(pick)-1;
+      if (isNaN(idx) || !rows[idx]) return;
+      const { error } = await sb.from("batch_teachers").delete().eq("batch_id", batchId).eq("teacher_id", rows[idx].teacher_id);
       if (error) return alert("Error: "+error.message);
       loadBatches();
     }

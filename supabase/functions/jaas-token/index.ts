@@ -15,6 +15,18 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
+async function teachesBatch(svc: any, batchId: string, teacherId: string) {
+  const { data: batch } = await svc.from("batches").select("teacher_id").eq("id", batchId).single();
+  if (batch?.teacher_id === teacherId) return true;
+  const { data: coTeacher } = await svc
+    .from("batch_teachers")
+    .select("id")
+    .eq("batch_id", batchId)
+    .eq("teacher_id", teacherId)
+    .maybeSingle();
+  return !!coTeacher;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -47,7 +59,7 @@ Deno.serve(async (req) => {
 
     // 3. Decide access + moderator status (mirrors the portal's RLS).
     let moderator = false;
-    if (role === "admin" || batch.teacher_id === user.id) {
+    if (role === "admin" || await teachesBatch(svc, batchId, user.id)) {
       moderator = true;
     } else {
       const { data: enr } = await svc.from("enrollments")

@@ -24,7 +24,7 @@ create table if not exists public.student_contacts (
   notes          text
 );
 
--- Batches (a class group). Assigned to one teacher.
+-- Batches (a class group). Assigned to one primary teacher.
 create table if not exists public.batches (
   id           uuid primary key default gen_random_uuid(),
   name         text not null,
@@ -36,6 +36,18 @@ create table if not exists public.batches (
   is_active    boolean not null default true,
   created_at   timestamptz not null default now()
 );
+
+-- Optional co-teachers / assistants for a batch. The legacy batches.teacher_id
+-- remains the primary teacher so existing screens and data keep working.
+create table if not exists public.batch_teachers (
+  id         uuid primary key default gen_random_uuid(),
+  batch_id   uuid not null references public.batches(id) on delete cascade,
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  role       text not null default 'co_teacher' check (role in ('co_teacher','assistant')),
+  created_at timestamptz not null default now(),
+  unique (batch_id, teacher_id)
+);
+create index if not exists batch_teachers_teacher_idx on public.batch_teachers (teacher_id, batch_id);
 
 -- Enrollments: which student is in which batch + payment gate.
 create table if not exists public.enrollments (
@@ -91,7 +103,8 @@ $$;
 -- Is the current user the teacher of this batch?
 create or replace function public.teaches_batch(b uuid)
 returns boolean language sql security definer stable as $$
-  select exists(select 1 from public.batches where id = b and teacher_id = auth.uid());
+  select exists(select 1 from public.batches where id = b and teacher_id = auth.uid())
+     or exists(select 1 from public.batch_teachers where batch_id = b and teacher_id = auth.uid());
 $$;
 
 -- Is the current user a PAID student of this batch?
@@ -142,6 +155,7 @@ create trigger trg_protect_role
 alter table public.profiles         enable row level security;
 alter table public.student_contacts enable row level security;
 alter table public.batches          enable row level security;
+alter table public.batch_teachers   enable row level security;
 alter table public.enrollments      enable row level security;
 alter table public.attendance       enable row level security;
 alter table public.sessions         enable row level security;
@@ -158,6 +172,11 @@ create policy profiles_select on public.profiles for select using (
     select 1 from public.enrollments e
     join public.batches b on b.id = e.batch_id
     where b.teacher_id = auth.uid() and e.student_id = profiles.id
+  )
+  or exists (
+    select 1 from public.enrollments e
+    join public.batch_teachers bt on bt.batch_id = e.batch_id
+    where bt.teacher_id = auth.uid() and e.student_id = profiles.id
   )
 );
 drop policy if exists profiles_update_self on public.profiles;
@@ -177,9 +196,15 @@ create policy contacts_self on public.student_contacts for all
 drop policy if exists batches_admin on public.batches;
 create policy batches_admin on public.batches for all using (public.is_admin());
 drop policy if exists batches_teacher on public.batches;
-create policy batches_teacher on public.batches for select using (teacher_id = auth.uid());
+create policy batches_teacher on public.batches for select using (public.teaches_batch(id));
 drop policy if exists batches_student on public.batches;
 create policy batches_student on public.batches for select using (public.enrolled_paid(id));
+
+-- BATCH_TEACHERS: admin manages; assigned teachers can see who else is attached.
+drop policy if exists batch_teachers_admin on public.batch_teachers;
+create policy batch_teachers_admin on public.batch_teachers for all using (public.is_admin());
+drop policy if exists batch_teachers_select on public.batch_teachers;
+create policy batch_teachers_select on public.batch_teachers for select using (public.teaches_batch(batch_id));
 
 -- ENROLLMENTS: admin all; teacher reads own batch rosters; student reads own.
 drop policy if exists enroll_admin on public.enrollments;

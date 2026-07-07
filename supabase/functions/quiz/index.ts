@@ -12,6 +12,18 @@ const CORS = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
+async function teachesBatch(svc: any, batchId: string, teacherId: string) {
+  const { data: batch } = await svc.from("batches").select("teacher_id").eq("id", batchId).single();
+  if (batch?.teacher_id === teacherId) return true;
+  const { data: coTeacher } = await svc
+    .from("batch_teachers")
+    .select("id")
+    .eq("batch_id", batchId)
+    .eq("teacher_id", teacherId)
+    .maybeSingle();
+  return !!coTeacher;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
@@ -31,10 +43,8 @@ Deno.serve(async (req) => {
 
     const { data: quiz } = await svc.from("quizzes").select("id,title,batch_id").eq("id", quiz_id).single();
     if (!quiz) return json({ error: "Quiz not found" }, 404);
-    const { data: batch } = await svc.from("batches").select("teacher_id").eq("id", quiz.batch_id).single();
-
-    // Access: admin, the batch teacher, or a paid/demo enrolled student.
-    let allowed = role === "admin" || batch?.teacher_id === user.id;
+    // Access: admin, a batch teacher/co-teacher, or a paid/demo enrolled student.
+    let allowed = role === "admin" || await teachesBatch(svc, quiz.batch_id, user.id);
     if (!allowed) {
       const { data: enr } = await svc.from("enrollments").select("payment_status")
         .eq("batch_id", quiz.batch_id).eq("student_id", user.id).maybeSingle();

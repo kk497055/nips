@@ -110,8 +110,8 @@
     })();
 
     async function render() {
-      // RLS returns only batches this teacher is assigned to.
-      const { data: batches } = await sb.from("batches").select("*").eq("teacher_id", window._me.id);
+      // RLS returns only batches this teacher/co-teacher is assigned to.
+      const { data: batches } = await sb.from("batches").select("*").order("created_at", { ascending: false });
       const box = document.getElementById("batches");
       if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches assigned yet. Ask admin to assign you.</p>'; return; }
 

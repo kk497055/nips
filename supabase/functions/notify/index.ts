@@ -24,6 +24,18 @@ const BATCH_WIDE = new Set(["new_recording", "class_reminder", "announcement"]);
 
 type Recipient = { id: string; name: string };
 
+async function teachesBatch(svc: any, batchId: string, teacherId: string) {
+  const { data: batch } = await svc.from("batches").select("teacher_id").eq("id", batchId).single();
+  if (batch?.teacher_id === teacherId) return true;
+  const { data: coTeacher } = await svc
+    .from("batch_teachers")
+    .select("id")
+    .eq("batch_id", batchId)
+    .eq("teacher_id", teacherId)
+    .maybeSingle();
+  return !!coTeacher;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -59,8 +71,7 @@ Deno.serve(async (req) => {
 
     let allowed = (isAdmin && ADMIN_TYPES.has(type)) || isOwnWelcome;
     if (!allowed && role === "teacher" && TEACHER_TYPES.has(type) && batch_id) {
-      const { data: batch } = await svc.from("batches").select("teacher_id").eq("id", batch_id).single();
-      allowed = batch?.teacher_id === user.id;
+      allowed = await teachesBatch(svc, batch_id, user.id);
     }
     if (!allowed) return json({ error: "Forbidden" }, 403);
 
