@@ -111,3 +111,12 @@ test("student syllabus remains batch progress, not reusable template content", (
   assert.doesNotMatch(student, /curriculum_templates/);
   assert.doesNotMatch(student, /curriculum_template_topics/);
 });
+
+test("admin-created accounts can include admin role from the UI and edge function", () => {
+  const admin = read("portal/admin.html");
+  const createUser = read("supabase/functions/admin-create-user/index.ts");
+
+  assert.match(admin, /<option value="admin">Admin<\/option>/);
+  assert.match(createUser, /me\?\.role !== "admin"/);
+  assert.match(createUser, /role === "admin" \? "admin"/);
+});
