@@ -94,6 +94,8 @@ test("teacher UX separates designing curriculum from applying it to a batch", ()
   assert.match(teacher, /Teacher Console/);
   assert.match(teacher, /My Curriculum/);
   assert.match(teacher, /Create Curriculum/);
+  assert.match(teacher, /Batch Syllabus/);
+  assert.match(teacher, /Syllabus Progress/);
   assert.match(teacher, /Apply Curriculum to Batch/);
   assert.match(teacher, /from\("curriculum_templates"\)\.insert/);
   assert.match(teacher, /from\("curriculum_template_topics"\)\.insert/);

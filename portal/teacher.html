@@ -98,10 +98,10 @@
     </div>
   </div>
 
-  <!-- Curriculum modal -->
+  <!-- Batch syllabus modal -->
   <div id="cur" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
     <div class="card" style="width:100%;max-width:560px;max-height:88vh;overflow:auto">
-      <h3 id="cur-title">Curriculum</h3>
+      <h3 id="cur-title">Batch Syllabus</h3>
       <div class="msg" id="cur-msg"></div>
       <div class="field"><label>Apply Curriculum to Batch</label><select id="cur-template"></select></div>
       <div class="row-actions" style="margin-bottom:12px">
@@ -157,7 +157,7 @@
               <button class="btn soft sm" onclick="openAssignments('${b.id}')">Assignments</button>
               <button class="btn soft sm" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>
               <button class="btn soft sm" onclick="openQuizzes('${b.id}')">Quizzes</button>
-              <button class="btn soft sm" onclick="openCurriculum('${b.id}')">Curriculum</button>
+              <button class="btn soft sm" onclick="openCurriculum('${b.id}')">Batch Syllabus</button>
             </div>
           </div>`;
       }
@@ -551,7 +551,7 @@
 
     async function openCurriculum(batchId) {
       curBatch = batchId;
-      document.getElementById("cur-title").textContent = "Curriculum — " + ((window._batchNames||{})[batchId] || "");
+      document.getElementById("cur-title").textContent = "Syllabus Progress — " + ((window._batchNames||{})[batchId] || "");
       document.getElementById("cur-msg").className = "msg";
       document.getElementById("cur-new").value = "";
       refreshTemplateSelect();
