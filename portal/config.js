@@ -49,6 +49,38 @@ async function logout() {
   window.location.href = "login.html";
 }
 
+// Reusable client-side search + pagination for a list container. Pager is always shown.
+// opts: { placeholder, noun, empty, pageSize, hideSearch, match(item,term), render(pageItems) }
+function mountList(key, containerId, items, opts) {
+  const st = (window._lists ||= {})[key] ||= { term: "", page: 1 };
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const pageSize = opts.pageSize || 10;
+  function draw() {
+    const term = st.term.trim().toLowerCase();
+    const filtered = (term && opts.match) ? items.filter(it => opts.match(it, term)) : items;
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (st.page > pages) st.page = pages;
+    if (st.page < 1) st.page = 1;
+    const pageItems = filtered.slice((st.page - 1) * pageSize, st.page * pageSize);
+    const toolbar = opts.hideSearch
+      ? `<div class="list-toolbar"><span></span><span class="list-count">${filtered.length} ${opts.noun || "items"}</span></div>`
+      : `<div class="list-toolbar"><input class="list-search" type="search" placeholder="${opts.placeholder || "Search…"}" value="${st.term.replace(/"/g,"&quot;")}"/><span class="list-count">${filtered.length} ${opts.noun || "items"}</span></div>`;
+    box.innerHTML = `${toolbar}
+      ${filtered.length ? opts.render(pageItems) : `<p class="empty">${opts.empty || "Nothing found."}</p>`}
+      <div class="pager">
+        <button class="btn sm" data-pg="prev" ${st.page <= 1 ? "disabled" : ""}>‹ Prev</button>
+        <span>Page ${st.page} of ${pages}</span>
+        <button class="btn sm" data-pg="next" ${st.page >= pages ? "disabled" : ""}>Next ›</button>
+      </div>`;
+    const search = box.querySelector(".list-search");
+    if (search) search.oninput = (e) => { st.term = e.target.value; st.page = 1; draw();
+      const s = box.querySelector(".list-search"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); };
+    box.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => { st.page += b.dataset.pg === "next" ? 1 : -1; draw(); });
+  }
+  draw();
+}
+
 // ---------- Batch Q&A / discussion (shared by teacher + student) ----------
 async function openQA(batchId, batchName) {
   const { data: { user } } = await sb.auth.getUser();

@@ -162,7 +162,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=5"></script>
+  <script src="config.js?v=6"></script>
   <script>
     (async () => {
       await requireAuth();
@@ -222,40 +222,6 @@
 
     const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
 
-    // Reusable client-side search + pagination for a list container.
-    // opts: { placeholder, noun, empty, pageSize, match(item,term), render(pageItems) }
-    function mountList(key, containerId, items, opts) {
-      const st = (window._lists ||= {})[key] ||= { term: "", page: 1 };
-      const box = document.getElementById(containerId);
-      const pageSize = opts.pageSize || 10;
-      function draw() {
-        const term = st.term.trim().toLowerCase();
-        const filtered = term ? items.filter(it => opts.match(it, term)) : items;
-        const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-        if (st.page > pages) st.page = pages;
-        if (st.page < 1) st.page = 1;
-        const pageItems = filtered.slice((st.page - 1) * pageSize, st.page * pageSize);
-        box.innerHTML = `
-          <div class="list-toolbar">
-            <input class="list-search" type="search" placeholder="${opts.placeholder || "Search…"}" value="${(st.term).replace(/"/g,"&quot;")}"/>
-            <span class="list-count">${filtered.length} ${opts.noun || "items"}</span>
-          </div>
-          ${filtered.length ? opts.render(pageItems) : `<p class="empty">${opts.empty || "Nothing found."}</p>`}
-          ${pages > 1 ? `<div class="pager">
-            <button class="btn sm" data-pg="prev" ${st.page <= 1 ? "disabled" : ""}>‹ Prev</button>
-            <span>Page ${st.page} of ${pages}</span>
-            <button class="btn sm" data-pg="next" ${st.page >= pages ? "disabled" : ""}>Next ›</button>
-          </div>` : ""}`;
-        const search = box.querySelector(".list-search");
-        search.oninput = (e) => { st.term = e.target.value; st.page = 1; draw();
-          const s = box.querySelector(".list-search"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); };
-        box.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => {
-          st.page += b.dataset.pg === "next" ? 1 : -1; draw();
-        });
-      }
-      draw();
-    }
-
     async function loadOverview() {
       // Admin RLS grants full read access to every table.
       const [{ data: profiles }, { data: batches }, { data: enrollments }, { data: sessions }, { data: attendance }] =
@@ -313,10 +279,12 @@
         const pend = es.filter(e => e.payment_status === "pending").length;
         return { name: b.name, paid, pend, collected: paid * (feeOf[b.id]||0) };
       }).sort((a,c) => c.collected - a.collected);
-      document.getElementById("rev-table").innerHTML = revRows.length ? `
-        <table><thead><tr><th>Batch</th><th>Paid</th><th>Pending</th><th>Collected</th></tr></thead><tbody>
-        ${revRows.map(r => `<tr><td>${esc(r.name)}</td><td>${r.paid}</td><td>${r.pend}</td><td>${pkr(r.collected)}</td></tr>`).join("")}
-        </tbody></table>` : '<p class="empty">No batches yet.</p>';
+      mountList("rev", "rev-table", revRows, {
+        hideSearch: true, noun: "batches", empty: "No batches yet.", pageSize: 6,
+        render: (items) => `<table><thead><tr><th>Batch</th><th>Paid</th><th>Pending</th><th>Collected</th></tr></thead><tbody>
+          ${items.map(r => `<tr><td>${esc(r.name)}</td><td>${r.paid}</td><td>${r.pend}</td><td>${pkr(r.collected)}</td></tr>`).join("")}
+          </tbody></table>`
+      });
 
       // Teacher load
       const tmap = Object.fromEntries((profiles||[]).filter(p=>p.role==="teacher").map(t=>[t.id,t]));
@@ -330,10 +298,12 @@
       // Resolve teacher names
       const { data: tprofs } = await sb.from("profiles").select("id,full_name").in("id", Object.keys(tmap).length?Object.keys(tmap):["00000000-0000-0000-0000-000000000000"]);
       const nameOf = Object.fromEntries((tprofs||[]).map(t=>[t.id,t.full_name]));
-      document.getElementById("teacher-table").innerHTML = tRows.length ? `
-        <table><thead><tr><th>Teacher</th><th>Batches</th><th>Paid Students</th><th>Sessions</th></tr></thead><tbody>
-        ${tRows.map(r => `<tr><td>${esc(nameOf[r.tid]||'—')}</td><td>${r.batches}</td><td>${r.roster}</td><td>${r.sess}</td></tr>`).join("")}
-        </tbody></table>` : '<p class="empty">No teachers yet.</p>';
+      mountList("tload", "teacher-table", tRows, {
+        hideSearch: true, noun: "teachers", empty: "No teachers yet.", pageSize: 6,
+        render: (items) => `<table><thead><tr><th>Teacher</th><th>Batches</th><th>Paid Students</th><th>Sessions</th></tr></thead><tbody>
+          ${items.map(r => `<tr><td>${esc(nameOf[r.tid]||'—')}</td><td>${r.batches}</td><td>${r.roster}</td><td>${r.sess}</td></tr>`).join("")}
+          </tbody></table>`
+      });
     }
 
     async function loadTeacherSelect() {
