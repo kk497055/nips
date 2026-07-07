@@ -97,6 +97,8 @@ tr:last-child td{border-bottom:none}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
 .field input,.field select,.field textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit}
+.template-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.template-form-grid{grid-template-columns:1fr}}
 
 /* Login */
 .auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--primary),var(--primary-dark));padding:24px}

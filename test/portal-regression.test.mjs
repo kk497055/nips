@@ -72,3 +72,40 @@ test("quiz take action still strips correct answers", () => {
     "student quiz payload must not include correct_index"
   );
 });
+
+test("curriculum templates are reusable teacher-owned content", () => {
+  const schema = read("portal/db-schema.sql");
+  const patch = read("portal/curriculum-templates.sql");
+
+  for (const source of [schema, patch]) {
+    assert.match(source, /create table if not exists public\.curriculum_templates/i);
+    assert.match(source, /create table if not exists public\.curriculum_template_topics/i);
+    assert.match(source, /owner_id\s+uuid not null references public\.profiles\(id\)/i);
+    assert.match(source, /create or replace function public\.is_teacher\(\)/i);
+    assert.match(source, /role in \('teacher','admin'\)/i);
+    assert.match(source, /create or replace function public\.owns_curriculum_template/i);
+    assert.match(source, /owner_id = auth\.uid\(\) or public\.is_admin\(\)/i);
+  }
+});
+
+test("teacher UX separates designing curriculum from applying it to a batch", () => {
+  const teacher = read("portal/teacher.html");
+
+  assert.match(teacher, /Teacher Console/);
+  assert.match(teacher, /My Curriculum/);
+  assert.match(teacher, /Create Curriculum/);
+  assert.match(teacher, /Apply Curriculum to Batch/);
+  assert.match(teacher, /from\("curriculum_templates"\)\.insert/);
+  assert.match(teacher, /from\("curriculum_template_topics"\)\.insert/);
+  assert.match(teacher, /function applyTemplateToBatch\(\)/);
+  assert.match(teacher, /from\("curriculum_topics"\)\.insert\(rows\)/);
+  assert.match(teacher, /from\("curriculum_topics"\)\.delete\(\)\.eq\("batch_id", curBatch\)/);
+});
+
+test("student syllabus remains batch progress, not reusable template content", () => {
+  const student = read("portal/student.html");
+
+  assert.match(student, /from\("curriculum_topics"\)[\s\S]*\.eq\("batch_id", b\.id\)/);
+  assert.doesNotMatch(student, /curriculum_templates/);
+  assert.doesNotMatch(student, /curriculum_template_topics/);
+});

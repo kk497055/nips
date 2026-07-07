@@ -20,9 +20,29 @@
   </div>
 
   <div class="wrap">
-    <h1>My Batches</h1>
-    <p class="sub">Start classes, mark attendance, and add recording links. Student contact details are not shared with you.</p>
-    <div id="batches"><p class="empty">Loading…</p></div>
+    <h1>Teacher Console</h1>
+    <p class="sub">Design reusable curriculum, apply it to batches, and manage live class work. Student contact details are not shared with you.</p>
+
+    <div class="section">
+      <h2>My Curriculum</h2>
+      <div class="card">
+        <div class="msg" id="tpl-msg"></div>
+        <div class="template-form-grid">
+          <div class="field"><label>Curriculum Name</label><input id="tpl-title" placeholder="IELTS 8-week plan"/></div>
+          <div class="field"><label>Category</label><input id="tpl-category" placeholder="IELTS, Matric, Spoken English"/></div>
+          <div class="field" style="grid-column:1 / -1"><label>Description</label><textarea id="tpl-desc" rows="2" placeholder="Short internal note for this reusable curriculum."></textarea></div>
+        </div>
+        <div class="row-actions">
+          <button class="btn green" onclick="createTemplate()">Create Curriculum</button>
+        </div>
+      </div>
+      <div id="templates" style="margin-top:12px"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div class="section">
+      <h2>My Batches</h2>
+      <div id="batches"><p class="empty">Loading…</p></div>
+    </div>
   </div>
 
   <!-- Attendance modal -->
@@ -83,6 +103,10 @@
     <div class="card" style="width:100%;max-width:560px;max-height:88vh;overflow:auto">
       <h3 id="cur-title">Curriculum</h3>
       <div class="msg" id="cur-msg"></div>
+      <div class="field"><label>Apply Curriculum to Batch</label><select id="cur-template"></select></div>
+      <div class="row-actions" style="margin-bottom:12px">
+        <button class="btn green sm" onclick="applyTemplateToBatch()">Apply Curriculum to Batch</button>
+      </div>
       <div class="meta" id="cur-progress" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <input id="cur-new" placeholder="Add a topic, e.g. Quadratic equations" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:8px"/>
@@ -106,7 +130,7 @@
       if (p.role !== "teacher" && p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._me = p;
-      render();
+      await Promise.all([renderTemplates(), render()]);
     })();
 
     async function render() {
@@ -137,6 +161,120 @@
             </div>
           </div>`;
       }
+    }
+
+    const tplMsg = (t, ok=false) => { const m=document.getElementById("tpl-msg"); m.className="msg "+(ok?"ok":"err"); m.textContent=t; };
+
+    async function renderTemplates() {
+      const [{ data: templates }, { data: topics }] = await Promise.all([
+        sb.from("curriculum_templates").select("*").eq("is_archived", false).order("created_at", { ascending: false }),
+        sb.from("curriculum_template_topics").select("*").order("position").order("created_at")
+      ]);
+      window._templates = templates || [];
+      window._templateTopics = topics || [];
+      const topicCount = {};
+      (topics || []).forEach(t => topicCount[t.template_id] = (topicCount[t.template_id] || 0) + 1);
+      const box = document.getElementById("templates");
+      if (!templates || !templates.length) {
+        box.innerHTML = '<p class="empty">No reusable curriculums yet. Create one above, then apply it to a batch.</p>';
+        refreshTemplateSelect();
+        return;
+      }
+      box.innerHTML = templates.map(t => `
+        <div class="card" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div>
+              <h3>${esc(t.title)}</h3>
+              <div class="meta">${esc(t.category || 'Uncategorized')} · ${topicCount[t.id] || 0} topics${t.description ? ` · ${esc(t.description)}` : ''}</div>
+            </div>
+            <div class="row-actions">
+              <button class="btn soft sm" onclick="editTemplateTopics('${t.id}')">Topics</button>
+              <button class="btn danger sm" onclick="archiveTemplate('${t.id}')">Archive</button>
+            </div>
+          </div>
+          <div id="tpl-topics-${t.id}" style="display:none;margin-top:12px"></div>
+        </div>`).join("");
+      refreshTemplateSelect();
+    }
+
+    function refreshTemplateSelect() {
+      const sel = document.getElementById("cur-template");
+      if (!sel) return;
+      sel.innerHTML = (window._templates || []).length
+        ? (window._templates || []).map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join("")
+        : '<option value="">No reusable curriculums yet</option>';
+    }
+
+    async function createTemplate() {
+      const title = document.getElementById("tpl-title").value.trim();
+      const category = document.getElementById("tpl-category").value.trim() || null;
+      const description = document.getElementById("tpl-desc").value.trim() || null;
+      if (!title) return tplMsg("Enter a curriculum name.");
+      if (title.length > 120) return tplMsg("Keep curriculum names under 120 characters.");
+      const { error } = await sb.from("curriculum_templates").insert({
+        title, category, description, owner_id: window._me.id
+      });
+      if (error) return tplMsg("Error: " + error.message);
+      document.getElementById("tpl-title").value = "";
+      document.getElementById("tpl-category").value = "";
+      document.getElementById("tpl-desc").value = "";
+      tplMsg("Curriculum created. Add topics next.", true);
+      await renderTemplates();
+    }
+
+    function templateTopicRows(templateId) {
+      return (window._templateTopics || []).filter(t => t.template_id === templateId);
+    }
+
+    async function editTemplateTopics(templateId) {
+      const box = document.getElementById("tpl-topics-" + templateId);
+      if (!box) return;
+      const isOpen = box.style.display !== "none";
+      if (isOpen) { box.style.display = "none"; return; }
+      const rows = templateTopicRows(templateId);
+      box.style.display = "block";
+      box.innerHTML = `
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input id="tpl-new-${templateId}" placeholder="Add reusable topic" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:8px"/>
+          <button class="btn green sm" onclick="addTemplateTopic('${templateId}')">Add</button>
+        </div>
+        ${rows.length ? rows.map((topic, index) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
+          <span class="meta">${index + 1}</span>
+          <span style="flex:1">${esc(topic.title)}</span>
+          <button class="btn danger sm" onclick="deleteTemplateTopic('${topic.id}','${templateId}')">Delete</button>
+        </div>`).join("") : '<p class="empty">No topics yet.</p>'}`;
+    }
+
+    async function addTemplateTopic(templateId) {
+      const input = document.getElementById("tpl-new-" + templateId);
+      const title = input?.value.trim();
+      if (!title) return tplMsg("Enter a topic name.");
+      if (title.length > 200) return tplMsg("Keep topics under 200 characters.");
+      const { error } = await sb.from("curriculum_template_topics").insert({
+        template_id: templateId, title, position: Date.now() % 1000000
+      });
+      if (error) return tplMsg("Error: " + error.message);
+      tplMsg("Topic added to reusable curriculum.", true);
+      await renderTemplates();
+      await editTemplateTopics(templateId);
+    }
+
+    async function deleteTemplateTopic(topicId, templateId) {
+      if (!confirm("Remove this reusable topic?")) return;
+      const { error } = await sb.from("curriculum_template_topics").delete().eq("id", topicId);
+      if (error) return tplMsg("Error: " + error.message);
+      await renderTemplates();
+      await editTemplateTopics(templateId);
+    }
+
+    async function archiveTemplate(templateId) {
+      if (!confirm("Archive this curriculum? Existing batch curriculum will not be affected.")) return;
+      const { error } = await sb.from("curriculum_templates").update({
+        is_archived: true, updated_at: new Date().toISOString()
+      }).eq("id", templateId);
+      if (error) return tplMsg("Error: " + error.message);
+      tplMsg("Curriculum archived.", true);
+      await renderTemplates();
     }
 
     async function openAttendance(batchId) {
@@ -416,6 +554,7 @@
       document.getElementById("cur-title").textContent = "Curriculum — " + ((window._batchNames||{})[batchId] || "");
       document.getElementById("cur-msg").className = "msg";
       document.getElementById("cur-new").value = "";
+      refreshTemplateSelect();
       document.getElementById("cur").style.display = "flex";
       await renderCurriculum();
     }
@@ -442,6 +581,34 @@
       if (error) return curMsg("Error: " + error.message);
       document.getElementById("cur-new").value = "";
       curMsg("Topic added.", true);
+      await renderCurriculum();
+    }
+
+    async function applyTemplateToBatch() {
+      const templateId = document.getElementById("cur-template").value;
+      if (!templateId) return curMsg("Create a reusable curriculum first.");
+      const template = (window._templates || []).find(t => t.id === templateId);
+      const topics = templateTopicRows(templateId);
+      if (!topics.length) return curMsg("This curriculum has no topics yet.");
+
+      const { data: existing } = await sb.from("curriculum_topics").select("id").eq("batch_id", curBatch);
+      if (existing && existing.length) {
+        const replace = confirm("This batch already has curriculum topics. Replace them with the selected curriculum?");
+        if (!replace) return;
+        const del = await sb.from("curriculum_topics").delete().eq("batch_id", curBatch);
+        if (del.error) return curMsg("Could not replace existing topics: " + del.error.message);
+      }
+
+      const rows = topics.map((topic, index) => ({
+        batch_id: curBatch,
+        title: topic.title,
+        position: topic.position || index,
+        covered_at: null,
+        created_by: window._me.id
+      }));
+      const { error } = await sb.from("curriculum_topics").insert(rows);
+      if (error) return curMsg("Error: " + error.message);
+      curMsg(`Applied "${template?.title || 'curriculum'}" to this batch.`, true);
       await renderCurriculum();
     }
 
