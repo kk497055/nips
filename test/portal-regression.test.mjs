@@ -140,3 +140,15 @@ test("admin business overview defaults to bounded date-range activity", () => {
   assert.match(css, /\.overview-custom\{[\s\S]*display:none/);
   assert.match(css, /\.overview-custom\.open\{display:grid\}/);
 });
+
+test("portal pages use current stylesheet cache key", () => {
+  for (const file of [
+    "portal/admin.html",
+    "portal/teacher.html",
+    "portal/student.html",
+    "portal/login.html",
+    "portal/classroom.html",
+  ]) {
+    assert.match(read(file), /portal\.css\?v=7/, `${file} should request the latest portal.css`);
+  }
+});
