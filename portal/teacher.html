@@ -78,6 +78,23 @@
     </div>
   </div>
 
+  <!-- Curriculum modal -->
+  <div id="cur" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
+    <div class="card" style="width:100%;max-width:560px;max-height:88vh;overflow:auto">
+      <h3 id="cur-title">Curriculum</h3>
+      <div class="msg" id="cur-msg"></div>
+      <div class="meta" id="cur-progress" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="cur-new" placeholder="Add a topic, e.g. Quadratic equations" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:8px"/>
+        <button class="btn green sm" onclick="addTopic()">Add</button>
+      </div>
+      <div id="cur-list"></div>
+      <div class="row-actions" style="margin-top:12px">
+        <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('cur').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=6"></script>
   <script>
@@ -116,6 +133,7 @@
               <button class="btn soft sm" onclick="openAssignments('${b.id}')">Assignments</button>
               <button class="btn soft sm" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>
               <button class="btn soft sm" onclick="openQuizzes('${b.id}')">Quizzes</button>
+              <button class="btn soft sm" onclick="openCurriculum('${b.id}')">Curriculum</button>
             </div>
           </div>`;
       }
@@ -388,6 +406,54 @@
         <div class="row-actions" style="margin-bottom:10px"><button class="btn sm" onclick="renderQuizList()">‹ Back</button></div>
         <h3 style="font-family:'Outfit',sans-serif;font-size:16px;margin:0 0 10px">${title} — leaderboard</h3>
         <table><thead><tr><th>#</th><th>Student</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    let curBatch = null;
+    const curMsg = (t, ok=false) => { const m=document.getElementById("cur-msg"); m.className="msg "+(ok?"ok":"err"); m.textContent=t; };
+
+    async function openCurriculum(batchId) {
+      curBatch = batchId;
+      document.getElementById("cur-title").textContent = "Curriculum — " + ((window._batchNames||{})[batchId] || "");
+      document.getElementById("cur-msg").className = "msg";
+      document.getElementById("cur-new").value = "";
+      document.getElementById("cur").style.display = "flex";
+      await renderCurriculum();
+    }
+
+    async function renderCurriculum() {
+      const { data: topics } = await sb.from("curriculum_topics").select("*").eq("batch_id", curBatch).order("position").order("created_at");
+      const done = (topics||[]).filter(t => t.covered_at).length, total = (topics||[]).length;
+      document.getElementById("cur-progress").innerHTML = total
+        ? `<strong>${done}/${total} topics covered</strong> (${Math.round(done/total*100)}%)` : "No topics yet — add your syllabus below.";
+      document.getElementById("cur-list").innerHTML = (topics||[]).map(t => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
+          <input type="checkbox" ${t.covered_at?"checked":""} onchange="toggleTopic('${t.id}', this.checked)" title="Covered?"/>
+          <span style="flex:1;${t.covered_at?'color:var(--muted);text-decoration:line-through':''}">${esc(t.title)}</span>
+          ${t.covered_at?`<span class="meta">${new Date(t.covered_at).toLocaleDateString()}</span>`:""}
+          <button class="btn danger sm" onclick="deleteTopic('${t.id}')">✕</button>
+        </div>`).join("") || "";
+    }
+
+    async function addTopic() {
+      const title = document.getElementById("cur-new").value.trim();
+      if (!title) return curMsg("Enter a topic name.");
+      if (title.length > 200) return curMsg("Keep topics under 200 characters.");
+      const { error } = await sb.from("curriculum_topics").insert({ batch_id: curBatch, title, position: Date.now()%1000000, created_by: window._me.id });
+      if (error) return curMsg("Error: " + error.message);
+      document.getElementById("cur-new").value = "";
+      curMsg("Topic added.", true);
+      await renderCurriculum();
+    }
+
+    async function toggleTopic(id, covered) {
+      const { error } = await sb.from("curriculum_topics").update({ covered_at: covered ? new Date().toISOString() : null }).eq("id", id);
+      if (error) curMsg("Error: " + error.message); else await renderCurriculum();
+    }
+
+    async function deleteTopic(id) {
+      if (!confirm("Remove this topic?")) return;
+      await sb.from("curriculum_topics").delete().eq("id", id);
+      await renderCurriculum();
     }
 
     async function sendClassReminder(batchId) {

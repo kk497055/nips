@@ -140,6 +140,20 @@
             }).join("")
           : '<div class="recording-empty">No assignments yet</div>';
 
+        const { data: topics } = await sb.from("curriculum_topics")
+          .select("title,covered_at").eq("batch_id", b.id).order("position").order("created_at");
+        let curHtml = "";
+        if (topics && topics.length) {
+          const done = topics.filter(t => t.covered_at).length, tot = topics.length;
+          const pct = Math.round(done / tot * 100);
+          curHtml = `<div class="recordings"><strong>Syllabus — ${done}/${tot} covered (${pct}%)</strong>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin:8px 0;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:var(--primary)"></div></div>
+            <details><summary style="cursor:pointer;font-size:13px;color:var(--muted)">View topics</summary>
+              ${topics.map(t => `<div style="font-size:13px;padding:3px 0">${t.covered_at?"✅":"⬜"} ${esc(t.title)}</div>`).join("")}
+            </details></div>`;
+        }
+
         const { data: quizzes } = await sb.from("quizzes").select("id,title,created_at").eq("batch_id", b.id).order("created_at",{ascending:false});
         const { data: myAtt } = await sb.from("quiz_attempts").select("quiz_id,score,total").eq("student_id", window._sid);
         const attOf = Object.fromEntries((myAtt||[]).map(a=>[a.quiz_id,a]));
@@ -173,6 +187,7 @@
               <a class="btn green" href="classroom.html?batch=${b.id}">Join Live Class</a>
               <button class="btn soft" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>
             </div>
+            ${curHtml}
             <div class="recordings"><strong>Materials</strong>${matHtml}</div>
             <div class="recordings"><strong>Assignments</strong>${asgHtml}</div>
             <div class="recordings"><strong>Quizzes</strong>${quizHtml}</div>
