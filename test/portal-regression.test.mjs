@@ -123,11 +123,13 @@ test("admin-created accounts can include admin role from the UI and edge functio
 
 test("admin business overview defaults to bounded date-range activity", () => {
   const admin = read("portal/admin.html");
+  const css = read("portal/portal.css");
 
-  assert.match(admin, /<select id="ov-range">/);
-  assert.match(admin, /<option value="30d">Last 30 days<\/option>/);
-  assert.match(admin, /<option value="custom">Custom<\/option>/);
-  assert.match(admin, /<option value="all">All time<\/option>/);
+  assert.match(admin, /<input type="hidden" id="ov-range" value="30d"\/>/);
+  assert.match(admin, /data-range="30d">30 days<\/button>/);
+  assert.match(admin, /data-range="custom">Custom<\/button>/);
+  assert.match(admin, /data-range="all">All time<\/button>/);
+  assert.match(admin, /id="ov-custom"/);
   assert.match(admin, /function initOverviewControls\(\)/);
   assert.match(admin, /function overviewRange\(\)/);
   assert.match(admin, /function inRange\(q, col, range/);
@@ -135,4 +137,6 @@ test("admin business overview defaults to bounded date-range activity", () => {
   assert.match(admin, /from\("sessions"\)\.select\("batch_id,started_at,ended_at,recording_url,created_by"\)/);
   assert.match(admin, /from\("attendance"\)\.select\("status,session_date"\)/);
   assert.doesNotMatch(admin, /from\("attendance"\)\.select\("status"\)/);
+  assert.match(css, /\.overview-custom\{[\s\S]*display:none/);
+  assert.match(css, /\.overview-custom\.open\{display:grid\}/);
 });

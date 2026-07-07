@@ -27,21 +27,25 @@
     <div class="section">
       <h2>Business Overview</h2>
       <div class="overview-toolbar">
-        <div class="field"><label>Range</label>
-          <select id="ov-range">
-            <option value="30d">Last 30 days</option>
-            <option value="7d">Last 7 days</option>
-            <option value="today">Today</option>
-            <option value="month">This month</option>
-            <option value="custom">Custom</option>
-            <option value="all">All time</option>
-          </select>
+        <div class="overview-filter-main">
+          <div class="overview-filter-title">Activity range</div>
+          <p class="meta" id="ov-note"></p>
         </div>
-        <div class="field"><label>From</label><input id="ov-from" type="date"/></div>
-        <div class="field"><label>To</label><input id="ov-to" type="date"/></div>
-        <button class="btn green sm" id="ov-apply">Apply</button>
+        <input type="hidden" id="ov-range" value="30d"/>
+        <div class="overview-presets" role="group" aria-label="Business overview range">
+          <button class="range-chip active" type="button" data-range="30d">30 days</button>
+          <button class="range-chip" type="button" data-range="7d">7 days</button>
+          <button class="range-chip" type="button" data-range="today">Today</button>
+          <button class="range-chip" type="button" data-range="month">This month</button>
+          <button class="range-chip" type="button" data-range="custom">Custom</button>
+          <button class="range-chip" type="button" data-range="all">All time</button>
+        </div>
+        <div class="overview-custom" id="ov-custom">
+          <div class="field"><label>From</label><input id="ov-from" type="date"/></div>
+          <div class="field"><label>To</label><input id="ov-to" type="date"/></div>
+          <button class="btn green sm" id="ov-apply">Apply</button>
+        </div>
       </div>
-      <p class="meta" id="ov-note" style="margin:-8px 0 12px"></p>
       <div class="stats" id="stats"><p class="empty">Loading…</p></div>
       <div class="mini-tables">
         <div>
@@ -255,16 +259,22 @@
       if (mode === "today") from = today;
       if (mode === "7d") from = addDays(today, -6);
       if (mode === "month") from = today.slice(0, 8) + "01";
-      document.getElementById("ov-from").disabled = mode === "all";
-      document.getElementById("ov-to").disabled = mode === "all";
+      document.getElementById("ov-range").value = mode;
+      document.querySelectorAll(".range-chip").forEach(btn => btn.classList.toggle("active", btn.dataset.range === mode));
+      document.getElementById("ov-custom").classList.toggle("open", mode === "custom");
       if (mode !== "custom" && mode !== "all") {
         document.getElementById("ov-from").value = from;
         document.getElementById("ov-to").value = to;
       }
     }
     function initOverviewControls() {
-      setOverviewPreset(document.getElementById("ov-range").value);
-      document.getElementById("ov-range").onchange = e => setOverviewPreset(e.target.value);
+      setOverviewPreset("30d");
+      document.querySelectorAll(".range-chip").forEach(btn => {
+        btn.onclick = () => {
+          setOverviewPreset(btn.dataset.range);
+          if (btn.dataset.range !== "custom") loadOverview();
+        };
+      });
       document.getElementById("ov-apply").onclick = loadOverview;
     }
     function overviewRange() {
