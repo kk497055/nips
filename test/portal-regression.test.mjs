@@ -120,3 +120,19 @@ test("admin-created accounts can include admin role from the UI and edge functio
   assert.match(createUser, /me\?\.role !== "admin"/);
   assert.match(createUser, /role === "admin" \? "admin"/);
 });
+
+test("admin business overview defaults to bounded date-range activity", () => {
+  const admin = read("portal/admin.html");
+
+  assert.match(admin, /<select id="ov-range">/);
+  assert.match(admin, /<option value="30d">Last 30 days<\/option>/);
+  assert.match(admin, /<option value="custom">Custom<\/option>/);
+  assert.match(admin, /<option value="all">All time<\/option>/);
+  assert.match(admin, /function initOverviewControls\(\)/);
+  assert.match(admin, /function overviewRange\(\)/);
+  assert.match(admin, /function inRange\(q, col, range/);
+  assert.match(admin, /from\("payments"\)\.select\("batch_id,amount,paid_on"\)/);
+  assert.match(admin, /from\("sessions"\)\.select\("batch_id,started_at,ended_at,recording_url,created_by"\)/);
+  assert.match(admin, /from\("attendance"\)\.select\("status,session_date"\)/);
+  assert.doesNotMatch(admin, /from\("attendance"\)\.select\("status"\)/);
+});

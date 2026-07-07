@@ -26,6 +26,22 @@
     <!-- BUSINESS OVERVIEW -->
     <div class="section">
       <h2>Business Overview</h2>
+      <div class="overview-toolbar">
+        <div class="field"><label>Range</label>
+          <select id="ov-range">
+            <option value="30d">Last 30 days</option>
+            <option value="7d">Last 7 days</option>
+            <option value="today">Today</option>
+            <option value="month">This month</option>
+            <option value="custom">Custom</option>
+            <option value="all">All time</option>
+          </select>
+        </div>
+        <div class="field"><label>From</label><input id="ov-from" type="date"/></div>
+        <div class="field"><label>To</label><input id="ov-to" type="date"/></div>
+        <button class="btn green sm" id="ov-apply">Apply</button>
+      </div>
+      <p class="meta" id="ov-note" style="margin:-8px 0 12px"></p>
       <div class="stats" id="stats"><p class="empty">Loading…</p></div>
       <div class="mini-tables">
         <div>
@@ -171,6 +187,7 @@
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;
+      initOverviewControls();
       await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadBulkEnrol()]);
     })();
 
@@ -222,30 +239,101 @@
 
     const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
 
+    const localISO = (d = new Date()) => {
+      const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+      return x.toISOString().slice(0, 10);
+    };
+    const addDays = (date, days) => {
+      const d = new Date(date + "T12:00:00");
+      d.setDate(d.getDate() + days);
+      return localISO(d);
+    };
+    const rangeLabel = r => r.all ? "All time" : `${r.from} to ${r.to}`;
+    function setOverviewPreset(mode) {
+      const today = localISO();
+      let from = addDays(today, -29), to = today;
+      if (mode === "today") from = today;
+      if (mode === "7d") from = addDays(today, -6);
+      if (mode === "month") from = today.slice(0, 8) + "01";
+      document.getElementById("ov-from").disabled = mode === "all";
+      document.getElementById("ov-to").disabled = mode === "all";
+      if (mode !== "custom" && mode !== "all") {
+        document.getElementById("ov-from").value = from;
+        document.getElementById("ov-to").value = to;
+      }
+    }
+    function initOverviewControls() {
+      setOverviewPreset(document.getElementById("ov-range").value);
+      document.getElementById("ov-range").onchange = e => setOverviewPreset(e.target.value);
+      document.getElementById("ov-apply").onclick = loadOverview;
+    }
+    function overviewRange() {
+      const mode = document.getElementById("ov-range").value;
+      if (mode === "all") return { all: true, from: null, to: null };
+      const from = document.getElementById("ov-from").value || localISO();
+      const to = document.getElementById("ov-to").value || from;
+      return from <= to ? { all: false, from, to } : { all: false, from: to, to: from };
+    }
+    function inRange(q, col, range, kind = "ts") {
+      if (range.all) return q;
+      return kind === "date"
+        ? q.gte(col, range.from).lte(col, range.to)
+        : q.gte(col, range.from + "T00:00:00").lte(col, range.to + "T23:59:59.999");
+    }
+
     async function loadOverview() {
-      // Admin RLS grants full read access to every table.
-      const [{ data: profiles }, { data: batches }, { data: batchTeachers }, { data: enrollments }, { data: sessions }, { data: attendance }] =
-        await Promise.all([
-          sb.from("profiles").select("id,role"),
-          sb.from("batches").select("id,name,fee,teacher_id,is_active"),
-          sb.from("batch_teachers").select("batch_id,teacher_id"),
-          sb.from("enrollments").select("batch_id,student_id,payment_status"),
-          sb.from("sessions").select("batch_id,started_at,ended_at,recording_url,created_by"),
-          sb.from("attendance").select("status")
-        ]);
+      const range = overviewRange();
+      document.getElementById("ov-note").textContent =
+        range.all
+          ? "Showing all-time activity. This can be slower as usage grows."
+          : `Showing activity for ${rangeLabel(range)}. Current student, teacher, and active batch counts remain all-time snapshots.`;
+
+      const pendingQuery = inRange(
+        sb.from("enrollments").select("batch_id,student_id,payment_status,enrolled_at").eq("payment_status","pending"),
+        "enrolled_at",
+        range
+      );
+      const demoQuery = inRange(
+        sb.from("enrollments").select("*", { count: "exact", head: true }).eq("payment_status","demo"),
+        "enrolled_at",
+        range
+      );
+      const paymentsQuery = inRange(sb.from("payments").select("batch_id,amount,paid_on"), "paid_on", range);
+      const sessionsQuery = inRange(sb.from("sessions").select("batch_id,started_at,ended_at,recording_url,created_by"), "started_at", range);
+      const attendanceQuery = inRange(sb.from("attendance").select("status,session_date"), "session_date", range, "date");
+
+      const [
+        studentsRes, teachersRes, batchesRes, batchTeachersRes, paidEnrollmentsRes,
+        pendingRes, demoRes, paymentsRes, sessionsRes, attendanceRes
+      ] = await Promise.all([
+        sb.from("profiles").select("*", { count: "exact", head: true }).eq("role","student"),
+        sb.from("profiles").select("id,full_name").eq("role","teacher"),
+        sb.from("batches").select("id,name,fee,teacher_id,is_active"),
+        sb.from("batch_teachers").select("batch_id,teacher_id"),
+        sb.from("enrollments").select("batch_id,student_id,payment_status").eq("payment_status","paid"),
+        pendingQuery,
+        demoQuery,
+        paymentsQuery,
+        sessionsQuery,
+        attendanceQuery
+      ]);
+
+      const batches = batchesRes.data || [];
+      const teachers = teachersRes.data || [];
+      const batchTeachers = batchTeachersRes.data || [];
+      const paidEnrollments = paidEnrollmentsRes.data || [];
+      const pendingEnrollments = pendingRes.data || [];
+      const payments = paymentsRes.data || [];
+      const sessions = sessionsRes.data || [];
+      const attendance = attendanceRes.data || [];
 
       const feeOf = Object.fromEntries((batches||[]).map(b => [b.id, Number(b.fee)||0]));
-      const students = (profiles||[]).filter(p => p.role === "student").length;
-      const teachers = (profiles||[]).filter(p => p.role === "teacher").length;
+      const students = studentsRes.count || 0;
+      const teacherCount = teachers.length;
       const activeBatches = (batches||[]).filter(b => b.is_active).length;
 
-      let collected = 0, pending = 0;
-      (enrollments||[]).forEach(e => {
-        const fee = feeOf[e.batch_id] || 0;
-        if (e.payment_status === "paid") collected += fee;
-        else if (e.payment_status === "pending") pending += fee;
-        // 'demo' is trial access — never counted as revenue.
-      });
+      const collected = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const pending = pendingEnrollments.reduce((sum, e) => sum + (feeOf[e.batch_id] || 0), 0);
 
       // Teaching hours: sessions with both start and end timestamps.
       let hours = 0, closed = 0;
@@ -261,44 +349,41 @@
       const attPresent = (attendance||[]).filter(a => a.status === "present").length;
       const attRate = attTotal ? Math.round(attPresent / attTotal * 100) : null;
 
-      const paidCount = (enrollments||[]).filter(e => e.payment_status === "paid").length;
-      const pendCount = (enrollments||[]).filter(e => e.payment_status === "pending").length;
-      const demoCount = (enrollments||[]).filter(e => e.payment_status === "demo").length;
+      const paidCount = payments.length;
+      const pendCount = pendingEnrollments.length;
+      const demoCount = demoRes.count || 0;
 
       document.getElementById("stats").innerHTML = `
-        <div class="stat"><div class="num">${students}</div><div class="lbl">Students</div><div class="hint">${teachers} teachers · ${demoCount} demo</div></div>
+        <div class="stat"><div class="num">${students}</div><div class="lbl">Students</div><div class="hint">${teacherCount} teachers · ${demoCount} demo</div></div>
         <div class="stat"><div class="num">${activeBatches}</div><div class="lbl">Active Batches</div><div class="hint">${(batches||[]).length} total</div></div>
-        <div class="stat"><div class="num">${pkr(collected)}</div><div class="lbl">Collected</div><div class="hint">${paidCount} paid enrolments</div></div>
+        <div class="stat"><div class="num">${pkr(collected)}</div><div class="lbl">Collected</div><div class="hint">${paidCount} payments recorded</div></div>
         <div class="stat"><div class="num amber">${pkr(pending)}</div><div class="lbl">Pending</div><div class="hint">${pendCount} awaiting payment</div></div>
         <div class="stat"><div class="num">${hours.toFixed(1)}</div><div class="lbl">Teaching Hours</div><div class="hint">${closed} sessions logged</div></div>
         <div class="stat"><div class="num">${attRate===null?'—':attRate+'%'}</div><div class="lbl">Attendance</div><div class="hint">${recordings} recordings</div></div>`;
 
       // Revenue by batch
       const revRows = (batches||[]).map(b => {
-        const es = (enrollments||[]).filter(e => e.batch_id === b.id);
-        const paid = es.filter(e => e.payment_status === "paid").length;
-        const pend = es.filter(e => e.payment_status === "pending").length;
-        return { name: b.name, paid, pend, collected: paid * (feeOf[b.id]||0) };
+        const paid = payments.filter(p => p.batch_id === b.id).length;
+        const pend = pendingEnrollments.filter(e => e.batch_id === b.id).length;
+        return { name: b.name, paid, pend, collected: payments.filter(p => p.batch_id === b.id).reduce((sum, p) => sum + Number(p.amount || 0), 0) };
       }).sort((a,c) => c.collected - a.collected);
       mountList("rev", "rev-table", revRows, {
         hideSearch: true, noun: "batches", empty: "No batches yet.", pageSize: 6,
-        render: (items) => `<table><thead><tr><th>Batch</th><th>Paid</th><th>Pending</th><th>Collected</th></tr></thead><tbody>
+        render: (items) => `<table><thead><tr><th>Batch</th><th>Payments</th><th>Pending</th><th>Collected</th></tr></thead><tbody>
           ${items.map(r => `<tr><td>${esc(r.name)}</td><td>${r.paid}</td><td>${r.pend}</td><td>${pkr(r.collected)}</td></tr>`).join("")}
           </tbody></table>`
       });
 
       // Teacher load
-      const tmap = Object.fromEntries((profiles||[]).filter(p=>p.role==="teacher").map(t=>[t.id,t]));
+      const tmap = Object.fromEntries(teachers.map(t=>[t.id,t]));
       const tRows = Object.keys(tmap).map(tid => {
         const bids = new Set((batches||[]).filter(b => b.teacher_id === tid).map(b => b.id));
         (batchTeachers||[]).filter(bt => bt.teacher_id === tid).forEach(bt => bids.add(bt.batch_id));
-        const roster = (enrollments||[]).filter(e => bids.has(e.batch_id) && e.payment_status === "paid").length;
+        const roster = (paidEnrollments||[]).filter(e => bids.has(e.batch_id)).length;
         const sess = (sessions||[]).filter(s => s.created_by === tid || bids.has(s.batch_id)).length;
         return { batches: bids.size, roster, sess, tid };
       });
-      // Resolve teacher names
-      const { data: tprofs } = await sb.from("profiles").select("id,full_name").in("id", Object.keys(tmap).length?Object.keys(tmap):["00000000-0000-0000-0000-000000000000"]);
-      const nameOf = Object.fromEntries((tprofs||[]).map(t=>[t.id,t.full_name]));
+      const nameOf = Object.fromEntries(teachers.map(t=>[t.id,t.full_name]));
       mountList("tload", "teacher-table", tRows, {
         hideSearch: true, noun: "teachers", empty: "No teachers yet.", pageSize: 6,
         render: (items) => `<table><thead><tr><th>Teacher</th><th>Batches</th><th>Paid Students</th><th>Sessions</th></tr></thead><tbody>
