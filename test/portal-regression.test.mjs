@@ -121,6 +121,16 @@ test("admin-created accounts can include admin role from the UI and edge functio
   assert.match(createUser, /role === "admin" \? "admin"/);
 });
 
+test("people table can promote users to admin with self-change guard", () => {
+  const admin = read("portal/admin.html");
+
+  assert.match(admin, /Make Admin/);
+  assert.match(admin, /setRole\('\$\{u\.id\}','admin'\)/);
+  assert.match(admin, /id === window\._meId/);
+  assert.match(admin, /You cannot change your own role/);
+  assert.match(admin, /role === "admin" && !confirm/);
+});
+
 test("admin business overview defaults to bounded date-range activity", () => {
   const admin = read("portal/admin.html");
   const css = read("portal/portal.css");

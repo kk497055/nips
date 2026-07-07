@@ -176,7 +176,7 @@
     <!-- PEOPLE -->
     <div class="section">
       <h2>People</h2>
-      <p class="meta" style="margin-bottom:8px">Promote a signed-up user to Teacher, or enrol a student into a batch and mark them paid.</p>
+      <p class="meta" style="margin-bottom:8px">Promote signed-up users to Teacher or Admin, or enrol students into batches after payment review.</p>
       <div id="people"><p class="empty">Loading…</p></div>
     </div>
   </div>
@@ -567,6 +567,7 @@
           <td><span class="badge">${u.role}</span></td>
           <td class="row-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `
+            ${u.role!=='admin'?`<button class="btn danger sm" onclick="setRole('${u.id}','admin')">Make Admin</button>`:''}
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
             ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
@@ -584,6 +585,8 @@
     }
 
     async function setRole(id, role) {
+      if (id === window._meId) return alert("You cannot change your own role from this screen.");
+      if (role === "admin" && !confirm("Make this user an admin? They will be able to manage users, payments, batches, and system access.")) return;
       const { error } = await sb.from("profiles").update({ role }).eq("id",id);
       if (error) return alert("Error: "+error.message);
       await Promise.all([loadPeople(), loadTeacherSelect()]);
