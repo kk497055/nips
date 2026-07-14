@@ -3,3 +3,12 @@
 /portal/sw.js
   Content-Type: application/javascript
   Service-Worker-Allowed: /portal/
+
+/portal/admin.html
+  X-Robots-Tag: noindex, nofollow, noarchive
+/portal/student.html
+  X-Robots-Tag: noindex, nofollow, noarchive
+/portal/teacher.html
+  X-Robots-Tag: noindex, nofollow, noarchive
+/portal/classroom.html
+  X-Robots-Tag: noindex, nofollow, noarchive

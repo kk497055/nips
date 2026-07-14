@@ -5,6 +5,20 @@ const SUPABASE_ANON_KEY = "sb_publishable_qPM05rVcSDylY3K_viaksw_D-31dW90";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// A shared footer keeps the signed-in portal connected to the public install
+// guide without duplicating markup across dashboards. Live classroom stays
+// deliberately distraction-free by opting out with data-portal-footer="false".
+function initPortalFooter() {
+  if (document.body?.dataset.portalFooter === "false" || document.getElementById("portal-footer")) return;
+  const footer = document.createElement("footer");
+  footer.id = "portal-footer";
+  footer.className = "portal-footer";
+  footer.innerHTML = `<div><strong>NIPS Education Solutions SMC (Pvt) Ltd.</strong><span>Secure learning portal</span></div>
+    <nav aria-label="Portal links"><a href="/portal/install.html">Get the NIPS Portal</a><a href="/">NIPS website</a><a href="/contact.html">Contact NIPS</a></nav>`;
+  document.body.appendChild(footer);
+}
+initPortalFooter();
+
 // Register the PWA service worker (makes the portal installable, offline-tolerant).
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/portal/sw.js").catch(() => {}));

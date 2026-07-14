@@ -248,7 +248,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/classroom.html",
   ]) {
     assert.match(read(file), /portal\.css\?v=8/, `${file} should request the latest portal.css`);
-    assert.match(read(file), /config\.js\?v=7/, `${file} should request the latest portal behavior`);
+    assert.match(read(file), /config\.js\?v=8/, `${file} should request the latest portal behavior`);
   }
 });
 
@@ -281,4 +281,18 @@ test("public site has a free install entry point for the portal", () => {
   assert.match(site, /function initPortalFooterLink\(\)/);
   assert.match(site, /href="\/portal\/install\.html"/);
   assert.match(site, /Get the NIPS Portal/);
+});
+
+test("signed-in portal pages have a footer and are not indexable", () => {
+  const config = read("portal/config.js");
+  const headers = read("_headers");
+  const protectedPages = ["portal/admin.html", "portal/student.html", "portal/teacher.html", "portal/classroom.html"];
+
+  assert.match(config, /function initPortalFooter\(\)/);
+  assert.match(config, /Get the NIPS Portal/);
+  for (const file of protectedPages) {
+    assert.match(read(file), /<meta name="robots" content="noindex, nofollow, noarchive"/);
+    assert.match(headers, new RegExp(`/${file}\\n  X-Robots-Tag: noindex, nofollow, noarchive`));
+  }
+  assert.match(read("portal/classroom.html"), /data-portal-footer="false"/);
 });
