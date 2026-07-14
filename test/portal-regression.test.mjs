@@ -224,6 +224,21 @@ test("admin business overview defaults to bounded date-range activity", () => {
   assert.match(css, /\.overview-custom\.open\{display:grid\}/);
 });
 
+test("admin console is organized into focused routed workspaces", () => {
+  const admin = read("portal/admin.html");
+
+  for (const view of ["overview", "batches", "students", "billing", "communications", "staff"]) {
+    assert.match(admin, new RegExp(`${view}: \\{ label:`));
+    assert.match(admin, new RegExp(`data-admin-view=\"[^\"]*${view}`));
+  }
+  assert.match(admin, /href="admin\.html\?view=\$\{key\}"/);
+  assert.match(admin, /function setupAdminWorkspace\(\)/);
+  assert.match(admin, /section\.hidden = !section\.dataset\.adminView/);
+  assert.match(admin, /view === "billing"/);
+  assert.match(admin, /view === "batches"/);
+  assert.match(admin, /view === "students"/);
+});
+
 test("portal pages use current stylesheet cache key", () => {
   for (const file of [
     "portal/admin.html",

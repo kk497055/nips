@@ -9,6 +9,12 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
+  <style>
+    .admin-nav{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:4px;overflow:auto;white-space:nowrap}
+    .admin-nav a{display:block;padding:12px 11px;color:var(--muted);font-size:13px;font-weight:700;border-bottom:3px solid transparent}
+    .admin-nav a.active{color:var(--primary);border-bottom-color:var(--secondary)}
+    .admin-nav a:hover{color:var(--primary);background:#f7faf8}
+  </style>
 </head>
 <body>
   <div class="topbar">
@@ -19,12 +25,14 @@
     </div>
   </div>
 
+  <nav class="admin-nav" id="admin-nav" aria-label="Admin sections"></nav>
+
   <div class="wrap">
-    <h1>Admin Console</h1>
-    <p class="sub">Manage batches, assign teachers, and unlock student access after confirming bank payment.</p>
+    <h1 id="admin-title">Admin Console</h1>
+    <p class="sub" id="admin-subtitle">Manage batches, assign teachers, and unlock student access after confirming bank payment.</p>
 
     <!-- BUSINESS OVERVIEW -->
-    <div class="section">
+    <div class="section" data-admin-view="overview">
       <h2>Business Overview</h2>
       <div class="overview-toolbar">
         <div class="overview-filter-main">
@@ -60,7 +68,7 @@
     </div>
 
     <!-- CREATE BATCH -->
-    <div class="section">
+    <div class="section" data-admin-view="batches">
       <h2>Create Batch</h2>
       <div class="card">
         <div class="msg" id="batch-msg"></div>
@@ -109,7 +117,7 @@
     </div>
 
     <!-- BATCHES -->
-    <div class="section">
+    <div class="section" data-admin-view="batches">
       <h2>Batches</h2>
       <div id="batches"><p class="empty">Loading…</p></div>
     </div>
@@ -188,7 +196,7 @@
     </div>
 
     <!-- NOTIFICATIONS -->
-    <div class="section">
+    <div class="section" data-admin-view="communications">
       <h2>Notifications</h2>
       <div class="card">
         <div class="msg" id="notify-msg"></div>
@@ -205,7 +213,7 @@
     </div>
 
     <!-- PENDING PAYMENTS -->
-    <div class="section">
+    <div class="section" data-admin-view="billing">
       <h2>Pending Payments</h2>
       <div id="pending-payments"><p class="empty">Loading…</p></div>
       <h3 style="font-family:'Outfit',sans-serif;font-size:16px;margin:18px 0 8px">Monthly Due Payments</h3>
@@ -213,14 +221,14 @@
     </div>
 
     <!-- PAYMENT LEDGER -->
-    <div class="section">
+    <div class="section" data-admin-view="billing">
       <h2>Payment Ledger</h2>
       <p class="meta" style="margin-bottom:8px">Confirmed payments and receipt delivery. Resending a receipt uses the same receipt number.</p>
       <div id="payment-ledger"><p class="empty">Loading…</p></div>
     </div>
 
     <!-- CREATE ACCOUNT -->
-    <div class="section">
+    <div class="section" data-admin-view="staff">
       <h2>Create Account</h2>
       <div class="card">
         <p class="meta" style="margin-bottom:10px">Create a pre-verified account directly (no email confirmation needed). Share the password with the user.</p>
@@ -238,7 +246,7 @@
     </div>
 
     <!-- BULK ENROL -->
-    <div class="section">
+    <div class="section" data-admin-view="students">
       <h2>Bulk Enrol</h2>
       <div class="card">
         <div class="msg" id="be-msg"></div>
@@ -257,9 +265,9 @@
     </div>
 
     <!-- PEOPLE -->
-    <div class="section">
-      <h2>People</h2>
-      <p class="meta" style="margin-bottom:8px">Promote signed-up users to Teacher or Admin, or enrol students into batches after payment review.</p>
+    <div class="section" data-admin-view="students staff">
+      <h2 id="people-heading">People</h2>
+      <p class="meta" id="people-note" style="margin-bottom:8px">Promote signed-up users to Teacher or Admin, or enrol students into batches after payment review.</p>
       <div id="people"><p class="empty">Loading…</p></div>
     </div>
   </div>
@@ -267,15 +275,43 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=6"></script>
   <script>
+    const ADMIN_VIEWS = {
+      overview: { label: "Overview", title: "Admin Overview", subtitle: "Your operational snapshot: revenue, collections, batches, and teaching activity." },
+      batches: { label: "Batches", title: "Batches", subtitle: "Create and run batches, manage teachers, schedules, students, and monthly billing." },
+      students: { label: "Students", title: "Students & Enrolments", subtitle: "Add students to batches, set agreed fees, and manage enrolment access." },
+      billing: { label: "Billing", title: "Payments & Billing", subtitle: "Confirm payments, manage monthly collections, grace periods, receipts, and revenue history." },
+      communications: { label: "Communications", title: "Communications", subtitle: "Send announcements and class reminders to enrolled students." },
+      staff: { label: "Staff & Access", title: "Staff & Access", subtitle: "Create accounts and manage teacher, administrator, and staff permissions." }
+    };
+    const requestedAdminView = new URLSearchParams(location.search).get("view");
+    window._adminView = ADMIN_VIEWS[requestedAdminView] ? requestedAdminView : "overview";
+    function setupAdminWorkspace() {
+      const view = window._adminView;
+      const config = ADMIN_VIEWS[view];
+      document.getElementById("admin-title").textContent = config.title;
+      document.getElementById("admin-subtitle").textContent = config.subtitle;
+      document.getElementById("admin-nav").innerHTML = Object.entries(ADMIN_VIEWS).map(([key, item]) =>
+        `<a href="admin.html?view=${key}" class="${key === view ? "active" : ""}">${item.label}</a>`
+      ).join("");
+      document.querySelectorAll("[data-admin-view]").forEach(section => {
+        section.hidden = !section.dataset.adminView.split(" ").includes(view);
+      });
+    }
     (async () => {
+      setupAdminWorkspace();
       await requireAuth();
       const p = await getProfile();
       if (!p) return logout();
       if (p.role !== "admin") return routeByRole(p.role);
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;
-      initOverviewControls();
-      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadMonthlyCollections(), loadPaymentLedger(), loadBulkEnrol()]);
+      const view = window._adminView;
+      if (view === "overview") { initOverviewControls(); await loadOverview(); }
+      if (view === "batches") await Promise.all([loadTeacherSelect(), loadBatches()]);
+      if (view === "students") await Promise.all([loadPeople(), loadBulkEnrol()]);
+      if (view === "billing") await Promise.all([loadPendingPayments(), loadMonthlyCollections(), loadPaymentLedger()]);
+      if (view === "communications") await loadPeople();
+      if (view === "staff") await Promise.all([loadPeople(), loadTeacherSelect()]);
     })();
 
     // ---------- Bulk enrol ----------
@@ -874,7 +910,16 @@
       const box = document.getElementById("people");
       window._batches = batches || [];
       renderBatchSelect();
-      if (!people || !people.length) { box.innerHTML = '<p class="empty">No users yet.</p>'; return; }
+      const view = window._adminView;
+      const visiblePeople = (people || []).filter(u => view === "students" ? u.role === "student" : view === "staff" ? u.role !== "student" : true);
+      if (view === "students") {
+        document.getElementById("people-heading").textContent = "Student Accounts";
+        document.getElementById("people-note").textContent = "Review student accounts and enrol them into the appropriate batches after payment review.";
+      } else if (view === "staff") {
+        document.getElementById("people-heading").textContent = "Staff Accounts";
+        document.getElementById("people-note").textContent = "Manage teacher and administrator permissions. Student accounts are managed on the Students page.";
+      }
+      if (!visiblePeople.length) { box.innerHTML = '<p class="empty">No matching users yet.</p>'; return; }
 
       const rowHtml = (u) => {
         const isSelf = u.id === window._meId;
@@ -892,9 +937,9 @@
           </td>
         </tr>`; };
 
-      mountList("people", "people", people, {
-        placeholder: "Search people by name or role…",
-        noun: "people", empty: "No people match your search.", pageSize: 10,
+      mountList("people", "people", visiblePeople, {
+        placeholder: view === "students" ? "Search students…" : "Search staff by name or role…",
+        noun: view === "students" ? "students" : "staff", empty: "No people match your search.", pageSize: 10,
         match: (u, t) => `${u.full_name||''} ${u.role||''}`.toLowerCase().includes(t),
         render: (items) => `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table>`
       });
@@ -1126,7 +1171,7 @@
         const body = await sendNotify({ type: "enrolment_paid", student_id, batch_id });
         alert(`Marked paid. Confirmation email sent to ${body.sent}/${body.total} student(s).`);
       } catch (e) { alert("Marked paid. Email not sent: " + e.message); }
-      await Promise.all([loadPendingPayments(), loadOverview(), loadBatches()]);
+      await Promise.all([loadPendingPayments(), loadPaymentLedger(), loadOverview(), loadBatches()]);
     }
 
     async function enrol(studentId, status) {
@@ -1158,7 +1203,7 @@
         }
       }
       alert(note);
-      await Promise.all([loadPendingPayments(), loadOverview(), loadBatches()]);
+      await Promise.all([loadPendingPayments(), loadPaymentLedger(), loadOverview(), loadBatches()]);
     }
 
     document.getElementById("cu-btn").onclick = async () => {
