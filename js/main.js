@@ -10,7 +10,25 @@ document.addEventListener("DOMContentLoaded", function () {
   initScrollAnimations();
   initBackToTop();
   initFormHandling();
+  initPortalFooterLink();
 });
+
+/* ========================================
+   Student Portal Install Entry Point
+   ======================================== */
+function initPortalFooterLink() {
+  document.querySelectorAll(".footer").forEach((footer) => {
+    if (footer.querySelector(".footer-portal-link")) return;
+    const linkGroup = [...footer.querySelectorAll(".footer-links")].find((group) =>
+      /quick links/i.test(group.querySelector("h4")?.textContent || "")
+    ) || footer.querySelector(".footer-links");
+    const list = linkGroup?.querySelector("ul");
+    if (!list) return;
+    const item = document.createElement("li");
+    item.innerHTML = '<a class="footer-portal-link" href="/portal/install.html">Get the NIPS Portal</a>';
+    list.appendChild(item);
+  });
+}
 
 /* ========================================
    Navbar Scroll Effect

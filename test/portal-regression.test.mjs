@@ -269,3 +269,16 @@ test("student centre keeps existing dashboard data in focused self-service views
   assert.match(config, /function showPortalInstallHelp\(\)/);
   assert.doesNotMatch(student, /wa\.me/);
 });
+
+test("public site has a free install entry point for the portal", () => {
+  const install = read("portal/install.html");
+  const site = read("js/main.js");
+
+  assert.match(install, /Get the NIPS Portal/);
+  assert.match(install, /data-pwa-install/);
+  assert.match(install, /Install on this device/);
+  assert.match(install, /No App Store or Google Play account is required/);
+  assert.match(site, /function initPortalFooterLink\(\)/);
+  assert.match(site, /href="\/portal\/install\.html"/);
+  assert.match(site, /Get the NIPS Portal/);
+});

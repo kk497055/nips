@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Install NIPS Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css?v=8" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1a5336" />
+  <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
+</head>
+<body>
+  <div class="topbar">
+    <a class="brand" href="../index.html"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Education Solutions</a>
+    <div class="right"><a class="btn ghost sm" href="login.html">Portal sign in</a></div>
+  </div>
+
+  <main class="wrap install-page">
+    <p class="eyebrow">Free web app</p>
+    <h1>Get the NIPS Portal</h1>
+    <p class="sub">Install NIPS Portal on your phone or computer for one-tap access to classes, learning work, fees, and receipts. No App Store or Google Play account is required.</p>
+
+    <div class="card install-hero">
+      <div>
+        <h2>Already have a NIPS account?</h2>
+        <p class="meta">Sign in, then install the portal from your browser. Your existing account, batches, and records stay exactly the same.</p>
+      </div>
+      <div class="row-actions">
+        <button class="btn green" data-pwa-install hidden onclick="installPortalApp()">Install on this device</button>
+        <button class="btn soft" onclick="showPortalInstallHelp()">How to install</button>
+        <a class="btn" href="login.html">Sign in to Portal</a>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Installation steps</h2>
+      <div class="grid install-grid">
+        <div class="card"><h3>Android phone</h3><p class="meta">Open this page in Chrome, tap the browser menu (⋮), then choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</p></div>
+        <div class="card"><h3>iPhone or iPad</h3><p class="meta">Open this page in Safari, tap <strong>Share</strong>, then choose <strong>Add to Home Screen</strong>.</p></div>
+        <div class="card"><h3>Computer</h3><p class="meta">Open this page in Chrome or Edge and use the install icon in the address bar when it appears.</p></div>
+      </div>
+    </section>
+
+    <p class="meta install-note">NIPS Portal is a secure web app. You will sign in with your normal NIPS Portal email and password.</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js?v=7"></script>
+</body>
+</html>
