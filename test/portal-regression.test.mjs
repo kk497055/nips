@@ -255,19 +255,28 @@ test("portal pages use current stylesheet cache key", () => {
 test("student centre keeps existing dashboard data in focused self-service views", () => {
   const student = read("portal/student.html");
   const config = read("portal/config.js");
+  const financePolicy = read("portal/student-finance-access.sql");
 
   for (const view of ["home", "classes", "learning", "fees", "account"]) {
     assert.match(student, new RegExp(`data-student-nav="${view}"`));
   }
   assert.match(student, /function setupStudentWorkspace\(profile\)/);
   assert.match(student, /data-student-view="fees"/);
-  assert.match(student, /My Fees/);
+  assert.match(student, /Fees &amp; Receipts/);
+  assert.match(student, /My Batch Fees/);
+  assert.match(student, /Monthly Payments/);
+  assert.match(student, /Payment Receipts/);
+  assert.match(student, /No payments yet\./);
+  assert.match(student, /paidBatchIds/);
   assert.match(student, /printReceipt/);
   assert.match(student, /Contact NIPS/);
   assert.match(config, /beforeinstallprompt/);
   assert.match(config, /function installPortalApp\(\)/);
   assert.match(config, /function showPortalInstallHelp\(\)/);
   assert.doesNotMatch(student, /wa\.me/);
+  assert.match(financePolicy, /create policy batches_student_finance/i);
+  assert.match(financePolicy, /student_id = auth\.uid\(\)/i);
+  assert.doesNotMatch(financePolicy, /drop |delete |truncate /i);
 });
 
 test("public site has a free install entry point for the portal", () => {

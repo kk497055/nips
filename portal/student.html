@@ -94,11 +94,18 @@
       // RLS returns only batches where this student is PAID + enrolled.
       const [{ data: batches }, { data: enrollments }] = await Promise.all([
         sb.from("batches").select("*").eq("is_active", true),
-        sb.from("enrollments").select("payment_status")
+        sb.from("enrollments").select("batch_id,payment_status,amount,discount_note,enrolled_at")
       ]);
       const box = document.getElementById("batches");
+      window._studentEnrollments = enrollments || [];
+      // The finance view can see a student's pending enrolments. Keep the
+      // learning dashboard paid/demo-only as before.
+      const paidBatchIds = new Set((enrollments || [])
+        .filter(e => e.payment_status === "paid" || e.payment_status === "demo")
+        .map(e => e.batch_id));
+      const learningBatches = (batches || []).filter(b => paidBatchIds.has(b.id));
 
-      if (!batches || !batches.length) {
+      if (!learningBatches.length) {
         const hasPending = (enrollments || []).some(e => e.payment_status === "pending");
         box.className = "student-empty-wrap";
         box.innerHTML = `
@@ -128,7 +135,7 @@
       }
 
       box.innerHTML = "";
-      for (const b of batches) {
+      for (const b of learningBatches) {
         const { data: recs } = await sb.from("sessions")
           .select("title,started_at,recording_url").eq("batch_id", b.id)
           .not("recording_url","is",null).order("started_at",{ascending:false}).limit(5);
@@ -248,15 +255,39 @@
     }
 
     async function renderFees() {
-      const { data: pays } = await sb.from("payments").select("*").order("paid_on", { ascending: false });
+      const [{ data: pays, error: paymentError }, { data: invoices, error: invoiceError }, { data: batches, error: batchError }] = await Promise.all([
+        sb.from("payments").select("*").order("paid_on", { ascending: false }),
+        sb.from("monthly_invoices").select("*").order("billing_month", { ascending: false }),
+        sb.from("batches").select("id,name,fee").eq("is_active", true)
+      ]);
       const el = document.getElementById("fees");
-      if (!pays || !pays.length) { el.innerHTML = ""; return; }
-      window._pays = Object.fromEntries(pays.map(p => [p.id, p]));
-      const total = pays.reduce((s, p) => s + Number(p.amount || 0), 0);
-      el.innerHTML = `<div class="section"><h2>My Fees</h2>
-        <p class="meta" style="margin-bottom:10px">Total paid: <strong>PKR ${total.toLocaleString()}</strong></p>
+      if (paymentError || invoiceError || batchError) {
+        el.innerHTML = `<div class="section"><h2>Fees &amp; Receipts</h2><div class="card"><p class="empty">We could not load your fee records. Please refresh the page or contact NIPS support.</p></div></div>`;
+        return;
+      }
+      const payments = pays || [], monthlyInvoices = invoices || [], enrolled = window._studentEnrollments || [];
+      const batchOf = Object.fromEntries((batches || []).map(b => [b.id, b]));
+      const agreedFee = (enrollment, batch) => {
+        const amount = Number(enrollment?.amount);
+        return Number.isFinite(amount) && (amount > 0 || enrollment?.discount_note) ? amount : Number(batch?.fee || 0);
+      };
+      const statusLabel = (status) => status === "paid" ? "Paid" : status === "demo" ? "Demo access" : "Awaiting payment confirmation";
+      const outstanding = monthlyInvoices.filter(i => i.status !== "paid").reduce((sum, i) => sum + Number(i.amount || 0), 0);
+      const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      window._pays = Object.fromEntries(payments.map(p => [p.id, p]));
+      const enrolmentHtml = enrolled.length ? `<table><thead><tr><th>Batch</th><th>Agreed fee</th><th>Enrolment status</th></tr></thead><tbody>
+        ${enrolled.map(e => { const batch = batchOf[e.batch_id]; return `<tr><td>${esc(batch?.name || "Your NIPS batch")}</td><td>PKR ${agreedFee(e, batch).toLocaleString()}</td><td><span class="pill ${e.payment_status === "paid" ? "paid" : "pending"}">${statusLabel(e.payment_status)}</span></td></tr>`; }).join("")}
+      </tbody></table>` : `<div class="card"><p class="empty">You do not have any batch enrolments yet.</p></div>`;
+      const invoiceHtml = monthlyInvoices.length ? `<table><thead><tr><th>Month</th><th>Amount</th><th>Due date</th><th>Status</th></tr></thead><tbody>
+        ${monthlyInvoices.map(i => `<tr><td>${new Date(i.billing_month + "T12:00:00").toLocaleDateString(undefined,{month:"long",year:"numeric"})}</td><td>PKR ${Number(i.amount||0).toLocaleString()}</td><td>${new Date(i.due_date + "T12:00:00").toLocaleDateString()}</td><td><span class="pill ${i.status === "paid" ? "paid" : "pending"}">${esc(i.status)}</span></td></tr>`).join("")}
+      </tbody></table>` : `<div class="card"><p class="empty">No monthly fee is due at this time.</p></div>`;
+      el.innerHTML = `<div class="section"><h2>Fees &amp; Receipts</h2>
+        <div class="stats" style="margin-bottom:16px"><div class="stat"><div class="num">PKR ${total.toLocaleString()}</div><div class="lbl">Total paid</div></div><div class="stat"><div class="num ${outstanding ? "amber" : ""}">PKR ${outstanding.toLocaleString()}</div><div class="lbl">Monthly balance due</div></div></div>
+        <h3 class="fee-subhead">My Batch Fees</h3>${enrolmentHtml}
+        <h3 class="fee-subhead">Monthly Payments</h3>${invoiceHtml}
+        <h3 class="fee-subhead">Payment Receipts</h3><p class="meta" style="margin-bottom:10px">Receipts appear here once NIPS records a payment. They are also sent to your registered email.</p>
         <div id="fees-table"></div></div>`;
-      mountList("fees", "fees-table", pays, {
+      mountList("fees", "fees-table", payments, {
         hideSearch: true, noun: "payments", empty: "No payments yet.", pageSize: 8,
         render: (items) => `<table><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th>Receipt</th></tr></thead><tbody>
           ${items.map(p => `<tr>

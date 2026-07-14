@@ -63,6 +63,7 @@ body:not(.auth):not([data-portal-footer="false"])>.portal-footer{margin-top:0}
 .empty-mark{width:92px;height:92px;border-radius:14px;background:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -20px 40px rgba(0,0,0,.12)}
 .empty-mark img{max-width:64px;max-height:64px}
 .student-empty h2{font-family:'Outfit',sans-serif;font-size:25px;line-height:1.2;margin-bottom:8px}
+.fee-subhead{font-family:'Outfit',sans-serif;font-size:16px;margin:24px 0 10px}
 .empty-lead{color:#4b5563;max-width:620px;margin-bottom:18px}
 .progress-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
 .progress-step{border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;color:var(--muted);min-height:82px}
