@@ -53,6 +53,9 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   const admin = read("portal/admin.html");
 
   assert.match(admin, /Edit Batch/);
+  assert.match(admin, /openBatchDetails\('\$\{b\.id\}'\)/, "batch title should open its details");
+  assert.match(admin, /function openBatchDetails\(batchId\)/);
+  assert.match(admin, /Student Roster/);
   assert.match(admin, /function openBatchEditor\(batchId\)/);
   assert.match(admin, /from\("batches"\)\.update\(\{/);
   assert.match(admin, /Students<\/button>/);

@@ -113,6 +113,17 @@
       <div id="batches"><p class="empty">Loading…</p></div>
     </div>
 
+    <!-- BATCH DETAILS -->
+    <div id="batch-details" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:100%;max-width:720px;max-height:88vh;overflow:auto">
+        <h3 id="batch-details-title">Batch Details</h3>
+        <div id="batch-details-content"><p class="empty">Loading…</p></div>
+        <div class="row-actions" style="margin-top:14px">
+          <button class="btn" style="background:#e5e7eb" onclick="closeBatchDetails()">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- EDIT BATCH -->
     <div id="edit-batch" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
       <div class="card" style="width:100%;max-width:620px;max-height:88vh;overflow:auto">
@@ -532,7 +543,7 @@
           const coRows = (coByBatch[b.id]||[]).filter(bt => bt.teacher_id !== b.teacher_id);
           const coNames = coRows.map(bt => esc(tmap[bt.teacher_id]||"Teacher")).join(", ") || "none";
           return `<div class="card" style="margin-bottom:12px">
-          <h3>${esc(b.name)} ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
+          <h3><button type="button" onclick="openBatchDetails('${b.id}')" style="padding:0;border:0;background:none;color:var(--primary);font:inherit;font-weight:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px" aria-label="View details for ${esc(b.name)}">${esc(b.name)}</button> ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
           <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
@@ -598,6 +609,45 @@
       const { error } = await sb.from("batches").update({ is_active: !active }).eq("id",id);
       if (error) return alert("Error: " + error.message);
       await Promise.all([loadBatches(), loadOverview()]);
+    }
+
+    function closeBatchDetails() {
+      document.getElementById("batch-details").style.display = "none";
+    }
+    async function openBatchDetails(batchId) {
+      const batch = (window._batchList || []).find(b => b.id === batchId);
+      if (!batch) return alert("Batch details are unavailable. Please refresh and try again.");
+      const content = document.getElementById("batch-details-content");
+      document.getElementById("batch-details-title").textContent = "Batch Details — " + batch.name;
+      content.innerHTML = '<p class="empty">Loading…</p>';
+      document.getElementById("batch-details").style.display = "flex";
+      const [{ data: enrollments }, { data: students }] = await Promise.all([
+        sb.from("enrollments").select("student_id,payment_status,enrolled_at").eq("batch_id", batchId).order("enrolled_at"),
+        sb.from("profiles").select("id,full_name").eq("role", "student").order("full_name")
+      ]);
+      const names = Object.fromEntries((students || []).map(s => [s.id, s.full_name]));
+      const teachers = Object.fromEntries((window._teacherList || []).map(t => [t.id, t.full_name]));
+      const coTeachers = (window._batchTeacherRows || []).filter(t => t.batch_id === batchId && t.teacher_id !== batch.teacher_id)
+        .map(t => `${esc(teachers[t.teacher_id] || "Teacher")} (${esc(t.role || "co-teacher")})`).join(", ") || "None";
+      const rows = enrollments || [];
+      const counts = { paid: 0, demo: 0, pending: 0 };
+      rows.forEach(r => { if (counts[r.payment_status] !== undefined) counts[r.payment_status]++; });
+      const roster = rows.length ? `<table><thead><tr><th>Student</th><th>Access</th><th>Enrolled</th></tr></thead><tbody>${rows.map(r =>
+        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td><td>${r.enrolled_at ? new Date(r.enrolled_at).toLocaleDateString() : "—"}</td></tr>`
+      ).join("")}</tbody></table>` : '<p class="empty">No students have been added to this batch yet.</p>';
+      content.innerHTML = `
+        <div class="meta" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:18px">
+          <div><strong>Category</strong><br>${esc(batch.category || "—")}</div>
+          <div><strong>Schedule</strong><br>${esc(batch.schedule || "—")}</div>
+          <div><strong>Fee</strong><br>${pkr(batch.fee)}</div>
+          <div><strong>Status</strong><br>${batch.is_active ? "Active" : "Inactive"}</div>
+          <div><strong>Primary teacher</strong><br>${esc(teachers[batch.teacher_id] || "Unassigned")}</div>
+          <div><strong>Co-teachers</strong><br>${coTeachers}</div>
+          <div><strong>Room</strong><br>${esc(batch.jitsi_room || "—")}</div>
+          <div><strong>Students</strong><br>${rows.length} total · ${counts.paid} paid · ${counts.demo} demo · ${counts.pending} pending</div>
+        </div>
+        <h3 style="font-size:16px">Student Roster</h3>
+        ${roster}`;
     }
 
     // Batch edits update the existing row only. Related lessons, enrollments,
