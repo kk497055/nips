@@ -13,8 +13,12 @@ function initPortalFooter() {
   const footer = document.createElement("footer");
   footer.id = "portal-footer";
   footer.className = "portal-footer";
-  footer.innerHTML = `<div><strong>NIPS Education Solutions SMC (Pvt) Ltd.</strong><span>Secure learning portal</span></div>
-    <nav aria-label="Portal links"><a href="/portal/install.html">Get the NIPS Portal</a><a href="/">NIPS website</a><a href="/contact.html">Contact NIPS</a></nav>`;
+  footer.innerHTML = `<div class="portal-footer-inner">
+    <div class="portal-footer-main"><div><strong>NIPS Education Solutions SMC (Pvt) Ltd.</strong><span>Secure learning portal</span></div>
+      <nav class="portal-footer-nav" aria-label="Portal links"><a href="/portal/install.html">Get the NIPS Portal</a><a href="/">NIPS website</a><a href="/contact.html">Contact NIPS</a></nav></div>
+    <div class="portal-footer-bottom"><p>© 2026 NIPS Education Solutions SMC (Pvt) Ltd. All rights reserved.</p>
+      <div class="portal-footer-legal"><a href="#">Privacy Policy</a><a href="#">Terms of Use</a></div></div>
+  </div>`;
   document.body.appendChild(footer);
 }
 initPortalFooter();
