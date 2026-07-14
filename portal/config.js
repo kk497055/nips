@@ -10,6 +10,51 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/portal/sw.js").catch(() => {}));
 }
 
+// App-store-free installation: supported browsers provide this prompt; iPhone/iPad
+// users get clear, native browser instructions instead. No third-party service is used.
+let deferredInstallPrompt = null;
+function updateInstallButtons() {
+  document.querySelectorAll("[data-pwa-install]").forEach((button) => {
+    button.hidden = !deferredInstallPrompt;
+  });
+}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallButtons();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallButtons();
+});
+async function installPortalApp() {
+  if (!deferredInstallPrompt) return showPortalInstallHelp();
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  updateInstallButtons();
+}
+function showPortalInstallHelp() {
+  let modal = document.getElementById("portal-install-help");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "portal-install-help";
+    modal.className = "portal-modal";
+    modal.innerHTML = `<div class="card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="portal-install-title">
+      <h3 id="portal-install-title">Install NIPS Portal</h3>
+      <p class="meta">No App Store or Play Store account is needed. Installation is free and keeps the portal one tap away on your device.</p>
+      <div class="install-steps">
+        <p><strong>Android / Chrome:</strong> open the browser menu (⋮), then choose <em>Install app</em> or <em>Add to Home screen</em>.</p>
+        <p><strong>iPhone / iPad:</strong> open this portal in Safari, tap <em>Share</em>, then <em>Add to Home Screen</em>.</p>
+        <p><strong>Computer:</strong> use the install icon in the browser address bar when it appears.</p>
+      </div>
+      <div class="row-actions"><button class="btn green" onclick="document.getElementById('portal-install-help').style.display='none'">Done</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = "flex";
+}
+
 // Escape any DB/user-controlled string before inserting into innerHTML (prevents stored XSS).
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>

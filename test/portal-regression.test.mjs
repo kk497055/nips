@@ -247,6 +247,25 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=7/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=8/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /config\.js\?v=7/, `${file} should request the latest portal behavior`);
   }
+});
+
+test("student centre keeps existing dashboard data in focused self-service views", () => {
+  const student = read("portal/student.html");
+  const config = read("portal/config.js");
+
+  for (const view of ["home", "classes", "learning", "fees", "account"]) {
+    assert.match(student, new RegExp(`data-student-nav="${view}"`));
+  }
+  assert.match(student, /function setupStudentWorkspace\(profile\)/);
+  assert.match(student, /data-student-view="fees"/);
+  assert.match(student, /My Fees/);
+  assert.match(student, /printReceipt/);
+  assert.match(student, /Contact NIPS/);
+  assert.match(config, /beforeinstallprompt/);
+  assert.match(config, /function installPortalApp\(\)/);
+  assert.match(config, /function showPortalInstallHelp\(\)/);
+  assert.doesNotMatch(student, /wa\.me/);
 });

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Student</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=7" />
+  <link rel="stylesheet" href="portal.css?v=8" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -15,6 +15,7 @@
     <div class="brand"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Portal</div>
     <div class="right">
       <span id="who"></span><span class="badge">Student</span>
+      <button class="btn ghost sm" data-pwa-install hidden onclick="installPortalApp()">Install app</button>
       <button class="btn ghost sm" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -28,22 +29,44 @@
       </div>
       <div class="support-chip">
         <span>Need help?</span>
-        <a href="https://wa.me/923215554125" target="_blank">Message NIPS</a>
+        <a href="?view=account">Account &amp; help</a>
       </div>
     </div>
 
-    <div id="live-banner"></div>
-    <div id="progress"></div>
+    <nav class="portal-tabs" aria-label="Student Centre">
+      <a data-student-nav="home" href="student.html?view=home">Home</a>
+      <a data-student-nav="classes" href="student.html?view=classes">My Classes</a>
+      <a data-student-nav="learning" href="student.html?view=learning">Learning</a>
+      <a data-student-nav="fees" href="student.html?view=fees">Fees &amp; Receipts</a>
+      <a data-student-nav="account" href="student.html?view=account">Account &amp; Help</a>
+    </nav>
 
-    <div class="section">
+    <div id="student-home" data-student-view="home">
+      <div class="student-welcome card">
+        <div><p class="eyebrow">Student Centre</p><h2>Everything for your studies, in one place.</h2><p class="meta">Use the sections above to join classes, complete learning work, view receipts, and get support.</p></div>
+        <div class="row-actions"><a class="btn green" href="student.html?view=classes">My Classes</a><a class="btn soft" href="student.html?view=fees">Fees &amp; Receipts</a></div>
+      </div>
+    </div>
+    <div id="live-banner" data-student-view="home classes"></div>
+    <div id="progress" data-student-view="home learning"></div>
+
+    <div class="section" data-student-view="classes learning">
       <div id="batches" class="grid"><p class="empty">Loading…</p></div>
     </div>
 
-    <div id="fees"></div>
+    <div id="fees" data-student-view="fees"></div>
+
+    <div class="section" data-student-view="account">
+      <h2>Account &amp; Help</h2>
+      <div class="account-grid">
+        <div class="card"><h3>Your account</h3><div id="account-details" class="account-details"><p class="meta">Loading account details…</p></div></div>
+        <div class="card"><h3>Get help</h3><p class="meta">For enrolment, access, schedule, or payment help, contact the NIPS team through the official contact page.</p><div class="row-actions"><a class="btn green" href="../contact.html">Contact NIPS</a><button class="btn soft" onclick="showPortalInstallHelp()">Install on this device</button></div></div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=6"></script>
+  <script src="config.js?v=7"></script>
   <script>
     (async () => {
       await requireAuth();
@@ -57,6 +80,7 @@
       document.getElementById("who").textContent = p.full_name + " ";
       window._sid = p.id;
       window._seenTs = p.dashboard_seen_at ? new Date(p.dashboard_seen_at).getTime() : null;
+      await setupStudentWorkspace(p);
 
       // Live "class is on now" banner + realtime updates.
       refreshLive();
@@ -93,11 +117,12 @@
                 <div class="progress-step"><span>3</span><strong>Class access</strong></div>
               </div>
               <div class="empty-actions">
-                <a class="btn green" href="https://wa.me/923215554125" target="_blank">Contact Support</a>
+                <a class="btn green" href="../contact.html">Contact Support</a>
                 <a class="btn soft" href="../contact.html">Admissions Help</a>
               </div>
             </div>
           </div>`;
+        renderFees();
         return;
       }
 
@@ -200,6 +225,26 @@
 
       renderFees();
     })();
+
+    async function setupStudentWorkspace(profile) {
+      const allowed = ["home", "classes", "learning", "fees", "account"];
+      const requested = new URLSearchParams(location.search).get("view");
+      const view = allowed.includes(requested) ? requested : "home";
+      document.querySelectorAll("[data-student-view]").forEach((section) => {
+        section.hidden = !section.dataset.studentView.split(" ").includes(view);
+      });
+      document.querySelectorAll("[data-student-nav]").forEach((link) => {
+        const active = link.dataset.studentNav === view;
+        link.classList.toggle("active", active);
+        if (active) link.setAttribute("aria-current", "page");
+      });
+      const { data: { user } } = await sb.auth.getUser();
+      document.getElementById("account-details").innerHTML = `<dl>
+        <div><dt>Name</dt><dd>${esc(profile.full_name)}</dd></div>
+        <div><dt>Email</dt><dd>${esc(user?.email || "Not available")}</dd></div>
+        <div><dt>Role</dt><dd>Student</dd></div>
+      </dl><p class="meta">To change your account details, contact NIPS so your academic records remain accurate.</p>`;
+    }
 
     async function renderFees() {
       const { data: pays } = await sb.from("payments").select("*").order("paid_on", { ascending: false });
