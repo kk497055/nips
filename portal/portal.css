@@ -7,6 +7,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
 a{color:var(--primary);text-decoration:none}
+/* Keep the shared portal footer at the viewport bottom on short dashboards;
+   normal content still expands and scrolls naturally on longer pages. */
+body:not(.auth):not([data-portal-footer="false"]){min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+body:not(.auth):not([data-portal-footer="false"])>.wrap{flex:1;width:100%}
+body:not(.auth):not([data-portal-footer="false"])>.portal-footer{margin-top:0}
 
 /* Top bar */
 .topbar{background:var(--primary);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between}

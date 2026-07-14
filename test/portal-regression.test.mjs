@@ -247,7 +247,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=9/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=10/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });
@@ -293,6 +293,7 @@ test("signed-in portal pages have a footer and are not indexable", () => {
   assert.match(config, /Privacy Policy/);
   assert.match(config, /Terms of Use/);
   assert.match(config, /© 2026 NIPS Education Solutions/);
+  assert.match(read("portal/portal.css"), /body:not\(\.auth\):not\(\[data-portal-footer="false"\]\)\{min-height:100vh/);
   for (const file of protectedPages) {
     assert.match(read(file), /<meta name="robots" content="noindex, nofollow, noarchive"/);
     assert.match(headers, new RegExp(`/${file}\\n  X-Robots-Tag: noindex, nofollow, noarchive`));
