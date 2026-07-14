@@ -49,6 +49,21 @@ test("teacher and admin UX support co-teachers without removing primary teacher"
   assert.match(admin, /batches"\)\.update\(\{ teacher_id:/, "primary teacher assignment remains backward-compatible");
 });
 
+test("admin can safely edit a batch and add students from its batch card", () => {
+  const admin = read("portal/admin.html");
+
+  assert.match(admin, /Edit Batch/);
+  assert.match(admin, /function openBatchEditor\(batchId\)/);
+  assert.match(admin, /from\("batches"\)\.update\(\{/);
+  assert.match(admin, /Students<\/button>/);
+  assert.match(admin, /function openBatchStudents\(batchId\)/);
+  assert.match(admin, /Add Selected Students/);
+  assert.match(admin, /from\("enrollments"\)\.upsert\(/);
+  assert.match(admin, /selected\.map\(studentId => recordPayment\(studentId, managingBatchId\)\)/);
+  assert.doesNotMatch(admin, /from\("batches"\)\.delete\(/, "batch management must not delete live batches");
+  assert.doesNotMatch(admin, /from\("enrollments"\)\.delete\(/, "student management must not remove enrollments");
+});
+
 test("edge functions recognize batch_teachers for privileged teacher actions", () => {
   for (const file of [
     "supabase/functions/jaas-token/index.ts",

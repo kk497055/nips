@@ -113,6 +113,51 @@
       <div id="batches"><p class="empty">Loading…</p></div>
     </div>
 
+    <!-- EDIT BATCH -->
+    <div id="edit-batch" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:100%;max-width:620px;max-height:88vh;overflow:auto">
+        <h3 id="edit-batch-title">Edit Batch</h3>
+        <div class="msg" id="edit-batch-msg"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Batch Name *</label><input id="eb-name"/></div>
+          <div class="field"><label>Category</label><input id="eb-category" placeholder="e.g. Intermediate"/></div>
+          <div class="field"><label>Schedule</label><input id="eb-schedule" placeholder="e.g. Mon/Wed · 18:00 (from 2026-01-01)"/></div>
+          <div class="field"><label>Fee (PKR)</label><input id="eb-fee" type="number" min="0" step="1"/></div>
+          <div class="field"><label>Primary Teacher</label><select id="eb-teacher"></select></div>
+          <div class="field"><label>Room slug</label><input id="eb-room"/></div>
+          <div class="field"><label style="display:flex;align-items:center;gap:8px"><input id="eb-active" type="checkbox" style="width:auto"/> Active batch</label></div>
+        </div>
+        <div class="row-actions">
+          <button class="btn green" id="save-batch">Save Changes</button>
+          <button class="btn" style="background:#e5e7eb" onclick="closeBatchEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BATCH STUDENTS -->
+    <div id="batch-students" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:100%;max-width:680px;max-height:88vh;overflow:auto">
+        <h3 id="batch-students-title">Manage Students</h3>
+        <div class="msg" id="batch-students-msg"></div>
+        <div class="field"><label>Add students to this batch</label>
+          <input id="bs-search" class="list-search" placeholder="Search students…" style="max-width:none"/>
+        </div>
+        <div class="field"><label>Access status for selected students</label>
+          <select id="bs-status"><option value="paid">Paid — class access</option><option value="demo">Demo — class access</option><option value="pending">Pending — no class access yet</option></select>
+        </div>
+        <div id="bs-available" style="max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px"><p class="empty">Loading…</p></div>
+        <div class="row-actions" style="margin:12px 0 18px;align-items:center">
+          <span class="list-count" id="bs-count">0 selected</span>
+          <button class="btn green" id="bs-add">Add Selected Students</button>
+        </div>
+        <h3 style="font-size:16px">Current Students</h3>
+        <div id="bs-roster"><p class="empty">Loading…</p></div>
+        <div class="row-actions" style="margin-top:14px">
+          <button class="btn" style="background:#e5e7eb" onclick="closeBatchStudents()">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- NOTIFICATIONS -->
     <div class="section">
       <h2>Notifications</h2>
@@ -452,7 +497,7 @@
       ["b-name","b-date","b-time","b-fee","b-room"].forEach(id=>document.getElementById(id).value="");
       document.getElementById("b-cat").value = "";
       document.querySelectorAll("#b-days input:checked").forEach(c => c.checked = false);
-      loadBatches();
+      await Promise.all([loadBatches(), loadBulkEnrol(), loadPeople()]);
     };
 
     async function loadBatches() {
@@ -491,6 +536,8 @@
           <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
+            <button class="btn green sm" onclick="openBatchStudents('${b.id}')">Students</button>
+            <button class="btn soft sm" onclick="openBatchEditor('${b.id}')">Edit Batch</button>
             <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Primary</button>
             <button class="btn soft sm" onclick="addCoTeacher('${b.id}')">Add Co-teacher</button>
             <button class="btn soft sm" onclick="removeCoTeacher('${b.id}')">Remove Co-teacher</button>
@@ -548,9 +595,132 @@
     }
 
     async function toggleBatch(id, active) {
-      await sb.from("batches").update({ is_active: !active }).eq("id",id);
-      loadBatches();
+      const { error } = await sb.from("batches").update({ is_active: !active }).eq("id",id);
+      if (error) return alert("Error: " + error.message);
+      await Promise.all([loadBatches(), loadOverview()]);
     }
+
+    // Batch edits update the existing row only. Related lessons, enrollments,
+    // attendance, payments, and recordings remain attached to the same batch ID.
+    let editingBatchId = null;
+    function closeBatchEditor() {
+      document.getElementById("edit-batch").style.display = "none";
+      editingBatchId = null;
+    }
+    function openBatchEditor(batchId) {
+      const batch = (window._batchList || []).find(b => b.id === batchId);
+      if (!batch) return alert("Batch details are unavailable. Please refresh and try again.");
+      editingBatchId = batchId;
+      document.getElementById("edit-batch-title").textContent = "Edit Batch — " + batch.name;
+      document.getElementById("edit-batch-msg").className = "msg";
+      document.getElementById("eb-name").value = batch.name || "";
+      document.getElementById("eb-category").value = batch.category || "";
+      document.getElementById("eb-schedule").value = batch.schedule || "";
+      document.getElementById("eb-fee").value = batch.fee ?? 0;
+      document.getElementById("eb-room").value = batch.jitsi_room || "";
+      document.getElementById("eb-active").checked = !!batch.is_active;
+      const teachers = window._teacherList || [];
+      document.getElementById("eb-teacher").innerHTML = '<option value="">— unassigned —</option>' +
+        teachers.map(t => `<option value="${t.id}" ${t.id === batch.teacher_id ? "selected" : ""}>${esc(t.full_name)}</option>`).join("");
+      document.getElementById("edit-batch").style.display = "flex";
+    }
+    document.getElementById("save-batch").onclick = async () => {
+      if (!editingBatchId) return;
+      const msg = document.getElementById("edit-batch-msg");
+      const show = (t, ok=false) => { msg.className = "msg " + (ok ? "ok" : "err"); msg.textContent = t; };
+      const name = document.getElementById("eb-name").value.trim();
+      const fee = Number(document.getElementById("eb-fee").value);
+      const room = document.getElementById("eb-room").value.trim();
+      if (!name) return show("Batch name is required.");
+      if (!Number.isFinite(fee) || fee < 0) return show("Fee must be a number of 0 or more.");
+      if (!room) return show("Room slug is required.");
+      const btn = document.getElementById("save-batch");
+      btn.disabled = true; btn.textContent = "Saving…";
+      const { error } = await sb.from("batches").update({
+        name,
+        category: document.getElementById("eb-category").value.trim() || null,
+        schedule: document.getElementById("eb-schedule").value.trim() || null,
+        fee,
+        teacher_id: document.getElementById("eb-teacher").value || null,
+        jitsi_room: room,
+        is_active: document.getElementById("eb-active").checked
+      }).eq("id", editingBatchId);
+      btn.disabled = false; btn.textContent = "Save Changes";
+      if (error) return show("Error: " + error.message);
+      closeBatchEditor();
+      await Promise.all([loadBatches(), loadOverview(), loadBulkEnrol(), loadPeople()]);
+    };
+
+    let managingBatchId = null;
+    let batchStudentIds = new Set();
+    let batchRosterRows = [];
+    function closeBatchStudents() {
+      document.getElementById("batch-students").style.display = "none";
+      managingBatchId = null;
+      batchStudentIds.clear();
+    }
+    function renderBatchStudentChoices() {
+      const term = document.getElementById("bs-search").value.trim().toLowerCase();
+      const enrolled = new Set(batchRosterRows.map(r => r.student_id));
+      const candidates = (window._batchStudentList || []).filter(s => !enrolled.has(s.id) && (s.full_name || "").toLowerCase().includes(term));
+      const box = document.getElementById("bs-available");
+      box.innerHTML = candidates.length ? candidates.map(s => `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:14px">
+        <input type="checkbox" data-sid="${s.id}" ${batchStudentIds.has(s.id) ? "checked" : ""}/> ${esc(s.full_name)}</label>`).join("") : '<p class="empty">No unenrolled students match.</p>';
+      box.querySelectorAll("input[type=checkbox]").forEach(cb => cb.onchange = () => {
+        cb.checked ? batchStudentIds.add(cb.dataset.sid) : batchStudentIds.delete(cb.dataset.sid);
+        document.getElementById("bs-count").textContent = batchStudentIds.size + " selected";
+      });
+      document.getElementById("bs-count").textContent = batchStudentIds.size + " selected";
+    }
+    function renderBatchRoster() {
+      const names = Object.fromEntries((window._batchStudentList || []).map(s => [s.id, s.full_name]));
+      document.getElementById("bs-roster").innerHTML = batchRosterRows.length ? `<table><thead><tr><th>Student</th><th>Access</th></tr></thead><tbody>${batchRosterRows.map(r =>
+        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td></tr>`
+      ).join("")}</tbody></table>` : '<p class="empty">No students have been added to this batch yet.</p>';
+    }
+    async function openBatchStudents(batchId) {
+      const batch = (window._batchList || []).find(b => b.id === batchId);
+      if (!batch) return alert("Batch details are unavailable. Please refresh and try again.");
+      managingBatchId = batchId;
+      batchStudentIds.clear();
+      document.getElementById("batch-students-title").textContent = "Students — " + batch.name;
+      document.getElementById("batch-students-msg").className = "msg";
+      document.getElementById("bs-search").value = "";
+      document.getElementById("batch-students").style.display = "flex";
+      const [{ data: students }, { data: roster }] = await Promise.all([
+        sb.from("profiles").select("id,full_name").eq("role", "student").order("full_name"),
+        sb.from("enrollments").select("student_id,payment_status").eq("batch_id", batchId)
+      ]);
+      window._batchStudentList = students || [];
+      batchRosterRows = roster || [];
+      renderBatchStudentChoices();
+      renderBatchRoster();
+      document.getElementById("bs-search").oninput = renderBatchStudentChoices;
+    }
+    document.getElementById("bs-add").onclick = async () => {
+      if (!managingBatchId || !batchStudentIds.size) return;
+      const msg = document.getElementById("batch-students-msg");
+      const show = (t, ok=false) => { msg.className = "msg " + (ok ? "ok" : "err"); msg.textContent = t; };
+      const btn = document.getElementById("bs-add");
+      const selected = [...batchStudentIds];
+      btn.disabled = true; btn.textContent = "Adding…";
+      const { error } = await sb.from("enrollments").upsert(
+        selected.map(student_id => ({ batch_id: managingBatchId, student_id, payment_status: document.getElementById("bs-status").value })),
+        { onConflict: "batch_id,student_id" }
+      );
+      btn.disabled = false; btn.textContent = "Add Selected Students";
+      if (error) return show("Error: " + error.message);
+      if (document.getElementById("bs-status").value === "paid") {
+        await Promise.all(selected.map(studentId => recordPayment(studentId, managingBatchId)));
+      }
+      show(`Added ${selected.length} student(s).`, true);
+      batchStudentIds.clear();
+      const { data: roster } = await sb.from("enrollments").select("student_id,payment_status").eq("batch_id", managingBatchId);
+      batchRosterRows = roster || [];
+      renderBatchStudentChoices();
+      renderBatchRoster();
+      await Promise.all([loadBatches(), loadOverview(), loadPendingPayments()]);
+    };
 
     async function loadPeople() {
       const { data: people } = await sb.from("profiles").select("*").order("created_at",{ascending:false});
