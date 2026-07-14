@@ -102,11 +102,20 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
   }),
 };
 
-export async function sendEmail(apiKey: string, from: string, to: string, subject: string, html: string) {
+export type EmailAttachment = { filename: string; content: string };
+
+export async function sendEmail(
+  apiKey: string,
+  from: string,
+  to: string,
+  subject: string,
+  html: string,
+  opts: { bcc?: string[]; attachments?: EmailAttachment[] } = {},
+) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify({ from, to: [to], subject, html, bcc: opts.bcc, attachments: opts.attachments }),
   });
   if (res.ok) return { ok: true };
   const b = await res.json().catch(() => ({}));

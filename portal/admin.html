@@ -208,6 +208,13 @@
       <div id="pending-payments"><p class="empty">Loading…</p></div>
     </div>
 
+    <!-- PAYMENT LEDGER -->
+    <div class="section">
+      <h2>Payment Ledger</h2>
+      <p class="meta" style="margin-bottom:8px">Confirmed payments and receipt delivery. Resending a receipt uses the same receipt number.</p>
+      <div id="payment-ledger"><p class="empty">Loading…</p></div>
+    </div>
+
     <!-- CREATE ACCOUNT -->
     <div class="section">
       <h2>Create Account</h2>
@@ -264,7 +271,7 @@
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;
       initOverviewControls();
-      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadBulkEnrol()]);
+      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadPaymentLedger(), loadBulkEnrol()]);
     })();
 
     // ---------- Bulk enrol ----------
@@ -975,6 +982,44 @@
       });
     }
 
+    async function loadPaymentLedger() {
+      const [{ data: payments }, { data: students }, { data: batches }] = await Promise.all([
+        sb.from("payments").select("id,student_id,batch_id,amount,note,paid_on,receipt_number,receipt_sent_at").order("paid_on", { ascending: false }),
+        sb.from("profiles").select("id,full_name"),
+        sb.from("batches").select("id,name")
+      ]);
+      const names = Object.fromEntries((students || []).map(s => [s.id, s.full_name]));
+      const batchNames = Object.fromEntries((batches || []).map(b => [b.id, b.name]));
+      const rows = (payments || []).map(p => ({
+        ...p,
+        studentName: names[p.student_id] || "Student",
+        batchName: batchNames[p.batch_id] || "NIPS course",
+        receiptState: p.receipt_number || "Not issued"
+      }));
+      mountList("ledger", "payment-ledger", rows, {
+        placeholder: "Search by student, batch, receipt number…",
+        noun: "payments", empty: "No payment records yet.", pageSize: 10,
+        match: (r, t) => `${r.studentName} ${r.batchName} ${r.receipt_number || ""} ${r.note || ""}`.toLowerCase().includes(t),
+        render: (items) => `<table><thead><tr><th>Date</th><th>Student</th><th>Batch</th><th>Amount</th><th>Receipt</th><th>Actions</th></tr></thead><tbody>${items.map(p => `<tr>
+          <td>${p.paid_on ? new Date(p.paid_on).toLocaleDateString() : "—"}</td>
+          <td>${esc(p.studentName)}</td><td>${esc(p.batchName)}</td><td>${pkr(p.amount)}</td>
+          <td>${p.receipt_number ? `<span class="pill paid">${esc(p.receipt_number)}</span>` : '<span class="pill pending">not issued</span>'}</td>
+          <td><button class="btn soft sm" onclick="sendPaymentReceipt('${p.id}')">${p.receipt_sent_at ? "Resend Receipt" : "Send Receipt"}</button></td>
+        </tr>`).join("")}</tbody></table>`
+      });
+    }
+
+    async function sendPaymentReceipt(paymentId) {
+      try {
+        const body = await sendNotify({ type: "payment_receipt", payment_id: paymentId });
+        await loadPaymentLedger();
+        return body;
+      } catch (e) {
+        alert("Receipt was not sent: " + e.message);
+        return null;
+      }
+    }
+
     async function sendPaymentReminder(student_id, batch_id) {
       try {
         const body = await sendNotify({ type: "payment_reminder", student_id, batch_id });
@@ -982,7 +1027,7 @@
       } catch (e) { alert("Email not sent: " + e.message); }
     }
 
-    // Log a payment once per student+batch (for fee history / receipts).
+    // Log a payment once per student+batch, then email its numbered receipt.
     async function recordPayment(student_id, batch_id) {
       const { count } = await sb.from("payments").select("*",{count:"exact",head:true}).eq("student_id",student_id).eq("batch_id",batch_id);
       if (count) return;
@@ -992,7 +1037,10 @@
       ]);
       const amount = agreedFeeFor(enrollment, b?.fee);
       const note = paymentNote(b?.name, enrollment?.discount_note);
-      await sb.from("payments").insert({ student_id, batch_id, amount, note, recorded_by: window._meId });
+      const { data: payment, error } = await sb.from("payments")
+        .insert({ student_id, batch_id, amount, note, recorded_by: window._meId }).select("id").single();
+      if (error) throw new Error(error.message);
+      await sendPaymentReceipt(payment.id);
     }
 
     async function markPaid(student_id, batch_id) {

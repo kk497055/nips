@@ -371,8 +371,11 @@ create table if not exists public.payments (
   student_id uuid not null references public.profiles(id) on delete cascade,
   batch_id uuid references public.batches(id) on delete set null,
   amount numeric not null default 0, note text,
-  paid_on timestamptz not null default now(), recorded_by uuid references public.profiles(id)
+  paid_on timestamptz not null default now(), recorded_by uuid references public.profiles(id),
+  receipt_number text, receipt_sent_at timestamptz
 );
+create unique index if not exists payments_receipt_number_unique
+  on public.payments (receipt_number) where receipt_number is not null;
 alter table public.payments enable row level security;
 drop policy if exists pay_admin on public.payments;
 create policy pay_admin on public.payments for all using (public.is_admin());

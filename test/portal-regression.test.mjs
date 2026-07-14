@@ -81,6 +81,24 @@ test("discount schema patch is additive", () => {
   assert.doesNotMatch(patch, /drop |delete |truncate /i);
 });
 
+test("admin payment ledger and receipt flow are present", () => {
+  const admin = read("portal/admin.html");
+  const notify = read("supabase/functions/notify/index.ts");
+  const payments = read("portal/payment-receipts.sql");
+
+  assert.match(admin, /Payment Ledger/);
+  assert.match(admin, /function loadPaymentLedger\(\)/);
+  assert.match(admin, /function sendPaymentReceipt\(paymentId\)/);
+  assert.match(admin, /await sendPaymentReceipt\(payment\.id\)/);
+  assert.match(notify, /payment_receipt/);
+  assert.match(notify, /receiptPdf/);
+  assert.match(notify, /kashif@nips\.com\.pk/);
+  assert.match(notify, /attachments:/);
+  assert.match(payments, /add column if not exists receipt_number text/i);
+  assert.match(payments, /add column if not exists receipt_sent_at timestamptz/i);
+  assert.doesNotMatch(payments, /drop |delete |truncate /i);
+});
+
 test("edge functions recognize batch_teachers for privileged teacher actions", () => {
   for (const file of [
     "supabase/functions/jaas-token/index.ts",
