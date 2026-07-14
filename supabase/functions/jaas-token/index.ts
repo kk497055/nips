@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     const batchId = url.searchParams.get("batch");
     if (!batchId) return json({ error: "Missing batch" }, 400);
 
-    const { data: batch } = await svc.from("batches").select("id,name,jitsi_room,teacher_id").eq("id", batchId).single();
+    const { data: batch } = await svc.from("batches").select("id,name,jitsi_room,teacher_id,monthly_billing_enabled").eq("id", batchId).single();
     if (!batch) return json({ error: "Batch not found" }, 404);
 
     const { data: profile } = await svc.from("profiles").select("full_name,role").eq("id", user.id).single();
@@ -64,7 +64,14 @@ Deno.serve(async (req) => {
     } else {
       const { data: enr } = await svc.from("enrollments")
         .select("payment_status").eq("batch_id", batchId).eq("student_id", user.id).maybeSingle();
-      if (!enr || enr.payment_status !== "paid") return json({ error: "No access to this class" }, 403);
+      if (!enr || !["paid", "demo"].includes(enr.payment_status)) return json({ error: "No access to this class" }, 403);
+      // Recurring billing affects only live-class access. Other portal content
+      // remains available while an account is delinquent.
+      if (batch.monthly_billing_enabled) {
+        const { data: delinquent } = await svc.from("monthly_invoices")
+          .select("id").eq("batch_id", batchId).eq("student_id", user.id).eq("status", "delinquent").maybeSingle();
+        if (delinquent) return json({ error: "Monthly fee is overdue. Live-class access is paused; contact NIPS for reinstatement." }, 403);
+      }
     }
 
     // 4. Sign the JaaS JWT.

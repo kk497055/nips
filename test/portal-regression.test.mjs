@@ -99,6 +99,29 @@ test("admin payment ledger and receipt flow are present", () => {
   assert.doesNotMatch(payments, /drop |delete |truncate /i);
 });
 
+test("monthly billing is additive and limits delinquency to live-class access", () => {
+  const schema = read("portal/monthly-billing.sql");
+  const admin = read("portal/admin.html");
+  const dunning = read("supabase/functions/monthly-dunning/index.ts");
+  const jaas = read("supabase/functions/jaas-token/index.ts");
+
+  assert.match(schema, /add column if not exists monthly_billing_enabled boolean/i);
+  assert.match(schema, /create table if not exists public\.monthly_invoices/i);
+  assert.match(schema, /unique \(batch_id, student_id, billing_month\)/i);
+  assert.match(schema, /status in \('pending','grace','delinquent','paid'\)/i);
+  assert.doesNotMatch(schema, /drop table|delete from|truncate /i);
+  assert.match(admin, /Monthly billing/);
+  assert.match(admin, /Monthly Due Payments/);
+  assert.match(admin, /function grantMonthlyGrace\(invoiceId\)/);
+  assert.match(admin, /function markMonthlyInvoicePaid\(invoiceId\)/);
+  assert.match(dunning, /GRACE_DAYS = 7/);
+  assert.match(dunning, /pending -> grace -> delinquent/);
+  assert.match(dunning, /BILLING_SCHEDULE_SECRET/);
+  assert.match(jaas, /monthly_billing_enabled/);
+  assert.match(jaas, /status", "delinquent"/);
+  assert.match(jaas, /live-class access is paused/i);
+});
+
 test("edge functions recognize batch_teachers for privileged teacher actions", () => {
   for (const file of [
     "supabase/functions/jaas-token/index.ts",

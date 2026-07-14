@@ -101,6 +101,7 @@
           </div>
           <div class="field"><label>Fee (PKR)</label><input id="b-fee" type="number" min="0" step="1" placeholder="5000"/></div>
           <div class="field"><label>Assign Teacher</label><select id="b-teacher"></select></div>
+          <div class="field" style="grid-column:1 / -1"><label style="display:flex;align-items:center;gap:8px"><input id="b-monthly" type="checkbox" style="width:auto"/> Monthly billing (due on the 1st; 7-day grace period; live-class access pauses after grace)</label></div>
           <div class="field" style="grid-column:1 / -1"><label>Room slug (optional)</label><input id="b-room" placeholder="auto-generated if blank"/></div>
         </div>
         <button class="btn green" id="create-batch">Create Batch</button>
@@ -137,6 +138,7 @@
           <div class="field"><label>Primary Teacher</label><select id="eb-teacher"></select></div>
           <div class="field"><label>Room slug</label><input id="eb-room"/></div>
           <div class="field"><label style="display:flex;align-items:center;gap:8px"><input id="eb-active" type="checkbox" style="width:auto"/> Active batch</label></div>
+          <div class="field" style="grid-column:1 / -1"><label style="display:flex;align-items:center;gap:8px"><input id="eb-monthly" type="checkbox" style="width:auto"/> Monthly billing (due on the 1st; 7-day grace period; live-class access pauses after grace)</label></div>
         </div>
         <div class="row-actions">
           <button class="btn green" id="save-batch">Save Changes</button>
@@ -206,6 +208,8 @@
     <div class="section">
       <h2>Pending Payments</h2>
       <div id="pending-payments"><p class="empty">Loading…</p></div>
+      <h3 style="font-family:'Outfit',sans-serif;font-size:16px;margin:18px 0 8px">Monthly Due Payments</h3>
+      <div id="monthly-collections"><p class="empty">Loading…</p></div>
     </div>
 
     <!-- PAYMENT LEDGER -->
@@ -271,7 +275,7 @@
       document.getElementById("who").textContent = p.full_name + " ";
       window._meId = p.id;
       initOverviewControls();
-      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadPaymentLedger(), loadBulkEnrol()]);
+      await Promise.all([loadTeacherSelect(), loadBatches(), loadPeople(), loadOverview(), loadPendingPayments(), loadMonthlyCollections(), loadPaymentLedger(), loadBulkEnrol()]);
     })();
 
     // ---------- Bulk enrol ----------
@@ -528,10 +532,11 @@
                     || name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""))
                    + "-" + Math.random().toString(36).slice(2,6);
       const teacher = document.getElementById("b-teacher").value || null;
+      const monthly_billing_enabled = document.getElementById("b-monthly").checked;
 
       btn.disabled = true; btn.textContent = "Creating…";
       const { error } = await sb.from("batches").insert({
-        name, category, schedule, fee, teacher_id: teacher, jitsi_room: room
+        name, category, schedule, fee, teacher_id: teacher, jitsi_room: room, monthly_billing_enabled
       });
       btn.disabled = false; btn.textContent = "Create Batch";
       if (error) return showBatchMsg("Error: " + error.message);
@@ -539,6 +544,7 @@
       showBatchMsg(`Batch "${name}" created.`, true);
       ["b-name","b-date","b-time","b-fee","b-room"].forEach(id=>document.getElementById(id).value="");
       document.getElementById("b-cat").value = "";
+      document.getElementById("b-monthly").checked = false;
       document.querySelectorAll("#b-days input:checked").forEach(c => c.checked = false);
       await Promise.all([loadBatches(), loadBulkEnrol(), loadPeople()]);
     };
@@ -576,7 +582,7 @@
           const coNames = coRows.map(bt => esc(tmap[bt.teacher_id]||"Teacher")).join(", ") || "none";
           return `<div class="card" style="margin-bottom:12px">
           <h3><button type="button" onclick="openBatchDetails('${b.id}')" style="padding:0;border:0;background:none;color:var(--primary);font:inherit;font-weight:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px" aria-label="View details for ${esc(b.name)}">${esc(b.name)}</button> ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
-          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
+          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · ${b.monthly_billing_enabled ? 'Monthly billing · ' : ''}Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
             <button class="btn green sm" onclick="openBatchStudents('${b.id}')">Students</button>
@@ -673,6 +679,7 @@
           <div><strong>Schedule</strong><br>${esc(batch.schedule || "—")}</div>
           <div><strong>Fee</strong><br>${pkr(batch.fee)}</div>
           <div><strong>Status</strong><br>${batch.is_active ? "Active" : "Inactive"}</div>
+          <div><strong>Billing</strong><br>${batch.monthly_billing_enabled ? "Monthly - due 1st" : "One-time"}</div>
           <div><strong>Primary teacher</strong><br>${esc(teachers[batch.teacher_id] || "Unassigned")}</div>
           <div><strong>Co-teachers</strong><br>${coTeachers}</div>
           <div><strong>Room</strong><br>${esc(batch.jitsi_room || "—")}</div>
@@ -701,6 +708,7 @@
       document.getElementById("eb-fee").value = batch.fee ?? 0;
       document.getElementById("eb-room").value = batch.jitsi_room || "";
       document.getElementById("eb-active").checked = !!batch.is_active;
+      document.getElementById("eb-monthly").checked = !!batch.monthly_billing_enabled;
       const teachers = window._teacherList || [];
       document.getElementById("eb-teacher").innerHTML = '<option value="">— unassigned —</option>' +
         teachers.map(t => `<option value="${t.id}" ${t.id === batch.teacher_id ? "selected" : ""}>${esc(t.full_name)}</option>`).join("");
@@ -725,7 +733,8 @@
         fee,
         teacher_id: document.getElementById("eb-teacher").value || null,
         jitsi_room: room,
-        is_active: document.getElementById("eb-active").checked
+        is_active: document.getElementById("eb-active").checked,
+        monthly_billing_enabled: document.getElementById("eb-monthly").checked
       }).eq("id", editingBatchId);
       btn.disabled = false; btn.textContent = "Save Changes";
       if (error) return show("Error: " + error.message);
@@ -1009,6 +1018,57 @@
       });
     }
 
+    async function loadMonthlyCollections() {
+      const today = localISO();
+      const [{ data: invoices }, { data: students }, { data: batches }] = await Promise.all([
+        sb.from("monthly_invoices").select("id,batch_id,student_id,billing_month,due_date,amount,status,grace_until,grace_note")
+          .in("status", ["pending", "grace", "delinquent"]).lte("due_date", today).order("due_date"),
+        sb.from("profiles").select("id,full_name"),
+        sb.from("batches").select("id,name")
+      ]);
+      const names = Object.fromEntries((students || []).map(s => [s.id, s.full_name]));
+      const batchNames = Object.fromEntries((batches || []).map(b => [b.id, b.name]));
+      const rows = (invoices || []).map(i => ({ ...i, studentName: names[i.student_id] || "Student", batchName: batchNames[i.batch_id] || "Batch" }));
+      mountList("monthly-collections", "monthly-collections", rows, {
+        placeholder: "Search student or batch…", noun: "monthly payments", empty: "No monthly payments are currently due.", pageSize: 10,
+        match: (r, t) => `${r.studentName} ${r.batchName} ${r.status}`.toLowerCase().includes(t),
+        render: (items) => `<table><thead><tr><th>Student</th><th>Batch</th><th>Month</th><th>Due</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${items.map(i => `<tr>
+          <td>${esc(i.studentName)}</td><td>${esc(i.batchName)}</td><td>${esc(i.billing_month)}</td><td>${esc(i.due_date)}</td><td>${pkr(i.amount)}</td>
+          <td><span class="pill ${i.status === "delinquent" ? "pending" : i.status === "grace" ? "pending" : ""}">${esc(i.status)}${i.grace_until ? ` until ${esc(i.grace_until)}` : ""}</span></td>
+          <td class="row-actions"><button class="btn green sm" onclick="markMonthlyInvoicePaid('${i.id}')">Mark Paid</button>${i.status !== "paid" ? `<button class="btn soft sm" onclick="grantMonthlyGrace('${i.id}')">Grant 7-day Grace</button>` : ""}</td>
+        </tr>`).join("")}</tbody></table>`
+      });
+    }
+
+    async function grantMonthlyGrace(invoiceId) {
+      const note = prompt("Reason for this 7-day grace period (required):");
+      if (!note || !note.trim()) return alert("A grace-period reason is required.");
+      const grace_until = addDays(localISO(), 7);
+      const { error } = await sb.from("monthly_invoices").update({ status: "grace", grace_until, grace_note: note.trim(), updated_at: new Date().toISOString() }).eq("id", invoiceId);
+      if (error) return alert("Error: " + error.message);
+      alert(`Grace period granted until ${grace_until}. Live-class access remains available until then.`);
+      await Promise.all([loadMonthlyCollections(), loadOverview()]);
+    }
+
+    async function markMonthlyInvoicePaid(invoiceId) {
+      const { data: invoice, error: invoiceError } = await sb.from("monthly_invoices")
+        .select("id,batch_id,student_id,billing_month,amount,status").eq("id", invoiceId).single();
+      if (invoiceError || !invoice) return alert("Invoice not found.");
+      if (invoice.status === "paid") return alert("This monthly invoice is already paid.");
+      const { data: batch } = await sb.from("batches").select("name").eq("id", invoice.batch_id).single();
+      const { data: payment, error: paymentError } = await sb.from("payments").insert({
+        student_id: invoice.student_id, batch_id: invoice.batch_id, amount: invoice.amount,
+        note: `Monthly fee — ${batch?.name || "batch"} | ${invoice.billing_month}`,
+        recorded_by: window._meId
+      }).select("id").single();
+      if (paymentError) return alert("Payment could not be recorded: " + paymentError.message);
+      const { error } = await sb.from("monthly_invoices").update({ status: "paid", paid_on: new Date().toISOString(), payment_id: payment.id, updated_at: new Date().toISOString() }).eq("id", invoice.id);
+      if (error) return alert("Payment was recorded but the invoice could not be updated: " + error.message);
+      await sendPaymentReceipt(payment.id);
+      alert("Monthly payment recorded. The student receipt has been sent.");
+      await Promise.all([loadMonthlyCollections(), loadPaymentLedger(), loadOverview()]);
+    }
+
     async function sendPaymentReceipt(paymentId) {
       try {
         const body = await sendNotify({ type: "payment_receipt", payment_id: paymentId });
@@ -1040,7 +1100,19 @@
       const { data: payment, error } = await sb.from("payments")
         .insert({ student_id, batch_id, amount, note, recorded_by: window._meId }).select("id").single();
       if (error) throw new Error(error.message);
+      await syncCurrentMonthlyInvoice(student_id, batch_id, amount, payment.id);
       await sendPaymentReceipt(payment.id);
+    }
+
+    // An initial payment in a recurring batch covers the current calendar month.
+    async function syncCurrentMonthlyInvoice(studentId, batchId, amount, paymentId) {
+      const { data: batch } = await sb.from("batches").select("monthly_billing_enabled").eq("id", batchId).single();
+      if (!batch?.monthly_billing_enabled) return;
+      const billing_month = localISO().slice(0, 8) + "01";
+      await sb.from("monthly_invoices").upsert({
+        batch_id: batchId, student_id: studentId, billing_month, due_date: billing_month,
+        amount, status: "paid", payment_id: paymentId, paid_on: new Date().toISOString(), updated_at: new Date().toISOString()
+      }, { onConflict: "batch_id,student_id,billing_month" });
     }
 
     async function markPaid(student_id, batch_id) {
