@@ -61,10 +61,24 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   assert.match(admin, /Students<\/button>/);
   assert.match(admin, /function openBatchStudents\(batchId\)/);
   assert.match(admin, /Add Selected Students/);
+  assert.match(admin, /Agreed fee per student/);
+  assert.match(admin, /Discount reason/);
+  assert.match(admin, /amount < standardFee && !discountNote/);
+  assert.match(admin, /discount_note: amount < standardFee \? discountNote : null/);
+  assert.match(admin, /function openEnrollmentFee\(studentId\)/);
+  assert.match(admin, /Edit fee/);
+  assert.match(admin, /const paymentNote = \(batchName, discountNote\)/);
   assert.match(admin, /from\("enrollments"\)\.upsert\(/);
   assert.match(admin, /selected\.map\(studentId => recordPayment\(studentId, managingBatchId\)\)/);
   assert.doesNotMatch(admin, /from\("batches"\)\.delete\(/, "batch management must not delete live batches");
   assert.doesNotMatch(admin, /from\("enrollments"\)\.delete\(/, "student management must not remove enrollments");
+});
+
+test("discount schema patch is additive", () => {
+  const patch = read("portal/enrollment-discounts.sql");
+  assert.match(patch, /alter table public\.enrollments/i);
+  assert.match(patch, /add column if not exists discount_note text/i);
+  assert.doesNotMatch(patch, /drop |delete |truncate /i);
 });
 
 test("edge functions recognize batch_teachers for privileged teacher actions", () => {

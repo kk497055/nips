@@ -156,6 +156,8 @@
         <div class="field"><label>Access status for selected students</label>
           <select id="bs-status"><option value="paid">Paid — class access</option><option value="demo">Demo — class access</option><option value="pending">Pending — no class access yet</option></select>
         </div>
+        <div class="field"><label>Agreed fee per student (PKR)</label><input id="bs-fee" type="number" min="0" step="1"/><div class="meta" id="bs-fee-hint" style="margin-top:4px"></div></div>
+        <div class="field"><label>Discount reason <span class="meta">(required only below the standard fee)</span></label><textarea id="bs-discount-note" rows="2" placeholder="Internal note, e.g. need-based discount"></textarea></div>
         <div id="bs-available" style="max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px"><p class="empty">Loading…</p></div>
         <div class="row-actions" style="margin:12px 0 18px;align-items:center">
           <span class="list-count" id="bs-count">0 selected</span>
@@ -165,6 +167,20 @@
         <div id="bs-roster"><p class="empty">Loading…</p></div>
         <div class="row-actions" style="margin-top:14px">
           <button class="btn" style="background:#e5e7eb" onclick="closeBatchStudents()">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENROLLMENT FEE -->
+    <div id="enrollment-fee" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:100%;max-width:520px;max-height:88vh;overflow:auto">
+        <h3 id="enrollment-fee-title">Set Agreed Fee</h3>
+        <div class="msg" id="enrollment-fee-msg"></div>
+        <div class="field"><label>Agreed fee (PKR)</label><input id="ee-fee" type="number" min="0" step="1"/><div class="meta" id="ee-fee-hint" style="margin-top:4px"></div></div>
+        <div class="field"><label>Discount reason <span class="meta">(required only below the standard fee)</span></label><textarea id="ee-discount-note" rows="3" placeholder="Internal note, e.g. need-based discount"></textarea></div>
+        <div class="row-actions">
+          <button class="btn green" id="ee-save">Save Agreed Fee</button>
+          <button class="btn" style="background:#e5e7eb" onclick="closeEnrollmentFee()">Cancel</button>
         </div>
       </div>
     </div>
@@ -298,6 +314,15 @@
     };
 
     const pkr = n => "PKR " + Math.round(n||0).toLocaleString();
+    const agreedFeeFor = (enrollment, standardFee) => {
+      const amount = Number(enrollment?.amount);
+      // Legacy enrollments used 0 as a placeholder. A zero fee is valid only
+      // when it has an auditable discount note.
+      return Number.isFinite(amount) && (amount > 0 || enrollment?.discount_note) ? amount : Number(standardFee || 0);
+    };
+    const paymentNote = (batchName, discountNote) => discountNote
+      ? `Fee — ${batchName || 'batch'} | Discount: ${discountNote}`
+      : `Fee — ${batchName || 'batch'}`;
 
     const localISO = (d = new Date()) => {
       const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
@@ -622,7 +647,7 @@
       content.innerHTML = '<p class="empty">Loading…</p>';
       document.getElementById("batch-details").style.display = "flex";
       const [{ data: enrollments }, { data: students }] = await Promise.all([
-        sb.from("enrollments").select("student_id,payment_status,enrolled_at").eq("batch_id", batchId).order("enrolled_at"),
+        sb.from("enrollments").select("student_id,payment_status,amount,discount_note,enrolled_at").eq("batch_id", batchId).order("enrolled_at"),
         sb.from("profiles").select("id,full_name").eq("role", "student").order("full_name")
       ]);
       const names = Object.fromEntries((students || []).map(s => [s.id, s.full_name]));
@@ -632,8 +657,8 @@
       const rows = enrollments || [];
       const counts = { paid: 0, demo: 0, pending: 0 };
       rows.forEach(r => { if (counts[r.payment_status] !== undefined) counts[r.payment_status]++; });
-      const roster = rows.length ? `<table><thead><tr><th>Student</th><th>Access</th><th>Enrolled</th></tr></thead><tbody>${rows.map(r =>
-        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td><td>${r.enrolled_at ? new Date(r.enrolled_at).toLocaleDateString() : "—"}</td></tr>`
+      const roster = rows.length ? `<table><thead><tr><th>Student</th><th>Access</th><th>Agreed Fee</th><th>Discount Note</th><th>Enrolled</th></tr></thead><tbody>${rows.map(r =>
+        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td><td>${pkr(agreedFeeFor(r, batch.fee))}</td><td>${esc(r.discount_note || "—")}</td><td>${r.enrolled_at ? new Date(r.enrolled_at).toLocaleDateString() : "—"}</td></tr>`
       ).join("")}</tbody></table>` : '<p class="empty">No students have been added to this batch yet.</p>';
       content.innerHTML = `
         <div class="meta" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:18px">
@@ -724,8 +749,9 @@
     }
     function renderBatchRoster() {
       const names = Object.fromEntries((window._batchStudentList || []).map(s => [s.id, s.full_name]));
-      document.getElementById("bs-roster").innerHTML = batchRosterRows.length ? `<table><thead><tr><th>Student</th><th>Access</th></tr></thead><tbody>${batchRosterRows.map(r =>
-        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td></tr>`
+      const batch = (window._batchList || []).find(b => b.id === managingBatchId);
+      document.getElementById("bs-roster").innerHTML = batchRosterRows.length ? `<table><thead><tr><th>Student</th><th>Access</th><th>Agreed Fee</th><th>Discount Note</th><th></th></tr></thead><tbody>${batchRosterRows.map(r =>
+        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td><td>${pkr(agreedFeeFor(r, batch?.fee))}</td><td>${esc(r.discount_note || "—")}</td><td><button class="btn soft sm" onclick="openEnrollmentFee('${r.student_id}')">Edit fee</button></td></tr>`
       ).join("")}</tbody></table>` : '<p class="empty">No students have been added to this batch yet.</p>';
     }
     async function openBatchStudents(batchId) {
@@ -736,10 +762,13 @@
       document.getElementById("batch-students-title").textContent = "Students — " + batch.name;
       document.getElementById("batch-students-msg").className = "msg";
       document.getElementById("bs-search").value = "";
+      document.getElementById("bs-fee").value = batch.fee ?? 0;
+      document.getElementById("bs-fee-hint").textContent = `Standard batch fee: ${pkr(batch.fee)}`;
+      document.getElementById("bs-discount-note").value = "";
       document.getElementById("batch-students").style.display = "flex";
       const [{ data: students }, { data: roster }] = await Promise.all([
         sb.from("profiles").select("id,full_name").eq("role", "student").order("full_name"),
-        sb.from("enrollments").select("student_id,payment_status").eq("batch_id", batchId)
+        sb.from("enrollments").select("student_id,payment_status,amount,discount_note").eq("batch_id", batchId)
       ]);
       window._batchStudentList = students || [];
       batchRosterRows = roster || [];
@@ -751,11 +780,17 @@
       if (!managingBatchId || !batchStudentIds.size) return;
       const msg = document.getElementById("batch-students-msg");
       const show = (t, ok=false) => { msg.className = "msg " + (ok ? "ok" : "err"); msg.textContent = t; };
+      const batch = (window._batchList || []).find(b => b.id === managingBatchId);
+      const amount = Number(document.getElementById("bs-fee").value);
+      const standardFee = Number(batch?.fee || 0);
+      const discountNote = document.getElementById("bs-discount-note").value.trim();
+      if (!Number.isFinite(amount) || amount < 0) return show("Agreed fee must be a number of 0 or more.");
+      if (amount < standardFee && !discountNote) return show("Enter an internal discount reason when the agreed fee is below the standard fee.");
       const btn = document.getElementById("bs-add");
       const selected = [...batchStudentIds];
       btn.disabled = true; btn.textContent = "Adding…";
       const { error } = await sb.from("enrollments").upsert(
-        selected.map(student_id => ({ batch_id: managingBatchId, student_id, payment_status: document.getElementById("bs-status").value })),
+        selected.map(student_id => ({ batch_id: managingBatchId, student_id, payment_status: document.getElementById("bs-status").value, amount, discount_note: amount < standardFee ? discountNote : null })),
         { onConflict: "batch_id,student_id" }
       );
       btn.disabled = false; btn.textContent = "Add Selected Students";
@@ -765,11 +800,56 @@
       }
       show(`Added ${selected.length} student(s).`, true);
       batchStudentIds.clear();
-      const { data: roster } = await sb.from("enrollments").select("student_id,payment_status").eq("batch_id", managingBatchId);
+      const { data: roster } = await sb.from("enrollments").select("student_id,payment_status,amount,discount_note").eq("batch_id", managingBatchId);
       batchRosterRows = roster || [];
       renderBatchStudentChoices();
       renderBatchRoster();
       await Promise.all([loadBatches(), loadOverview(), loadPendingPayments()]);
+    };
+
+    let editingEnrollment = null;
+    function closeEnrollmentFee() {
+      document.getElementById("enrollment-fee").style.display = "none";
+      editingEnrollment = null;
+    }
+    function openEnrollmentFee(studentId) {
+      const batch = (window._batchList || []).find(b => b.id === managingBatchId);
+      const enrollment = batchRosterRows.find(r => r.student_id === studentId);
+      const student = (window._batchStudentList || []).find(s => s.id === studentId);
+      if (!batch || !enrollment) return alert("Enrollment details are unavailable. Please reopen the batch and try again.");
+      editingEnrollment = { batch, enrollment, studentId };
+      document.getElementById("enrollment-fee-title").textContent = "Set Agreed Fee — " + (student?.full_name || "Student");
+      document.getElementById("enrollment-fee-msg").className = "msg";
+      document.getElementById("ee-fee").value = agreedFeeFor(enrollment, batch.fee);
+      document.getElementById("ee-fee-hint").textContent = `Standard batch fee: ${pkr(batch.fee)}`;
+      document.getElementById("ee-discount-note").value = enrollment.discount_note || "";
+      document.getElementById("enrollment-fee").style.display = "flex";
+    }
+    document.getElementById("ee-save").onclick = async () => {
+      if (!editingEnrollment) return;
+      const msg = document.getElementById("enrollment-fee-msg");
+      const show = (t, ok=false) => { msg.className = "msg " + (ok ? "ok" : "err"); msg.textContent = t; };
+      const amount = Number(document.getElementById("ee-fee").value);
+      const standardFee = Number(editingEnrollment.batch.fee || 0);
+      const discountNote = document.getElementById("ee-discount-note").value.trim();
+      if (!Number.isFinite(amount) || amount < 0) return show("Agreed fee must be a number of 0 or more.");
+      if (amount < standardFee && !discountNote) return show("Enter an internal discount reason when the agreed fee is below the standard fee.");
+      const note = amount < standardFee ? discountNote : null;
+      const btn = document.getElementById("ee-save");
+      btn.disabled = true; btn.textContent = "Saving…";
+      const { error } = await sb.from("enrollments").update({ amount, discount_note: note })
+        .eq("batch_id", editingEnrollment.batch.id).eq("student_id", editingEnrollment.studentId);
+      if (!error && editingEnrollment.enrollment.payment_status === "paid") {
+        await sb.from("payments").update({ amount, note: paymentNote(editingEnrollment.batch.name, note) })
+          .eq("batch_id", editingEnrollment.batch.id).eq("student_id", editingEnrollment.studentId);
+      }
+      btn.disabled = false; btn.textContent = "Save Agreed Fee";
+      if (error) return show("Error: " + error.message);
+      editingEnrollment.enrollment.amount = amount;
+      editingEnrollment.enrollment.discount_note = note;
+      closeEnrollmentFee();
+      renderBatchRoster();
+      await Promise.all([loadOverview(), loadBatches()]);
     };
 
     async function loadPeople() {
@@ -906,8 +986,13 @@
     async function recordPayment(student_id, batch_id) {
       const { count } = await sb.from("payments").select("*",{count:"exact",head:true}).eq("student_id",student_id).eq("batch_id",batch_id);
       if (count) return;
-      const { data: b } = await sb.from("batches").select("name,fee").eq("id",batch_id).single();
-      await sb.from("payments").insert({ student_id, batch_id, amount: b?.fee || 0, note: `Fee — ${b?.name || 'batch'}`, recorded_by: window._meId });
+      const [{ data: b }, { data: enrollment }] = await Promise.all([
+        sb.from("batches").select("name,fee").eq("id",batch_id).single(),
+        sb.from("enrollments").select("amount,discount_note").eq("student_id",student_id).eq("batch_id",batch_id).maybeSingle()
+      ]);
+      const amount = agreedFeeFor(enrollment, b?.fee);
+      const note = paymentNote(b?.name, enrollment?.discount_note);
+      await sb.from("payments").insert({ student_id, batch_id, amount, note, recorded_by: window._meId });
     }
 
     async function markPaid(student_id, batch_id) {

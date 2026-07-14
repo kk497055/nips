@@ -56,6 +56,7 @@ create table if not exists public.enrollments (
   student_id     uuid not null references public.profiles(id) on delete cascade,
   payment_status text not null default 'pending' check (payment_status in ('pending','paid','demo')),
   amount         numeric default 0,
+  discount_note  text,
   enrolled_at    timestamptz not null default now(),
   unique (batch_id, student_id)
 );
