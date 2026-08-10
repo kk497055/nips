@@ -265,6 +265,13 @@
       </div>
     </div>
 
+    <!-- ORIENTATION REGISTRATIONS -->
+    <div class="section" data-admin-view="orientation">
+      <h2>Institute of Arts and Culture Orientation</h2>
+      <p class="meta" style="margin-bottom:12px">Review orientation registrations, then add a student to their selected paid course when counselling is complete. Their orientation record remains intact.</p>
+      <div id="orientation-applications"><p class="empty">Loading…</p></div>
+    </div>
+
     <!-- PEOPLE -->
     <div class="section" data-admin-view="students staff">
       <h2 id="people-heading">People</h2>
@@ -280,6 +287,7 @@
       overview: { label: "Overview", title: "Admin Overview", subtitle: "Your operational snapshot: revenue, collections, batches, and teaching activity." },
       batches: { label: "Batches", title: "Batches", subtitle: "Create and run batches, manage teachers, schedules, students, and monthly billing." },
       students: { label: "Students", title: "Students & Enrolments", subtitle: "Add students to batches, set agreed fees, and manage enrolment access." },
+      orientation: { label: "Orientation", title: "IAC Orientation", subtitle: "Review Institute of Arts and Culture orientation registrations and transition students to paid courses." },
       billing: { label: "Billing", title: "Payments & Billing", subtitle: "Confirm payments, manage monthly collections, grace periods, receipts, and revenue history." },
       communications: { label: "Communications", title: "Communications", subtitle: "Send announcements and class reminders to enrolled students." },
       staff: { label: "Staff & Access", title: "Staff & Access", subtitle: "Create accounts and manage teacher, administrator, and staff permissions." }
@@ -310,10 +318,56 @@
       if (view === "overview") { initOverviewControls(); await loadOverview(); }
       if (view === "batches") await Promise.all([loadTeacherSelect(), loadBatches()]);
       if (view === "students") await Promise.all([loadPeople(), loadBulkEnrol()]);
+      if (view === "orientation") await loadOrientationApplications();
       if (view === "billing") await Promise.all([loadPendingPayments(), loadMonthlyCollections(), loadPaymentLedger()]);
       if (view === "communications") await loadPeople();
       if (view === "staff") await Promise.all([loadPeople(), loadTeacherSelect()]);
     })();
+
+    // ---------- Institute of Arts and Culture orientation ----------
+    async function loadOrientationApplications() {
+      const [{ data: apps, error }, { data: programs }, { data: batches }] = await Promise.all([
+        sb.from("orientation_applications").select("*").order("submitted_at", { ascending: false }),
+        sb.from("orientation_programs").select("id,batch_id,code,name"),
+        sb.from("batches").select("id,name,category,fee,is_active").eq("is_active", true).order("name")
+      ]);
+      const el = document.getElementById("orientation-applications");
+      if (error) { el.innerHTML = `<div class="card"><p class="empty">Could not load orientation registrations: ${esc(error.message)}</p></div>`; return; }
+      const programOf = Object.fromEntries((programs || []).map(p => [p.id, p]));
+      const orientationBatchIds = new Set((programs || []).map(p => p.batch_id));
+      window._orientationCourseBatches = (batches || []).filter(b => !orientationBatchIds.has(b.id));
+      window._orientationNames = Object.fromEntries((apps || []).map(a => [a.student_id, a.full_name]));
+      if (!apps?.length) { el.innerHTML = '<div class="card"><p class="empty">No orientation registrations yet.</p></div>'; return; }
+      el.innerHTML = `<div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
+        <div style="overflow:auto"><table><thead><tr><th>Applicant</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
+        ${apps.map(a => `<tr><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td>
+          <td>${esc(a.email)}<br><span class="meta">${esc(a.phone)} · ${esc(a.city || "—")}</span></td>
+          <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}</span></td>
+          <td>${new Date(a.submitted_at).toLocaleDateString()}</td><td><span class="pill ${a.status === "attended" ? "paid" : "pending"}">${esc(a.status)}</span><br><button class="btn soft sm" style="margin-top:5px" onclick="setOrientationStatus('${a.id}','${a.status === "attended" ? "reviewed" : "attended"}')">${a.status === "attended" ? "Mark reviewed" : "Mark attended"}</button></td>
+          <td><button class="btn green sm" onclick="transitionOrientationStudent('${a.student_id}')">Add to paid course</button></td></tr>`).join("")}
+        </tbody></table></div>`;
+    }
+    async function setOrientationStatus(applicationId, status) {
+      const { error } = await sb.from("orientation_applications").update({ status, updated_at: new Date().toISOString() }).eq("id", applicationId);
+      if (error) return alert("Could not update orientation status: " + error.message);
+      await loadOrientationApplications();
+    }
+    async function transitionOrientationStudent(studentId) {
+      const name = (window._orientationNames || {})[studentId] || "Student";
+      const courses = window._orientationCourseBatches || [];
+      if (!courses.length) return alert("Create the paid course batch first.");
+      const list = courses.map((b, i) => `${i + 1}. ${b.name} (PKR ${Number(b.fee || 0).toLocaleString()})`).join("\n");
+      const choice = Number(prompt(`Add ${name} to which paid course?\n\n${list}\n\nEnter number:`)) - 1;
+      if (!Number.isInteger(choice) || !courses[choice]) return;
+      const batch = courses[choice];
+      const { data: existing } = await sb.from("enrollments").select("payment_status").eq("student_id", studentId).eq("batch_id", batch.id).maybeSingle();
+      if (existing) return alert(`${name} is already enrolled in ${batch.name} (${existing.payment_status}).`);
+      const { error } = await sb.from("enrollments").insert({ batch_id: batch.id, student_id: studentId, payment_status: "pending", amount: batch.fee || 0 });
+      if (error) return alert("Could not add course enrolment: " + error.message);
+      await sb.from("orientation_applications").update({ status: "reviewed", updated_at: new Date().toISOString() }).eq("student_id", studentId);
+      alert(`${name} was added to ${batch.name} as payment pending. Confirm payment in Billing when received.`);
+      await loadOrientationApplications();
+    }
 
     // ---------- Bulk enrol ----------
     window._beSel = new Set();

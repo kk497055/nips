@@ -17,6 +17,7 @@ test("portal inline scripts parse", () => {
     "portal/student.html",
     "portal/login.html",
     "portal/classroom.html",
+    "portal/orientation.html",
   ]) {
     for (const script of inlineScripts(read(file))) {
       assert.doesNotThrow(() => new Function(script), `${file} has a parse error`);
@@ -308,4 +309,32 @@ test("signed-in portal pages have a footer and are not indexable", () => {
     assert.match(headers, new RegExp(`/${file}\\n  X-Robots-Tag: noindex, nofollow, noarchive`));
   }
   assert.match(read("portal/classroom.html"), /data-portal-footer="false"/);
+});
+
+test("IAC orientation registration is isolated, verified, and transition-ready", () => {
+  const form = read("portal/orientation.html");
+  const schema = read("portal/orientation.sql");
+  const admin = read("portal/admin.html");
+  const fn = read("supabase/functions/orientation-register/index.ts");
+  const headers = read("_headers");
+
+  assert.match(form, /Institute of Arts and Culture Orientation/);
+  assert.match(form, /name="education_level"/);
+  assert.match(form, /name="interests"/);
+  assert.match(form, /emailRedirectTo: "https:\/\/nips\.com\.pk\/portal\/orientation\.html\?verified=1"/);
+  assert.match(form, /sb\.auth\.signUp/);
+  assert.match(form, /orientation-register/);
+  assert.match(form, /noindex, nofollow, noarchive/);
+  assert.match(headers, /\/portal\/orientation\.html\n  X-Robots-Tag: noindex, nofollow, noarchive/);
+  assert.match(schema, /create table if not exists public\.orientation_programs/i);
+  assert.match(schema, /create table if not exists public\.orientation_applications/i);
+  assert.match(schema, /payment_status, amount, discount_note/i);
+  assert.match(schema, /'demo', 0, 'Orientation session — no fee'/);
+  assert.match(schema, /orientation_program.*iac-orientation/i);
+  assert.doesNotMatch(schema, /drop table|delete from|truncate /i);
+  assert.match(fn, /svc\.auth\.getUser\(token\)/);
+  assert.match(fn, /submit_orientation_application/);
+  assert.match(admin, /data-admin-view="orientation"/);
+  assert.match(admin, /transitionOrientationStudent/);
+  assert.match(admin, /payment_status: "pending"/);
 });

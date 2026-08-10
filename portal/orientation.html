@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <title>Institute of Arts and Culture — Orientation Registration</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css?v=11" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1a5336" />
+  <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
+</head>
+<body>
+  <div class="topbar">
+    <a class="brand" href="../index.html"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Education Solutions</a>
+    <div class="right"><a class="btn ghost sm" href="login.html">Portal sign in</a></div>
+  </div>
+
+  <main class="wrap orientation-page">
+    <p class="eyebrow">NIPS Education Solutions</p>
+    <h1>Institute of Arts and Culture Orientation</h1>
+    <p class="sub">Complete this form to create your NIPS Portal account and reserve your place in the Institute of Arts and Culture orientation session. Orientation is free; paid course selection happens later with the NIPS team.</p>
+
+    <div class="orientation-banner"><strong>What happens next</strong><span>Verify your email, sign in to NIPS Portal, attend orientation, then choose the paid course batch that fits you.</span></div>
+    <form id="orientation-form" class="orientation-form">
+      <div id="orientation-msg" class="msg"></div>
+      <section class="card">
+        <h2>Portal account</h2>
+        <p class="meta">Use an email you can access. It will become your NIPS Portal login.</p>
+        <div class="orientation-grid">
+          <div class="field"><label for="or-email">Email address *</label><input id="or-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></div>
+          <div class="field"><label for="or-password">Password *</label><input id="or-password" name="password" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters" /></div>
+        </div>
+        <div class="account-choice"><label><input type="radio" name="account-mode" value="new" checked /> I am new to NIPS Portal</label><label><input type="radio" name="account-mode" value="existing" /> I already have a NIPS Portal account</label></div>
+        <p class="meta" id="account-note">We will email you a verification link after registration.</p>
+      </section>
+
+      <section class="card">
+        <h2>Personal &amp; demographic details</h2>
+        <div class="orientation-grid">
+          <div class="field"><label for="or-name">Full name *</label><input id="or-name" name="full_name" autocomplete="name" required maxlength="160" /></div>
+          <div class="field"><label for="or-phone">Mobile / WhatsApp number *</label><input id="or-phone" name="phone" type="tel" autocomplete="tel" required maxlength="50" /></div>
+          <div class="field"><label for="or-dob">Date of birth</label><input id="or-dob" name="date_of_birth" type="date" /></div>
+          <div class="field"><label for="or-gender">Gender</label><select id="or-gender" name="gender"><option value="">Prefer not to say</option><option>Female</option><option>Male</option><option>Non-binary</option><option>Self-describe</option></select></div>
+          <div class="field"><label for="or-city">City *</label><input id="or-city" name="city" autocomplete="address-level2" required maxlength="100" /></div>
+          <div class="field"><label for="or-country">Country *</label><input id="or-country" name="country" autocomplete="country-name" required maxlength="100" value="Pakistan" /></div>
+          <div class="field orientation-span"><label for="or-address">Address</label><textarea id="or-address" name="address" rows="2" maxlength="500"></textarea></div>
+          <div class="field"><label for="or-guardian-name">Parent / guardian name</label><input id="or-guardian-name" name="guardian_name" maxlength="160" /></div>
+          <div class="field"><label for="or-guardian-phone">Parent / guardian phone</label><input id="or-guardian-phone" name="guardian_phone" type="tel" maxlength="50" /></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Education &amp; interests</h2>
+        <div class="orientation-grid">
+          <div class="field"><label for="or-level">Current / highest education level *</label><select id="or-level" name="education_level" required><option value="">Select level</option><option>Matric / O-Level</option><option>Intermediate / A-Level</option><option>Undergraduate</option><option>Graduate</option><option>Postgraduate</option><option>Other</option></select></div>
+          <div class="field"><label for="or-institution">School, college, or university *</label><input id="or-institution" name="institution" required maxlength="200" /></div>
+          <div class="field"><label for="or-field">Field / subjects of study *</label><input id="or-field" name="field_of_study" required maxlength="160" /></div>
+          <div class="field"><label for="or-year">Completion year</label><input id="or-year" name="completion_year" type="number" min="1950" max="2100" placeholder="e.g. 2026" /></div>
+          <div class="field orientation-span"><label for="or-interests">Creative interests *</label><textarea id="or-interests" name="interests" rows="3" required maxlength="1000" placeholder="For example: visual arts, design, photography, music, film, writing, fashion…"></textarea></div>
+          <div class="field orientation-span"><label for="or-goal">What would you like to achieve?</label><textarea id="or-goal" name="career_goal" rows="3" maxlength="1000"></textarea></div>
+          <div class="field"><label for="or-source">How did you hear about this?</label><input id="or-source" name="referral_source" maxlength="160" /></div>
+          <div class="field"><label for="or-notes">Anything else NIPS should know?</label><input id="or-notes" name="notes" maxlength="1000" /></div>
+        </div>
+      </section>
+
+      <label class="consent"><input id="or-consent" type="checkbox" required /> I confirm that the information I have provided is accurate and I agree that NIPS may use it to manage my orientation and course enrolment.</label>
+      <button class="btn green orientation-submit" id="or-submit" type="submit">Register for Orientation</button>
+    </form>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js?v=9"></script>
+  <script>
+    const form = document.getElementById("orientation-form");
+    const message = document.getElementById("orientation-msg");
+    const submit = document.getElementById("or-submit");
+    const note = document.getElementById("account-note");
+    let signedIn = null;
+
+    function show(text, ok = false) { message.className = "msg " + (ok ? "ok" : "err"); message.textContent = text; }
+    function accountMode() { return form.querySelector('input[name="account-mode"]:checked').value; }
+    function payload() {
+      const raw = Object.fromEntries(new FormData(form).entries());
+      delete raw.email; delete raw.password; delete raw["account-mode"];
+      return { orientation_program: "iac-orientation", ...raw };
+    }
+    function updateAccountMode() {
+      const existing = accountMode() === "existing" || signedIn;
+      document.getElementById("or-password").autocomplete = existing ? "current-password" : "new-password";
+      document.getElementById("or-password").required = !signedIn;
+      note.textContent = signedIn
+        ? `You are signed in as ${signedIn.email}. Your existing NIPS account will be enrolled in orientation.`
+        : existing ? "Sign in with your existing NIPS email and password to register for orientation."
+        : "We will email you a verification link after registration.";
+    }
+    async function registerExisting(data, session) {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/orientation-register`, {
+        method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ data })
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not register for orientation.");
+    }
+    form.querySelectorAll('input[name="account-mode"]').forEach(input => input.onchange = updateAccountMode);
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user) { signedIn = session.user; document.querySelector('input[value="existing"]').checked = true; document.getElementById("or-email").value = session.user.email || ""; document.getElementById("or-email").readOnly = true; }
+      updateAccountMode();
+    })();
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const data = payload(), email = document.getElementById("or-email").value.trim().toLowerCase();
+      const password = document.getElementById("or-password").value;
+      submit.disabled = true; submit.textContent = "Registering…"; message.className = "msg";
+      try {
+        if (accountMode() === "new" && !signedIn) {
+          const { error } = await sb.auth.signUp({ email, password, options: {
+            data: { full_name: data.full_name, ...data },
+            emailRedirectTo: "https://nips.com.pk/portal/orientation.html?verified=1"
+          }});
+          if (error) throw error;
+          form.reset();
+          show("Registration received. Check your email and verify your account. Your NIPS Portal orientation enrolment is ready once you sign in.", true);
+        } else {
+          let session = (await sb.auth.getSession()).data.session;
+          if (!session) {
+            const { data: login, error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            session = login.session;
+          }
+          if (!session) throw new Error("Please sign in and try again.");
+          await registerExisting(data, session);
+          show("You are registered for the Institute of Arts and Culture orientation. NIPS will share the session details with you.", true);
+        }
+      } catch (error) { show(error.message || "Registration could not be completed."); }
+      finally { submit.disabled = false; submit.textContent = "Register for Orientation"; }
+    };
+  </script>
+</body>
+</html>
