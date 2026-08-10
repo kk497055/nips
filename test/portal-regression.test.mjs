@@ -323,7 +323,7 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(form, /name="interests"/);
   assert.match(form, /emailRedirectTo: "https:\/\/nips\.com\.pk\/portal\/orientation\.html\?verified=1"/);
   assert.match(form, /sb\.auth\.signUp/);
-  assert.match(form, /orientation-register/);
+  assert.doesNotMatch(form, /orientation-register/);
   assert.match(form, /noindex, nofollow, noarchive/);
   assert.match(headers, /\/portal\/orientation\.html\n  X-Robots-Tag: noindex, nofollow, noarchive/);
   assert.match(schema, /create table if not exists public\.orientation_programs/i);

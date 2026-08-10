@@ -32,8 +32,7 @@
           <div class="field"><label for="or-email">Email address *</label><input id="or-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></div>
           <div class="field"><label for="or-password">Password *</label><input id="or-password" name="password" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters" /></div>
         </div>
-        <div class="account-choice"><label><input type="radio" name="account-mode" value="new" checked /> I am new to NIPS Portal</label><label><input type="radio" name="account-mode" value="existing" /> I already have a NIPS Portal account</label></div>
-        <p class="meta" id="account-note">We will email you a verification link after registration.</p>
+        <p class="meta">We will email you a verification link after registration. This form creates your regular NIPS Portal account.</p>
       </section>
 
       <section class="card">
@@ -76,39 +75,13 @@
     const form = document.getElementById("orientation-form");
     const message = document.getElementById("orientation-msg");
     const submit = document.getElementById("or-submit");
-    const note = document.getElementById("account-note");
-    let signedIn = null;
 
     function show(text, ok = false) { message.className = "msg " + (ok ? "ok" : "err"); message.textContent = text; }
-    function accountMode() { return form.querySelector('input[name="account-mode"]:checked').value; }
     function payload() {
       const raw = Object.fromEntries(new FormData(form).entries());
-      delete raw.email; delete raw.password; delete raw["account-mode"];
+      delete raw.email; delete raw.password;
       return { orientation_program: "iac-orientation", ...raw };
     }
-    function updateAccountMode() {
-      const existing = accountMode() === "existing" || signedIn;
-      document.getElementById("or-password").autocomplete = existing ? "current-password" : "new-password";
-      document.getElementById("or-password").required = !signedIn;
-      note.textContent = signedIn
-        ? `You are signed in as ${signedIn.email}. Your existing NIPS account will be enrolled in orientation.`
-        : existing ? "Sign in with your existing NIPS email and password to register for orientation."
-        : "We will email you a verification link after registration.";
-    }
-    async function registerExisting(data, session) {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/orientation-register`, {
-        method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ data })
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not register for orientation.");
-    }
-    form.querySelectorAll('input[name="account-mode"]').forEach(input => input.onchange = updateAccountMode);
-    (async () => {
-      const { data: { session } } = await sb.auth.getSession();
-      if (session?.user) { signedIn = session.user; document.querySelector('input[value="existing"]').checked = true; document.getElementById("or-email").value = session.user.email || ""; document.getElementById("or-email").readOnly = true; }
-      updateAccountMode();
-    })();
     form.onsubmit = async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
@@ -116,25 +89,13 @@
       const password = document.getElementById("or-password").value;
       submit.disabled = true; submit.textContent = "Registering…"; message.className = "msg";
       try {
-        if (accountMode() === "new" && !signedIn) {
-          const { error } = await sb.auth.signUp({ email, password, options: {
-            data: { full_name: data.full_name, ...data },
-            emailRedirectTo: "https://nips.com.pk/portal/orientation.html?verified=1"
-          }});
-          if (error) throw error;
-          form.reset();
-          show("Registration received. Check your email and verify your account. Your NIPS Portal orientation enrolment is ready once you sign in.", true);
-        } else {
-          let session = (await sb.auth.getSession()).data.session;
-          if (!session) {
-            const { data: login, error } = await sb.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            session = login.session;
-          }
-          if (!session) throw new Error("Please sign in and try again.");
-          await registerExisting(data, session);
-          show("You are registered for the Institute of Arts and Culture orientation. NIPS will share the session details with you.", true);
-        }
+        const { error } = await sb.auth.signUp({ email, password, options: {
+          data: { full_name: data.full_name, ...data },
+          emailRedirectTo: "https://nips.com.pk/portal/orientation.html?verified=1"
+        }});
+        if (error) throw error;
+        form.reset();
+        show("Registration received. Check your email and verify your account. Your NIPS Portal orientation enrolment is ready once you sign in.", true);
       } catch (error) { show(error.message || "Registration could not be completed."); }
       finally { submit.disabled = false; submit.textContent = "Register for Orientation"; }
     };
