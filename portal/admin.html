@@ -339,13 +339,18 @@
       window._orientationNames = Object.fromEntries((apps || []).map(a => [a.student_id, a.full_name]));
       if (!apps?.length) { el.innerHTML = '<div class="card"><p class="empty">No orientation registrations yet.</p></div>'; return; }
       el.innerHTML = `<div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
-        <div style="overflow:auto"><table><thead><tr><th>Applicant</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
-        ${apps.map(a => `<tr><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td>
+        <div id="orientation-list"></div>`;
+      mountList("orientation-applications", "orientation-list", apps, {
+        placeholder: "Search applicants, email, city or interests…", noun: "registrations", empty: "No registrations match your search.", pageSize: 10,
+        match: (a, term) => `${a.full_name || ""} ${a.email || ""} ${a.phone || ""} ${a.city || ""} ${a.education_level || ""} ${a.institution || ""} ${a.interests || ""} ${a.status || ""}`.toLowerCase().includes(term),
+        render: (items) => `<div style="overflow:auto"><table><thead><tr><th>Applicant</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
+        ${items.map(a => `<tr><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td>
           <td>${esc(a.email)}<br><span class="meta">${esc(a.phone)} · ${esc(a.city || "—")}</span></td>
           <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}</span></td>
           <td>${new Date(a.submitted_at).toLocaleDateString()}</td><td><span class="pill ${a.status === "attended" ? "paid" : "pending"}">${esc(a.status)}</span><br><button class="btn soft sm" style="margin-top:5px" onclick="setOrientationStatus('${a.id}','${a.status === "attended" ? "reviewed" : "attended"}')">${a.status === "attended" ? "Mark reviewed" : "Mark attended"}</button></td>
           <td><button class="btn green sm" onclick="transitionOrientationStudent('${a.student_id}')">Add to paid course</button></td></tr>`).join("")}
-        </tbody></table></div>`;
+        </tbody></table></div>`
+      });
     }
     async function setOrientationStatus(applicationId, status) {
       const { error } = await sb.from("orientation_applications").update({ status, updated_at: new Date().toISOString() }).eq("id", applicationId);

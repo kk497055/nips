@@ -362,4 +362,7 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /data-admin-view="orientation"/);
   assert.match(admin, /transitionOrientationStudent/);
   assert.match(admin, /payment_status: "pending"/);
+  assert.match(admin, /mountList\("orientation-applications", "orientation-list", apps/);
+  assert.match(admin, /pageSize: 10/);
+  assert.match(admin, /Search applicants, email, city or interests/);
 });
