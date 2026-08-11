@@ -104,6 +104,9 @@
         .filter(e => e.payment_status === "paid" || e.payment_status === "demo")
         .map(e => e.batch_id));
       const learningBatches = (batches || []).filter(b => paidBatchIds.has(b.id));
+      const { data: orientationPrograms } = await sb.from("orientation_programs")
+        .select("batch_id,name,session_state,student_message,session_announced_at,session_completed_at").eq("is_active", true);
+      const orientationByBatch = Object.fromEntries((orientationPrograms || []).map(p => [p.batch_id, p]));
 
       if (!learningBatches.length) {
         const hasPending = (enrollments || []).some(e => e.payment_status === "pending");
@@ -136,6 +139,20 @@
 
       box.innerHTML = "";
       for (const b of learningBatches) {
+        const orientation = orientationByBatch[b.id];
+        if (orientation) {
+          const state = orientation.session_state || "registration_open";
+          const isLive = state === "live";
+          const labels = {
+            registration_open: { pill: "Registration confirmed", title: "Your orientation is being arranged", text: "Your registration is confirmed. NIPS will announce the orientation date, time, and teacher here once they are finalized." },
+            scheduled: { pill: "Scheduled", title: "Your orientation is scheduled", text: "Your NIPS orientation session has been announced. Please be ready before the scheduled time." },
+            live: { pill: "Live now", title: "Your orientation is live", text: "Your orientation session is currently open. Join when your teacher asks you to." },
+            completed: { pill: "Orientation completed", title: "Thank you for attending", text: "NIPS will contact you about the best next course and its enrolment process." }
+          };
+          const view = labels[state] || labels.registration_open;
+          box.innerHTML += `<div class="card class-card orientation-student-card"><div class="class-top"><span class="pill ${isLive ? "paid" : "pending"}">${view.pill}</span><span class="class-category">Institute of Arts and Culture</span></div><h3>${esc(orientation.name || b.name)}</h3><div class="meta">${esc(view.text)}</div>${state === "scheduled" || state === "live" ? `<div class="orientation-schedule"><strong>Session details</strong><br>${esc(b.schedule || "Schedule being finalized")}</div>` : ""}${orientation.student_message ? `<div class="orientation-message">${esc(orientation.student_message)}</div>` : ""}<div class="row-actions">${isLive ? `<a class="btn green" href="classroom.html?batch=${b.id}">Join Orientation</a><button class="btn soft" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>` : `<a class="btn soft" href="?view=account">Contact NIPS</a>`}</div></div>`;
+          continue;
+        }
         const { data: recs } = await sb.from("sessions")
           .select("title,started_at,recording_url").eq("batch_id", b.id)
           .not("recording_url","is",null).order("started_at",{ascending:false}).limit(5);

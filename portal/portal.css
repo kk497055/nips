@@ -84,6 +84,7 @@ body:not(.auth):not([data-portal-footer="false"])>.portal-footer{margin-top:0}
 .recording-link{font-size:13px;margin-top:6px;display:flex;gap:8px;align-items:flex-start}
 .recording-link span{background:#eef7f2;color:var(--primary);font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px}
 .recording-empty{font-size:13px;color:var(--muted);margin-top:4px}
+.orientation-student-card{max-width:520px}.orientation-schedule,.orientation-message{margin:14px 0;padding:11px 12px;border-radius:9px;background:#f7faf8;border:1px solid var(--border);font-size:13px;color:#374151}.orientation-message{background:#eef7f2;border-color:#cfe7da;color:var(--primary)}
 @media(max-width:760px){
   .student-head{display:block}
   .support-chip{margin-top:14px;justify-content:space-between}

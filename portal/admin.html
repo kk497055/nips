@@ -328,8 +328,8 @@
     async function loadOrientationApplications() {
       const [{ data: apps, error }, { data: programs }, { data: batches }] = await Promise.all([
         sb.from("orientation_applications").select("*").order("submitted_at", { ascending: false }),
-        sb.from("orientation_programs").select("id,batch_id,code,name"),
-        sb.from("batches").select("id,name,category,fee,is_active").eq("is_active", true).order("name")
+        sb.from("orientation_programs").select("id,batch_id,code,name,session_state,student_message,session_announced_at,session_completed_at"),
+        sb.from("batches").select("id,name,category,fee,is_active,schedule,teacher_id").eq("is_active", true).order("name")
       ]);
       const el = document.getElementById("orientation-applications");
       if (error) { el.innerHTML = `<div class="card"><p class="empty">Could not load orientation registrations: ${esc(error.message)}</p></div>`; return; }
@@ -337,9 +337,16 @@
       const orientationBatchIds = new Set((programs || []).map(p => p.batch_id));
       window._orientationCourseBatches = (batches || []).filter(b => !orientationBatchIds.has(b.id));
       window._orientationNames = Object.fromEntries((apps || []).map(a => [a.student_id, a.full_name]));
+      window._orientationProgram = (programs || []).find(p => p.code === "iac-orientation") || null;
+      window._orientationBatch = (batches || []).find(b => b.id === window._orientationProgram?.batch_id) || null;
       if (!apps?.length) { el.innerHTML = '<div class="card"><p class="empty">No orientation registrations yet.</p></div>'; return; }
-      el.innerHTML = `<div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
+      const program = window._orientationProgram, batch = window._orientationBatch;
+      const state = program?.session_state || "registration_open";
+      el.innerHTML = `${program && batch ? `<div class="card" style="margin-bottom:14px"><h3>Orientation session</h3><p class="meta">Only NIPS staff control this journey. Set the teacher and session date in <a href="admin.html?view=batches">Batches</a>, then announce it here. Students cannot change or publish the date.</p><div style="display:grid;grid-template-columns:minmax(180px,.65fr) minmax(260px,1.35fr);gap:12px"><div class="field"><label>Student-facing stage</label><select id="or-session-state"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="or-session-message" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(program.student_message || "")}"/></div></div><div class="meta" style="margin:-4px 0 12px">Current batch schedule: <strong>${esc(batch.schedule || "Not set")}</strong> · Teacher: <strong>${batch.teacher_id ? "assigned" : "not assigned"}</strong></div><div class="row-actions"><button class="btn green sm" onclick="saveOrientationSession()">Save student-facing stage</button></div></div>` : ""}
+        <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
         <div id="orientation-list"></div>`;
+      const stateSelect = document.getElementById("or-session-state");
+      if (stateSelect) stateSelect.value = state;
       mountList("orientation-applications", "orientation-list", apps, {
         placeholder: "Search applicants, email, city or interests…", noun: "registrations", empty: "No registrations match your search.", pageSize: 10,
         match: (a, term) => `${a.full_name || ""} ${a.email || ""} ${a.phone || ""} ${a.city || ""} ${a.education_level || ""} ${a.institution || ""} ${a.interests || ""} ${a.status || ""}`.toLowerCase().includes(term),
@@ -351,6 +358,22 @@
           <td><button class="btn green sm" onclick="transitionOrientationStudent('${a.student_id}')">Add to paid course</button></td></tr>`).join("")}
         </tbody></table></div>`
       });
+    }
+    async function saveOrientationSession() {
+      const program = window._orientationProgram, batch = window._orientationBatch;
+      if (!program || !batch) return alert("The orientation session configuration is unavailable. Please reload this page.");
+      const session_state = document.getElementById("or-session-state").value;
+      const student_message = document.getElementById("or-session-message").value.trim() || null;
+      const needsSchedule = session_state === "scheduled" || session_state === "live";
+      if (needsSchedule && (!batch.schedule || /to be announced/i.test(batch.schedule) || !batch.teacher_id)) {
+        return alert("Before announcing the orientation, set both its teacher and actual date/time in Batches.");
+      }
+      const patch = { session_state, student_message };
+      if (needsSchedule && !program.session_announced_at) patch.session_announced_at = new Date().toISOString();
+      if (session_state === "completed") patch.session_completed_at = new Date().toISOString();
+      const { error } = await sb.from("orientation_programs").update(patch).eq("id", program.id);
+      if (error) return alert("Could not save the orientation stage: " + error.message);
+      await loadOrientationApplications();
     }
     async function setOrientationStatus(applicationId, status) {
       const { error } = await sb.from("orientation_applications").update({ status, updated_at: new Date().toISOString() }).eq("id", applicationId);

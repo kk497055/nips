@@ -16,6 +16,10 @@ create table if not exists public.orientation_programs (
   name text not null,
   batch_id uuid not null unique references public.batches(id) on delete restrict,
   is_active boolean not null default true,
+  session_state text not null default 'registration_open' check (session_state in ('registration_open','scheduled','live','completed')),
+  student_message text,
+  session_announced_at timestamptz,
+  session_completed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -60,6 +64,9 @@ alter table public.orientation_applications enable row level security;
 create policy orientation_programs_admin on public.orientation_programs for all using (public.is_admin());
 create policy orientation_applications_admin on public.orientation_applications for all using (public.is_admin());
 create policy orientation_applications_student on public.orientation_applications for select using (student_id = auth.uid());
+create policy orientation_programs_student on public.orientation_programs for select using (
+  exists (select 1 from public.orientation_applications a where a.program_id = orientation_programs.id and a.student_id = auth.uid())
+);
 
 -- Used only by the signup trigger and the authenticated orientation edge function.
 create or replace function public.submit_orientation_application(

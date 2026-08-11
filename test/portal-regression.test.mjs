@@ -354,6 +354,8 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(schema, /create table if not exists public\.orientation_programs/i);
   assert.match(schema, /create table if not exists public\.orientation_applications/i);
   assert.match(schema, /payment_status, amount, discount_note/i);
+  assert.match(schema, /session_state text not null default 'registration_open'/i);
+  assert.match(schema, /orientation_programs_student/i);
   assert.match(schema, /'demo', 0, 'Orientation session — no fee'/);
   assert.match(schema, /orientation_program.*iac-orientation/i);
   assert.doesNotMatch(schema, /drop table|delete from|truncate /i);
@@ -365,4 +367,11 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /mountList\("orientation-applications", "orientation-list", apps/);
   assert.match(admin, /pageSize: 10/);
   assert.match(admin, /Search applicants, email, city or interests/);
+  assert.match(admin, /function saveOrientationSession\(\)/);
+  assert.match(admin, /Before announcing the orientation, set both its teacher and actual date\/time/);
+  assert.match(read("portal/orientation-workflow.sql"), /add column if not exists session_state/i);
+  assert.doesNotMatch(read("portal/orientation-workflow.sql"), /drop |delete |truncate /i);
+  assert.match(read("portal/student.html"), /Your orientation is being arranged/);
+  assert.match(read("portal/student.html"), /Join Orientation/);
+  assert.match(read("portal/student.html"), /state === "live"/);
 });
