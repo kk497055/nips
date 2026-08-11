@@ -986,6 +986,7 @@
             ${u.role!=='admin'?`<button class="btn danger sm" onclick="setRole('${u.id}','admin')">Make Admin</button>`:''}
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
+            <button class="btn soft sm" data-name="${esc(u.full_name)}" onclick="sendPasswordReset('${u.id}', this.dataset.name)">Send password reset</button>
             ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
             <button class="btn soft sm" onclick="enrol('${u.id}','demo')">Enrol Demo</button>
             <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}`}
@@ -1006,6 +1007,26 @@
       const { error } = await sb.from("profiles").update({ role }).eq("id",id);
       if (error) return alert("Error: "+error.message);
       await Promise.all([loadPeople(), loadTeacherSelect()]);
+    }
+
+    async function sendPasswordReset(userId, fullName) {
+      if (userId === window._meId) return alert("Use the password recovery link on the sign-in page to reset your own password.");
+      const label = fullName || "this user";
+      if (!confirm(`Send a secure password-reset link to ${label}? Their password will not change unless they use the link to set a new one.`)) return;
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) throw new Error("Your session has expired. Please sign in again.");
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-send-password-reset`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Unable to send the password-reset link.");
+        alert(`A secure password-reset link has been sent to ${label}.`);
+      } catch (e) {
+        alert("Password-reset email was not sent: " + e.message);
+      }
     }
 
     function renderBatchSelect() {

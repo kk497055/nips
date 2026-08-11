@@ -16,6 +16,7 @@ test("portal inline scripts parse", () => {
     "portal/teacher.html",
     "portal/student.html",
     "portal/login.html",
+    "portal/reset-password.html",
     "portal/classroom.html",
     "portal/orientation.html",
   ]) {
@@ -203,6 +204,30 @@ test("people table can promote users to admin with self-change guard", () => {
   assert.match(admin, /id === window\._meId/);
   assert.match(admin, /You cannot change your own role/);
   assert.match(admin, /role === "admin" && !confirm/);
+});
+
+test("admins can send a secure reset link without handling another user's password", () => {
+  const admin = read("portal/admin.html");
+  const reset = read("portal/reset-password.html");
+  const fn = read("supabase/functions/admin-send-password-reset/index.ts");
+  const headers = read("_headers");
+
+  assert.match(admin, /Send password reset/);
+  assert.match(admin, /function sendPasswordReset\(userId, fullName\)/);
+  assert.match(admin, /functions\/v1\/admin-send-password-reset/);
+  assert.match(admin, /Their password will not change unless they use the link/);
+  assert.match(fn, /profile\?\.role !== "admin"/);
+  assert.match(fn, /auth\.admin\.getUserById\(user_id\)/);
+  assert.match(fn, /auth\.resetPasswordForEmail\(target\.user\.email/);
+  assert.match(fn, /redirectTo: "https:\/\/nips\.com\.pk\/portal\/reset-password\.html"/);
+  assert.match(fn, /user_id === caller\.id/);
+  assert.doesNotMatch(fn, /updateUser\(\{ password/);
+  assert.match(reset, /sb\.auth\.updateUser\(\{ password \}\)/);
+  assert.match(reset, /PASSWORD_RECOVERY/);
+  assert.match(reset, /noindex, nofollow, noarchive/);
+  assert.match(headers, /\/portal\/reset-password\.html\n  X-Robots-Tag: noindex, nofollow, noarchive/);
+  assert.match(read("portal/login.html"), /Forgot your password\?/);
+  assert.match(read("portal/login.html"), /resetPasswordForEmail\(email/);
 });
 
 test("admin business overview defaults to bounded date-range activity", () => {

@@ -64,6 +64,7 @@
         <span id="toggle-text">New student?</span>
         <a href="#" id="toggle">Create an account</a>
       </p>
+      <p class="toggle" id="forgot-wrap"><a href="#" id="forgot">Forgot your password?</a></p>
 
       <p class="fine">Accounts are verified by NIPS staff. Access to classes is granted once your enrolment and payment are confirmed.</p>
     </div>
@@ -92,7 +93,19 @@
       document.getElementById("signup-confirm").style.display = isUp ? "block" : "none";
       document.getElementById("toggle-text").textContent = isUp ? "Already registered?" : "New student?";
       document.getElementById("toggle").textContent = isUp ? "Sign in" : "Create an account";
+      document.getElementById("forgot-wrap").style.display = isUp ? "none" : "block";
       msg.className = "msg";
+    };
+
+    document.getElementById("forgot").onclick = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      if (!email) return show("Enter your email address first, then choose Forgot your password.");
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://nips.com.pk/portal/reset-password.html"
+      });
+      if (error) return show(error.message);
+      show("If an NIPS account exists for this email, a secure password-reset link has been sent.", true);
     };
 
     document.getElementById("submit").onclick = async () => {
