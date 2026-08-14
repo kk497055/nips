@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Teacher</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=10" />
+  <link rel="stylesheet" href="portal.css?v=11" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -136,15 +136,24 @@
 
     async function render() {
       // RLS returns only batches this teacher/co-teacher is assigned to.
-      const { data: batches } = await sb.from("batches").select("*").order("created_at", { ascending: false });
+      const [{ data: batches }, { data: orientationCohorts }] = await Promise.all([
+        sb.from("batches").select("*").order("created_at", { ascending: false }),
+        sb.from("orientation_cohorts").select("batch_id,name,session_state,meet_url")
+      ]);
       const box = document.getElementById("batches");
       if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches assigned yet. Ask admin to assign you.</p>'; return; }
 
       box.innerHTML = "";
       window._batchNames = {};
+      const orientationByBatch = Object.fromEntries((orientationCohorts || []).map(c => [c.batch_id, c]));
       for (const b of batches) {
         window._batchNames[b.id] = b.name;
         const { count } = await sb.from("enrollments").select("*",{count:"exact",head:true}).eq("batch_id",b.id).eq("payment_status","paid");
+        const orientation = orientationByBatch[b.id];
+        if (orientation) {
+          box.innerHTML += `<div class="card" style="margin-bottom:14px"><div class="class-top"><div><h3>${esc(orientation.name)}</h3><div class="meta">${esc(b.schedule || "Schedule not announced")} · Orientation cohort</div></div><span class="pill ${orientation.session_state === "live" ? "paid" : "pending"}">${esc(orientation.session_state.replaceAll("_", " "))}</span></div><div class="row-actions">${orientation.session_state === "live" && orientation.meet_url ? `<a class="btn green" href="${safeUrl(orientation.meet_url)}" target="_blank" rel="noopener noreferrer">Open Google Meet</a>` : '<span class="meta">The admin will expose the Meet link when this cohort goes live.</span>'}<button class="btn" onclick="openAttendance('${b.id}')">Mark Attendance</button></div></div>`;
+          continue;
+        }
         box.innerHTML += `
           <div class="card" style="margin-bottom:14px">
             <h3>${esc(b.name)}</h3>

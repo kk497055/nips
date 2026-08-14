@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=10" />
+  <link rel="stylesheet" href="portal.css?v=11" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -325,33 +325,42 @@
     })();
 
     // ---------- Institute of Arts and Culture orientation ----------
+    window._orientationSel = new Set();
     async function loadOrientationApplications() {
-      const [{ data: apps, error }, { data: programs }, { data: batches }] = await Promise.all([
+      const [{ data: apps, error }, { data: programs }, { data: cohorts }, { data: batches }, { data: teachers }] = await Promise.all([
         sb.from("orientation_applications").select("*").order("submitted_at", { ascending: false }),
         sb.from("orientation_programs").select("id,batch_id,code,name,session_state,student_message,session_announced_at,session_completed_at"),
-        sb.from("batches").select("id,name,category,fee,is_active,schedule,teacher_id").eq("is_active", true).order("name")
+        sb.from("orientation_cohorts").select("*").order("position").order("created_at"),
+        sb.from("batches").select("id,name,category,fee,is_active,schedule,teacher_id").eq("is_active", true).order("name"),
+        sb.from("profiles").select("id,full_name").eq("role", "teacher").order("full_name")
       ]);
       const el = document.getElementById("orientation-applications");
       if (error) { el.innerHTML = `<div class="card"><p class="empty">Could not load orientation registrations: ${esc(error.message)}</p></div>`; return; }
       const programOf = Object.fromEntries((programs || []).map(p => [p.id, p]));
-      const orientationBatchIds = new Set((programs || []).map(p => p.batch_id));
+      const cohortOf = Object.fromEntries((cohorts || []).map(c => [c.id, c]));
+      const batchOf = Object.fromEntries((batches || []).map(b => [b.id, b]));
+      const orientationBatchIds = new Set([...(programs || []).map(p => p.batch_id), ...(cohorts || []).map(c => c.batch_id)]);
       window._orientationCourseBatches = (batches || []).filter(b => !orientationBatchIds.has(b.id));
       window._orientationNames = Object.fromEntries((apps || []).map(a => [a.student_id, a.full_name]));
       window._orientationProgram = (programs || []).find(p => p.code === "iac-orientation") || null;
-      window._orientationBatch = (batches || []).find(b => b.id === window._orientationProgram?.batch_id) || null;
+      window._orientationCohorts = cohorts || [];
+      window._orientationBatches = batchOf;
       if (!apps?.length) { el.innerHTML = '<div class="card"><p class="empty">No orientation registrations yet.</p></div>'; return; }
-      const program = window._orientationProgram, batch = window._orientationBatch;
-      const state = program?.session_state || "registration_open";
-      el.innerHTML = `${program && batch ? `<div class="card" style="margin-bottom:14px"><h3>Orientation session</h3><p class="meta">Only NIPS staff control this journey. Set the teacher and session date in <a href="admin.html?view=batches">Batches</a>, then announce it here. Students cannot change or publish the date.</p><div style="display:grid;grid-template-columns:minmax(180px,.65fr) minmax(260px,1.35fr);gap:12px"><div class="field"><label>Student-facing stage</label><select id="or-session-state"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="or-session-message" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(program.student_message || "")}"/></div></div><div class="meta" style="margin:-4px 0 12px">Current batch schedule: <strong>${esc(batch.schedule || "Not set")}</strong> · Teacher: <strong>${batch.teacher_id ? "assigned" : "not assigned"}</strong></div><div class="row-actions"><button class="btn green sm" onclick="saveOrientationSession()">Save student-facing stage</button></div></div>` : ""}
+      const teacherOptions = (selected) => `<option value="">— assign teacher —</option>${(teachers || []).map(t => `<option value="${t.id}" ${t.id === selected ? "selected" : ""}>${esc(t.full_name)}</option>`).join("")}`;
+      const cohortCards = (cohorts || []).map(c => {
+        const batch = batchOf[c.batch_id] || {}, used = apps.filter(a => a.cohort_id === c.id).length;
+        return `<div class="card orientation-cohort-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="meta">${used}/${c.capacity} assigned</div></div><span class="pill ${c.session_state === "live" ? "paid" : "pending"}">${esc(c.session_state.replaceAll("_", " "))}</span></div><div class="orientation-cohort-grid"><div class="field"><label>Teacher</label><select id="oc-teacher-${c.id}">${teacherOptions(batch.teacher_id)}</select></div><div class="field"><label>Date and time</label><input id="oc-schedule-${c.id}" maxlength="200" placeholder="e.g. 18 Aug 2026 · 4:00 PM PKT" value="${esc(batch.schedule || "")}"/></div><div class="field"><label>Google Meet link</label><input id="oc-meet-${c.id}" type="url" placeholder="https://meet.google.com/…" value="${esc(c.meet_url || "")}"/></div><div class="field"><label>Google Calendar event link <span class="meta">(staff reference)</span></label><input id="oc-calendar-${c.id}" type="url" placeholder="Paste the Calendar event link" value="${esc(c.calendar_event_url || "")}"/></div><div class="field"><label>Student-facing stage</label><select id="oc-state-${c.id}"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="oc-message-${c.id}" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(c.student_message || "")}"/></div></div><p class="meta">Create this event in Google Calendar, add Google Meet, then paste both links here. Students see the schedule only after announcement and the Meet link only while this cohort is live.</p><div class="row-actions"><button class="btn green sm" onclick="saveOrientationCohort('${c.id}')">Save cohort settings</button>${c.calendar_event_url ? `<a class="btn soft sm" href="${safeUrl(c.calendar_event_url)}" target="_blank" rel="noopener noreferrer">Open Calendar event</a>` : ""}</div></div>`;
+      }).join("");
+      el.innerHTML = `<div class="orientation-cohort-list">${cohortCards}</div>
         <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
+        <div class="card orientation-bulk"><div><h3>Cohort assignment</h3><p class="meta">New registrations are balanced automatically. Select registrations below to reassign them safely; their application and account remain intact.</p></div><div class="row-actions"><select id="orientation-target-cohort">${(cohorts || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn green sm" onclick="bulkAssignOrientationCohort()">Assign selected</button><button class="btn soft sm" onclick="autoAssignOrientationCohorts()">Auto-assign unassigned</button><span class="list-count" id="orientation-selection-count">${window._orientationSel.size} selected</span></div></div>
         <div id="orientation-list"></div>`;
-      const stateSelect = document.getElementById("or-session-state");
-      if (stateSelect) stateSelect.value = state;
+      (cohorts || []).forEach(c => { const select = document.getElementById(`oc-state-${c.id}`); if (select) select.value = c.session_state; });
       mountList("orientation-applications", "orientation-list", apps, {
         placeholder: "Search applicants, email, city or interests…", noun: "registrations", empty: "No registrations match your search.", pageSize: 10,
-        match: (a, term) => `${a.full_name || ""} ${a.email || ""} ${a.phone || ""} ${a.city || ""} ${a.education_level || ""} ${a.institution || ""} ${a.interests || ""} ${a.status || ""}`.toLowerCase().includes(term),
-        render: (items) => `<div style="overflow:auto"><table><thead><tr><th>Applicant</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
-        ${items.map(a => `<tr><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td>
+        match: (a, term) => `${a.full_name || ""} ${a.email || ""} ${a.phone || ""} ${a.city || ""} ${a.education_level || ""} ${a.institution || ""} ${a.interests || ""} ${a.status || ""} ${cohortOf[a.cohort_id]?.name || "unassigned"}`.toLowerCase().includes(term),
+        render: (items) => `<div style="overflow:auto"><table><thead><tr><th><input type="checkbox" aria-label="Select this page" onchange="selectOrientationPage('${items.map(a => a.id).join(",")}',this.checked)"/></th><th>Applicant</th><th>Cohort</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
+        ${items.map(a => `<tr><td><input type="checkbox" data-orientation-application="${a.id}" aria-label="Select ${esc(a.full_name)}" ${window._orientationSel.has(a.id) ? "checked" : ""} onchange="toggleOrientationApplication('${a.id}',this.checked)"/></td><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td><td><span class="pill ${a.cohort_id ? "paid" : "pending"}">${esc(cohortOf[a.cohort_id]?.name || "Unassigned")}</span></td>
           <td>${esc(a.email)}<br><span class="meta">${esc(a.phone)} · ${esc(a.city || "—")}</span></td>
           <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}</span></td>
           <td>${new Date(a.submitted_at).toLocaleDateString()}</td><td><span class="pill ${a.status === "attended" ? "paid" : "pending"}">${esc(a.status)}</span><br><button class="btn soft sm" style="margin-top:5px" onclick="setOrientationStatus('${a.id}','${a.status === "attended" ? "reviewed" : "attended"}')">${a.status === "attended" ? "Mark reviewed" : "Mark attended"}</button></td>
@@ -359,20 +368,47 @@
         </tbody></table></div>`
       });
     }
-    async function saveOrientationSession() {
-      const program = window._orientationProgram, batch = window._orientationBatch;
-      if (!program || !batch) return alert("The orientation session configuration is unavailable. Please reload this page.");
-      const session_state = document.getElementById("or-session-state").value;
-      const student_message = document.getElementById("or-session-message").value.trim() || null;
-      const needsSchedule = session_state === "scheduled" || session_state === "live";
-      if (needsSchedule && (!batch.schedule || /to be announced/i.test(batch.schedule) || !batch.teacher_id)) {
-        return alert("Before announcing the orientation, set both its teacher and actual date/time in Batches.");
-      }
-      const patch = { session_state, student_message };
-      if (needsSchedule && !program.session_announced_at) patch.session_announced_at = new Date().toISOString();
-      if (session_state === "completed") patch.session_completed_at = new Date().toISOString();
-      const { error } = await sb.from("orientation_programs").update(patch).eq("id", program.id);
-      if (error) return alert("Could not save the orientation stage: " + error.message);
+    async function saveOrientationCohort(cohortId) {
+      const args = {
+        p_cohort_id: cohortId,
+        p_schedule: document.getElementById(`oc-schedule-${cohortId}`).value,
+        p_teacher_id: document.getElementById(`oc-teacher-${cohortId}`).value || null,
+        p_meet_url: document.getElementById(`oc-meet-${cohortId}`).value,
+        p_calendar_event_url: document.getElementById(`oc-calendar-${cohortId}`).value,
+        p_session_state: document.getElementById(`oc-state-${cohortId}`).value,
+        p_student_message: document.getElementById(`oc-message-${cohortId}`).value
+      };
+      const { error } = await sb.rpc("update_orientation_cohort_settings", args);
+      if (error) return alert("Could not save cohort settings: " + error.message);
+      alert("Cohort settings saved.");
+      await loadOrientationApplications();
+    }
+    function toggleOrientationApplication(applicationId, checked) {
+      checked ? window._orientationSel.add(applicationId) : window._orientationSel.delete(applicationId);
+      const count = document.getElementById("orientation-selection-count");
+      if (count) count.textContent = `${window._orientationSel.size} selected`;
+    }
+    function selectOrientationPage(csvIds, checked) {
+      csvIds.split(",").filter(Boolean).forEach(id => checked ? window._orientationSel.add(id) : window._orientationSel.delete(id));
+      document.querySelectorAll("#orientation-list [data-orientation-application]").forEach(input => { input.checked = checked; });
+      const count = document.getElementById("orientation-selection-count");
+      if (count) count.textContent = `${window._orientationSel.size} selected`;
+    }
+    async function bulkAssignOrientationCohort() {
+      const ids = [...window._orientationSel];
+      const cohortId = document.getElementById("orientation-target-cohort").value;
+      if (!ids.length) return alert("Select at least one registration.");
+      const { data: moved, error } = await sb.rpc("bulk_assign_orientation_cohort", { p_application_ids: ids, p_cohort_id: cohortId });
+      if (error) return alert("Could not assign the selected registrations: " + error.message);
+      window._orientationSel.clear();
+      alert(`${moved || 0} registration(s) reassigned.`);
+      await loadOrientationApplications();
+    }
+    async function autoAssignOrientationCohorts() {
+      if (!window._orientationProgram) return;
+      const { data: assigned, error } = await sb.rpc("auto_assign_orientation_cohorts", { p_program_id: window._orientationProgram.id });
+      if (error) return alert("Could not auto-assign registrations: " + error.message);
+      alert(`${assigned || 0} unassigned registration(s) placed into available cohorts.`);
       await loadOrientationApplications();
     }
     async function setOrientationStatus(applicationId, status) {

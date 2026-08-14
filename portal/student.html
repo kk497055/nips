@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Student</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=10" />
+  <link rel="stylesheet" href="portal.css?v=11" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -104,9 +104,8 @@
         .filter(e => e.payment_status === "paid" || e.payment_status === "demo")
         .map(e => e.batch_id));
       const learningBatches = (batches || []).filter(b => paidBatchIds.has(b.id));
-      const { data: orientationPrograms } = await sb.from("orientation_programs")
-        .select("batch_id,name,session_state,student_message,session_announced_at,session_completed_at").eq("is_active", true);
-      const orientationByBatch = Object.fromEntries((orientationPrograms || []).map(p => [p.batch_id, p]));
+      const { data: orientationCohorts } = await sb.rpc("get_my_orientation_cohorts");
+      const orientationByBatch = Object.fromEntries((orientationCohorts || []).map(c => [c.batch_id, c]));
 
       if (!learningBatches.length) {
         const hasPending = (enrollments || []).some(e => e.payment_status === "pending");
@@ -150,7 +149,7 @@
             completed: { pill: "Orientation completed", title: "Thank you for attending", text: "NIPS will contact you about the best next course and its enrolment process." }
           };
           const view = labels[state] || labels.registration_open;
-          box.innerHTML += `<div class="card class-card orientation-student-card"><div class="class-top"><span class="pill ${isLive ? "paid" : "pending"}">${view.pill}</span><span class="class-category">Institute of Arts and Culture</span></div><h3>${esc(orientation.name || b.name)}</h3><div class="meta">${esc(view.text)}</div>${state === "scheduled" || state === "live" ? `<div class="orientation-schedule"><strong>Session details</strong><br>${esc(b.schedule || "Schedule being finalized")}</div>` : ""}${orientation.student_message ? `<div class="orientation-message">${esc(orientation.student_message)}</div>` : ""}<div class="row-actions">${isLive ? `<a class="btn green" href="classroom.html?batch=${b.id}">Join Orientation</a><button class="btn soft" onclick="openQA('${b.id}','${esc(b.name).replace(/'/g,"&#39;")}')">Q&amp;A</button>` : `<a class="btn soft" href="?view=account">Contact NIPS</a>`}</div></div>`;
+          box.innerHTML += `<div class="card class-card orientation-student-card"><div class="class-top"><span class="pill ${isLive ? "paid" : "pending"}">${view.pill}</span><span class="class-category">Institute of Arts and Culture</span></div><h3>${esc(orientation.name || b.name)}</h3><div class="meta">${esc(view.text)}</div>${state === "scheduled" || state === "live" ? `<div class="orientation-schedule"><strong>Session details</strong><br>${esc(orientation.schedule || "Schedule being finalized")}</div>` : ""}${orientation.student_message ? `<div class="orientation-message">${esc(orientation.student_message)}</div>` : ""}<div class="row-actions">${isLive && orientation.join_url ? `<a class="btn green" href="${safeUrl(orientation.join_url)}" target="_blank" rel="noopener noreferrer">Join Orientation on Google Meet</a>` : `<a class="btn soft" href="?view=account">Contact NIPS</a>`}</div></div>`;
           continue;
         }
         const { data: recs } = await sb.from("sessions")

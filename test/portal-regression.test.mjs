@@ -273,7 +273,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=10/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=11/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });
@@ -341,6 +341,7 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   const schema = read("portal/orientation.sql");
   const admin = read("portal/admin.html");
   const fn = read("supabase/functions/orientation-register/index.ts");
+  const cohorts = read("supabase/migrations/20260814000000_orientation_cohorts.sql");
   const headers = read("_headers");
 
   assert.match(form, /Institute of Arts and Culture Orientation/);
@@ -367,11 +368,25 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /mountList\("orientation-applications", "orientation-list", apps/);
   assert.match(admin, /pageSize: 10/);
   assert.match(admin, /Search applicants, email, city or interests/);
-  assert.match(admin, /function saveOrientationSession\(\)/);
-  assert.match(admin, /Before announcing the orientation, set both its teacher and actual date\/time/);
+  assert.match(admin, /function saveOrientationCohort\(cohortId\)/);
+  assert.match(admin, /function bulkAssignOrientationCohort\(\)/);
+  assert.match(admin, /function autoAssignOrientationCohorts\(\)/);
+  assert.match(admin, /function selectOrientationPage\(csvIds, checked\)/);
+  assert.match(admin, /Google Meet link/);
+  assert.match(admin, /Google Calendar event link/);
   assert.match(read("portal/orientation-workflow.sql"), /add column if not exists session_state/i);
   assert.doesNotMatch(read("portal/orientation-workflow.sql"), /drop |delete |truncate /i);
+  assert.match(cohorts, /create table if not exists public\.orientation_cohorts/i);
+  assert.match(cohorts, /capacity integer not null default 50/i);
+  assert.match(cohorts, /bulk_assign_orientation_cohort/i);
+  assert.match(cohorts, /auto_assign_orientation_cohorts/i);
+  assert.match(cohorts, /get_my_orientation_cohorts/i);
+  assert.match(cohorts, /case when c\.session_state = 'live' then c\.meet_url else null/i);
+  assert.match(cohorts, /orientation_cohort_audit/i);
+  assert.doesNotMatch(cohorts, /drop table|delete from|truncate /i);
   assert.match(read("portal/student.html"), /Your orientation is being arranged/);
-  assert.match(read("portal/student.html"), /Join Orientation/);
+  assert.match(read("portal/student.html"), /Join Orientation on Google Meet/);
+  assert.match(read("portal/student.html"), /get_my_orientation_cohorts/);
   assert.match(read("portal/student.html"), /state === "live"/);
+  assert.match(read("portal/teacher.html"), /Open Google Meet/);
 });
