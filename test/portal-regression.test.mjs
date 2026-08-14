@@ -275,7 +275,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=12/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=13/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });
@@ -370,7 +370,7 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /data-admin-view="orientation"/);
   assert.match(admin, /transitionOrientationStudent/);
   assert.match(admin, /payment_status: "pending"/);
-  assert.match(admin, /mountList\("orientation-applications", "orientation-list", campaignApps/);
+  assert.match(admin, /mountList\("orientation-applications", "orientation-list", visibleApps/);
   assert.match(admin, /pageSize: 10/);
   assert.match(admin, /Search applicants, email, city or interests/);
   assert.match(admin, /function saveOrientationCohort\(cohortId\)/);
@@ -411,6 +411,11 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /function publishOrientationCampaign\(\)/);
   assert.match(admin, /type="datetime-local"/);
   assert.match(admin, /Copy registration link/);
+  assert.match(admin, /function filterOrientationCohort\(code\)/);
+  assert.match(admin, /id="orientation-cohort-filter"/);
+  assert.match(admin, /Cohort details/);
+  assert.match(admin, /mountList\("orientation-applications", "orientation-list", visibleApps/);
+  assert.match(admin, /click title for details/);
   assert.match(read("portal/student.html"), /Your orientation is being arranged/);
   assert.match(read("portal/student.html"), /Join Orientation on Google Meet/);
   assert.match(read("portal/student.html"), /get_my_orientation_cohorts/);
