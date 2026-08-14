@@ -1,4 +1,4 @@
-// NIPS Portal — authenticated resubmission for the IAC orientation form.
+// NIPS Portal — authenticated registration for a published orientation campaign.
 // New applicants are created by Supabase Auth on the public form; this function
 // is for existing portal users and always binds data to the authenticated email.
 
@@ -27,8 +27,14 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const data = body?.data || {};
+    const campaign = text(body?.campaign || data.orientation_program, 120).toLowerCase();
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(campaign)) return json({ error: "Invalid orientation campaign." }, 400);
+    const customAnswers = Object.fromEntries(Object.entries(data.custom_answers || {})
+      .slice(0, 20)
+      .filter(([name]) => /^[a-z0-9_-]{1,60}$/i.test(name))
+      .map(([name, value]) => [name, text(value, 1000)]));
     const payload = {
-      orientation_program: "iac-orientation",
+      orientation_program: campaign,
       full_name: text(data.full_name, 160), phone: text(data.phone, 50),
       date_of_birth: text(data.date_of_birth, 10), gender: text(data.gender, 60),
       city: text(data.city, 100), country: text(data.country, 100), address: text(data.address, 500),
@@ -37,6 +43,7 @@ Deno.serve(async (req) => {
       field_of_study: text(data.field_of_study, 160), completion_year: text(data.completion_year, 4),
       interests: text(data.interests, 1000), career_goal: text(data.career_goal, 1000),
       referral_source: text(data.referral_source, 160), notes: text(data.notes, 1000),
+      custom_answers: customAnswers,
     };
     if (!payload.full_name || !payload.phone) return json({ error: "Full name and mobile number are required." }, 400);
     if (payload.date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(payload.date_of_birth)) return json({ error: "Enter a valid date of birth." }, 400);

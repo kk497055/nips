@@ -11,6 +11,7 @@ function inlineScripts(html) {
 }
 
 test("portal inline scripts parse", () => {
+  const shared = read("portal/config.js");
   for (const file of [
     "portal/admin.html",
     "portal/teacher.html",
@@ -22,6 +23,7 @@ test("portal inline scripts parse", () => {
   ]) {
     for (const script of inlineScripts(read(file))) {
       assert.doesNotThrow(() => new Function(script), `${file} has a parse error`);
+      assert.doesNotThrow(() => new Function(`${shared}\n${script}`), `${file} conflicts with shared portal code`);
     }
   }
 });
@@ -273,7 +275,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=11/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=12/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });
@@ -343,14 +345,16 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   const fn = read("supabase/functions/orientation-register/index.ts");
   const cohorts = read("supabase/migrations/20260814000000_orientation_cohorts.sql");
   const autoscale = read("supabase/migrations/20260814010000_orientation_cohort_autoscale.sql");
+  const builder = read("supabase/migrations/20260814020000_orientation_campaign_builder.sql");
   const headers = read("_headers");
 
-  assert.match(form, /Institute of Arts and Culture Orientation/);
+  assert.match(builder, /where code = 'iac-orientation'/);
   assert.match(form, /name="education_level"/);
   assert.match(form, /name="interests"/);
-  assert.match(form, /emailRedirectTo: "https:\/\/nips\.com\.pk\/portal\/orientation\.html\?verified=1"/);
+  assert.match(form, /redirect\.search = new URLSearchParams\(\{ campaign: campaign\.slug, verified: "1" \}\)/);
   assert.match(form, /sb\.auth\.signUp/);
-  assert.doesNotMatch(form, /orientation-register/);
+  assert.match(form, /orientation-register/);
+  assert.match(form, /get_public_orientation_campaign/);
   assert.match(form, /noindex, nofollow, noarchive/);
   assert.match(headers, /\/portal\/orientation\.html\n  X-Robots-Tag: noindex, nofollow, noarchive/);
   assert.match(schema, /create table if not exists public\.orientation_programs/i);
@@ -366,7 +370,7 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /data-admin-view="orientation"/);
   assert.match(admin, /transitionOrientationStudent/);
   assert.match(admin, /payment_status: "pending"/);
-  assert.match(admin, /mountList\("orientation-applications", "orientation-list", apps/);
+  assert.match(admin, /mountList\("orientation-applications", "orientation-list", campaignApps/);
   assert.match(admin, /pageSize: 10/);
   assert.match(admin, /Search applicants, email, city or interests/);
   assert.match(admin, /function saveOrientationCohort\(cohortId\)/);
@@ -393,8 +397,20 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(autoscale, /pg_advisory_xact_lock/i);
   assert.match(autoscale, /session_state = 'registration_open'/i);
   assert.doesNotMatch(autoscale, /drop table|delete from|truncate /i);
-  assert.match(admin, /Open cohorts hold up to 90 students/);
+  assert.match(admin, /Open cohorts hold up to \$\{Number\(selectedProgram\?\.default_cohort_capacity \|\| 90\)\} students/);
   assert.match(admin, /Reconcile assignments/);
+  assert.match(builder, /create_orientation_campaign/i);
+  assert.match(builder, /get_public_orientation_campaign/i);
+  assert.match(builder, /form_config jsonb/i);
+  assert.match(builder, /custom_answers jsonb/i);
+  assert.match(builder, /scheduled_at timestamptz/i);
+  assert.match(builder, /update_orientation_cohort_settings_v2/i);
+  assert.match(builder, /campaign_status in \('draft','published','closed','archived'\)/i);
+  assert.doesNotMatch(builder, /drop table|delete from|truncate /i);
+  assert.match(admin, /function openCampaignWizard\(\)/);
+  assert.match(admin, /function publishOrientationCampaign\(\)/);
+  assert.match(admin, /type="datetime-local"/);
+  assert.match(admin, /Copy registration link/);
   assert.match(read("portal/student.html"), /Your orientation is being arranged/);
   assert.match(read("portal/student.html"), /Join Orientation on Google Meet/);
   assert.match(read("portal/student.html"), /get_my_orientation_cohorts/);

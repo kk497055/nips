@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NIPS Portal — Login</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=11" />
+  <link rel="stylesheet" href="portal.css?v=12" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -76,11 +76,17 @@
     let mode = "signin";
     const msg = document.getElementById("msg");
     const show = (t, ok=false) => { msg.className = "msg " + (ok?"ok":"err"); msg.textContent = t; };
+    const requestedReturn = new URLSearchParams(location.search).get("return");
+    function safeReturnUrl() {
+      if (!requestedReturn) return "";
+      try { const target = new URL(requestedReturn, location.origin); return target.origin === location.origin && target.pathname === "/portal/orientation.html" ? target.href : ""; }
+      catch { return ""; }
+    }
 
     // If already logged in, route straight to dashboard.
     (async () => {
       const { data:{ session } } = await sb.auth.getSession();
-      if (session) { const p = await getProfile(); if (p) routeByRole(p.role); }
+      if (session) { const target = safeReturnUrl(); if (target) return location.replace(target); const p = await getProfile(); if (p) routeByRole(p.role); }
     })();
 
     document.getElementById("toggle").onclick = (e) => {
@@ -143,6 +149,7 @@
             });
           }).catch(() => {});
         }
+        const target = safeReturnUrl(); if (target) return location.replace(target);
         routeByRole(p ? p.role : "student");
       }
     };

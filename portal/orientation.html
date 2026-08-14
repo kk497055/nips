@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow, noarchive" />
-  <title>Institute of Arts and Culture — Orientation Registration</title>
+  <title>Orientation Registration — NIPS Education Solutions</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=11" />
+  <link rel="stylesheet" href="portal.css?v=12" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -14,25 +14,26 @@
 <body>
   <div class="topbar">
     <a class="brand" href="../index.html"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Education Solutions</a>
-    <div class="right"><a class="btn ghost sm" href="login.html">Portal sign in</a></div>
+    <div class="right"><a class="btn ghost sm" id="portal-sign-in" href="login.html">Portal sign in</a></div>
   </div>
 
   <main class="wrap orientation-page">
-    <p class="eyebrow">NIPS Education Solutions</p>
-    <h1>Institute of Arts and Culture Orientation</h1>
-    <p class="sub">Complete this form to create your NIPS Portal account and reserve your place in the Institute of Arts and Culture orientation session. Orientation is free; paid course selection happens later with the NIPS team.</p>
+    <p class="eyebrow" id="campaign-project">NIPS Education Solutions</p>
+    <h1 id="campaign-title">Orientation registration</h1>
+    <p class="sub" id="campaign-description">Loading campaign details…</p>
 
     <div class="orientation-banner"><strong>What happens next</strong><span>Verify your email, sign in to NIPS Portal, attend orientation</span></div>
-    <form id="orientation-form" class="orientation-form">
+    <div id="campaign-status" class="msg"></div>
+    <form id="orientation-form" class="orientation-form" style="display:none">
       <div id="orientation-msg" class="msg"></div>
       <section class="card">
         <h2>Portal account</h2>
         <p class="meta">Use an email you can access. It will become your NIPS Portal login.</p>
         <div class="orientation-grid">
           <div class="field"><label for="or-email">Email address *</label><input id="or-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></div>
-          <div class="field"><label for="or-password">Password *</label><input id="or-password" name="password" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters" /></div>
+          <div class="field" id="password-field"><label for="or-password">Password *</label><input id="or-password" name="password" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters" /></div>
         </div>
-        <p class="meta">We will email you a verification link after registration. This form creates your regular NIPS Portal account.</p>
+        <p class="meta" id="account-note">We will email you a verification link after registration. This form creates your regular NIPS Portal account.</p>
       </section>
 
       <section class="card">
@@ -64,7 +65,12 @@
         </div>
       </section>
 
-      <label class="consent"><input id="or-consent" type="checkbox" required /> I confirm that the information I have provided is accurate and I agree that NIPS may use it to manage my orientation and course enrolment.</label>
+      <section class="card" id="custom-questions-section" hidden>
+        <h2>Additional questions</h2>
+        <div class="orientation-grid" id="custom-questions"></div>
+      </section>
+
+      <label class="consent"><input id="or-consent" type="checkbox" required /> <span id="consent-text">I confirm that the information I have provided is accurate and I agree that NIPS may use it to manage my orientation and course enrolment.</span></label>
       <button class="btn green orientation-submit" id="or-submit" type="submit">Register for Orientation</button>
     </form>
   </main>
@@ -74,31 +80,103 @@
   <script>
     const form = document.getElementById("orientation-form");
     const message = document.getElementById("orientation-msg");
+    const statusMessage = document.getElementById("campaign-status");
     const submit = document.getElementById("or-submit");
+    const optionalFields = ["date_of_birth","gender","city","country","address","guardian_name","guardian_phone","education_level","institution","field_of_study","completion_year","interests","career_goal","referral_source","notes"];
+    let campaign = null, session = null;
 
     function show(text, ok = false) { message.className = "msg " + (ok ? "ok" : "err"); message.textContent = text; }
+    function fieldConfig(name) { return campaign?.form_config?.fields?.[name] || { enabled: false, required: false }; }
+    function renderCustomQuestions() {
+      const questions = Array.isArray(campaign?.form_config?.custom_questions) ? campaign.form_config.custom_questions : [];
+      const container = document.getElementById("custom-questions");
+      document.getElementById("custom-questions-section").hidden = !questions.length;
+      container.innerHTML = questions.map((q, index) => {
+        const id = String(q.id || `question_${index + 1}`).replace(/[^a-z0-9_-]/gi, "_");
+        const required = q.required ? "required" : "", star = q.required ? " *" : "";
+        if (q.type === "select") return `<div class="field"><label for="custom-${id}">${esc(q.label)}${star}</label><select id="custom-${id}" data-custom-question="${esc(id)}" ${required}><option value="">Select</option>${(q.options || []).map(option => `<option value="${esc(option)}">${esc(option)}</option>`).join("")}</select></div>`;
+        if (q.type === "long_text") return `<div class="field orientation-span"><label for="custom-${id}">${esc(q.label)}${star}</label><textarea id="custom-${id}" data-custom-question="${esc(id)}" rows="3" maxlength="1000" ${required}></textarea></div>`;
+        return `<div class="field"><label for="custom-${id}">${esc(q.label)}${star}</label><input id="custom-${id}" data-custom-question="${esc(id)}" maxlength="300" ${required}/></div>`;
+      }).join("");
+    }
+    function applyCampaign() {
+      document.title = `${campaign.name} — NIPS Education Solutions`;
+      document.getElementById("campaign-title").textContent = campaign.name;
+      document.getElementById("campaign-project").textContent = campaign.project_name || "NIPS Education Solutions";
+      document.getElementById("campaign-description").textContent = campaign.description || "Register for this free NIPS orientation session.";
+      document.getElementById("consent-text").textContent = campaign.form_config?.consent_text || document.getElementById("consent-text").textContent;
+      optionalFields.forEach(name => {
+        const input = form.elements[name], config = fieldConfig(name), wrapper = input?.closest(".field");
+        if (!input || !wrapper) return;
+        wrapper.hidden = !config.enabled;
+        input.disabled = !config.enabled;
+        input.required = Boolean(config.enabled && config.required);
+        const label = wrapper.querySelector("label");
+        if (label) label.textContent = label.textContent.replace(/ \*$/, "") + (input.required ? " *" : "");
+      });
+      renderCustomQuestions();
+    }
     function payload() {
       const raw = Object.fromEntries(new FormData(form).entries());
       delete raw.email; delete raw.password;
-      return { orientation_program: "iac-orientation", ...raw };
+      const custom_answers = {};
+      document.querySelectorAll("[data-custom-question]").forEach(input => { if (input.value.trim()) custom_answers[input.dataset.customQuestion] = input.value.trim(); });
+      Object.keys(raw).filter(key => key.startsWith("custom_")).forEach(key => delete raw[key]);
+      return { orientation_program: campaign.code, ...raw, custom_answers };
+    }
+    async function initialize() {
+      const params = new URLSearchParams(location.search), slug = params.get("campaign") || null;
+      const { data, error } = await sb.rpc("get_public_orientation_campaign", { p_slug: slug });
+      if (error || !data) {
+        statusMessage.className = "msg err";
+        statusMessage.textContent = "This orientation campaign is not available. Please confirm the registration link with NIPS.";
+        return;
+      }
+      campaign = data;
+      applyCampaign();
+      document.getElementById("portal-sign-in").href = `login.html?return=${encodeURIComponent(location.href)}`;
+      ({ data: { session } } = await sb.auth.getSession());
+      if (session?.user) {
+        document.getElementById("or-email").value = session.user.email || "";
+        document.getElementById("or-email").readOnly = true;
+        document.getElementById("password-field").hidden = true;
+        document.getElementById("or-password").required = false;
+        document.getElementById("account-note").textContent = "You are signed in. This registration will be added to your existing NIPS Portal account.";
+      }
+      if (!campaign.accepting_registrations) {
+        statusMessage.className = "msg err";
+        statusMessage.textContent = "Registration for this orientation campaign is currently closed.";
+        submit.disabled = true;
+      } else {
+        statusMessage.className = "msg";
+      }
+      form.style.display = "block";
     }
     form.onsubmit = async (event) => {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      if (!campaign?.accepting_registrations || !form.reportValidity()) return;
       const data = payload(), email = document.getElementById("or-email").value.trim().toLowerCase();
-      const password = document.getElementById("or-password").value;
       submit.disabled = true; submit.textContent = "Registering…"; message.className = "msg";
       try {
-        const { error } = await sb.auth.signUp({ email, password, options: {
-          data: { full_name: data.full_name, ...data },
-          emailRedirectTo: "https://nips.com.pk/portal/orientation.html?verified=1"
-        }});
-        if (error) throw error;
+        if (session?.user) {
+          const { error } = await sb.functions.invoke("orientation-register", { body: { campaign: campaign.code, data } });
+          if (error) throw error;
+          show("Registration received. This orientation campaign is now available in your NIPS Portal.", true);
+        } else {
+          const password = document.getElementById("or-password").value;
+          const redirect = new URL("orientation.html", location.href);
+          redirect.search = new URLSearchParams({ campaign: campaign.slug, verified: "1" }).toString();
+          const { error } = await sb.auth.signUp({ email, password, options: {
+            data: { full_name: data.full_name, ...data }, emailRedirectTo: redirect.href
+          }});
+          if (error) throw error;
+          show("Registration received. Check your email and verify your account. Your NIPS Portal orientation enrolment is ready once you sign in.", true);
+        }
         form.reset();
-        show("Registration received. Check your email and verify your account. Your NIPS Portal orientation enrolment is ready once you sign in.", true);
       } catch (error) { show(error.message || "Registration could not be completed."); }
       finally { submit.disabled = false; submit.textContent = "Register for Orientation"; }
     };
+    initialize();
   </script>
 </body>
 </html>

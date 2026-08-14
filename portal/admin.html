@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=11" />
+  <link rel="stylesheet" href="portal.css?v=12" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -267,9 +267,40 @@
 
     <!-- ORIENTATION REGISTRATIONS -->
     <div class="section" data-admin-view="orientation">
-      <h2>Institute of Arts and Culture Orientation</h2>
-      <p class="meta" style="margin-bottom:12px">Review orientation registrations, then add a student to their selected paid course when counselling is complete. Their orientation record remains intact.</p>
+      <h2>Orientation campaigns</h2>
+      <p class="meta" style="margin-bottom:12px">Create reusable registration forms, schedule capacity-controlled cohorts, and retain each campaign's application history.</p>
       <div id="orientation-applications"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div id="campaign-wizard" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:min(820px,96vw);max-height:92vh;overflow:auto">
+        <div class="class-top"><div><p class="eyebrow">Orientation builder</p><h2>Create campaign</h2></div><button class="btn soft sm" type="button" onclick="closeCampaignWizard()">Close</button></div>
+        <div class="progress-steps" style="margin:14px 0"><div class="progress-step active" data-campaign-step-label="1"><span>1</span>Campaign</div><div class="progress-step" data-campaign-step-label="2"><span>2</span>Form fields</div><div class="progress-step" data-campaign-step-label="3"><span>3</span>Review</div></div>
+        <div id="campaign-wizard-msg" class="msg"></div>
+        <section data-campaign-step="1">
+          <div class="orientation-grid">
+            <div class="field"><label>Campaign name *</label><input id="cw-name" maxlength="200" placeholder="IAC Orientation — September 2026" oninput="suggestCampaignSlug()"/></div>
+            <div class="field"><label>Institute / project *</label><input id="cw-project" maxlength="160" placeholder="Institute of Arts and Culture"/></div>
+            <div class="field orientation-span"><label>Description</label><textarea id="cw-description" maxlength="1200" rows="3" placeholder="Explain who should register and what happens next."></textarea></div>
+            <div class="field"><label>Public link *</label><div class="input-prefix"><span>?campaign=</span><input id="cw-slug" maxlength="120" placeholder="iac-september-2026"/></div></div>
+            <div class="field"><label>Cohort capacity *</label><input id="cw-capacity" type="number" min="1" max="90" value="90"/></div>
+            <div class="field"><label>Registration opens</label><input id="cw-opens" type="datetime-local"/></div>
+            <div class="field"><label>Registration closes</label><input id="cw-closes" type="datetime-local"/></div>
+            <div class="field"><label>Timezone *</label><input id="cw-timezone" value="Asia/Karachi" maxlength="80"/></div>
+          </div>
+        </section>
+        <section data-campaign-step="2" hidden>
+          <p class="meta" style="margin-bottom:12px">Email, password, full name, and mobile number are always required. Select the additional fields for this campaign.</p>
+          <div id="campaign-field-picker" class="orientation-field-picker"></div>
+          <div class="class-top" style="margin-top:18px"><h3>Custom questions</h3><button class="btn soft sm" type="button" onclick="addCampaignQuestion()">Add question</button></div>
+          <div id="campaign-custom-questions"></div>
+        </section>
+        <section data-campaign-step="3" hidden>
+          <div class="card" style="background:var(--soft)" id="campaign-review"></div>
+          <label class="consent" style="margin-top:14px"><input id="cw-publish" type="checkbox" checked/> Publish immediately and accept registrations</label>
+        </section>
+        <div class="row-actions" style="margin-top:18px;justify-content:flex-end"><button class="btn soft" id="cw-back" type="button" onclick="campaignWizardBack()" hidden>Back</button><button class="btn green" id="cw-next" type="button" onclick="campaignWizardNext()">Next</button><button class="btn green" id="cw-create" type="button" onclick="publishOrientationCampaign()" hidden>Create campaign</button></div>
+      </div>
     </div>
 
     <!-- PEOPLE -->
@@ -287,7 +318,7 @@
       overview: { label: "Overview", title: "Admin Overview", subtitle: "Your operational snapshot: revenue, collections, batches, and teaching activity." },
       batches: { label: "Batches", title: "Batches", subtitle: "Create and run batches, manage teachers, schedules, students, and monthly billing." },
       students: { label: "Students", title: "Students & Enrolments", subtitle: "Add students to batches, set agreed fees, and manage enrolment access." },
-      orientation: { label: "Orientation", title: "IAC Orientation", subtitle: "Review Institute of Arts and Culture orientation registrations and transition students to paid courses." },
+      orientation: { label: "Orientation", title: "Orientation Campaigns", subtitle: "Publish registration forms, manage cohorts, and transition students to paid courses." },
       billing: { label: "Billing", title: "Payments & Billing", subtitle: "Confirm payments, manage monthly collections, grace periods, receipts, and revenue history." },
       communications: { label: "Communications", title: "Communications", subtitle: "Send announcements and class reminders to enrolled students." },
       staff: { label: "Staff & Access", title: "Staff & Access", subtitle: "Create accounts and manage teacher, administrator, and staff permissions." }
@@ -326,10 +357,33 @@
 
     // ---------- Institute of Arts and Culture orientation ----------
     window._orientationSel = new Set();
+    const ORIENTATION_FIELD_CATALOG = [
+      ["date_of_birth","Date of birth"],["gender","Gender"],["city","City"],["country","Country"],["address","Address"],
+      ["guardian_name","Parent / guardian name"],["guardian_phone","Parent / guardian phone"],
+      ["education_level","Education level"],["institution","School, college, or university"],["field_of_study","Field / subjects of study"],
+      ["completion_year","Completion year"],["interests","Interests"],["career_goal","Goal"],["referral_source","Referral source"],["notes","Additional notes"]
+    ];
+    window._campaignWizardStep = 1;
+    function isoToZonedLocal(iso, timeZone) {
+      if (!iso) return "";
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone, year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23" }).formatToParts(new Date(iso)).filter(p => p.type !== "literal").map(p => [p.type,p.value]));
+      return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    }
+    function zonedLocalToIso(value, timeZone) {
+      if (!value) return null;
+      const [date,time] = value.split("T"), [year,month,day] = date.split("-").map(Number), [hour,minute] = time.split(":").map(Number);
+      const desired = Date.UTC(year,month-1,day,hour,minute); let candidate = desired;
+      for (let i=0;i<2;i++) {
+        const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone, year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23" }).formatToParts(new Date(candidate)).filter(p => p.type !== "literal").map(p => [p.type,p.value]));
+        const represented = Date.UTC(+parts.year,+parts.month-1,+parts.day,+parts.hour,+parts.minute,+parts.second);
+        candidate = desired - (represented - candidate);
+      }
+      return new Date(candidate).toISOString();
+    }
     async function loadOrientationApplications() {
       const [{ data: apps, error }, { data: programs }, { data: cohorts }, { data: batches }, { data: teachers }] = await Promise.all([
         sb.from("orientation_applications").select("*").order("submitted_at", { ascending: false }),
-        sb.from("orientation_programs").select("id,batch_id,code,name,session_state,student_message,session_announced_at,session_completed_at"),
+        sb.from("orientation_programs").select("*").order("created_at", { ascending: false }),
         sb.from("orientation_cohorts").select("*").order("position").order("created_at"),
         sb.from("batches").select("id,name,category,fee,is_active,schedule,teacher_id").eq("is_active", true).order("name"),
         sb.from("profiles").select("id,full_name").eq("role", "teacher").order("full_name")
@@ -339,49 +393,154 @@
       const programOf = Object.fromEntries((programs || []).map(p => [p.id, p]));
       const cohortOf = Object.fromEntries((cohorts || []).map(c => [c.id, c]));
       const batchOf = Object.fromEntries((batches || []).map(b => [b.id, b]));
+      const campaignCode = new URLSearchParams(location.search).get("campaign");
+      const selectedProgram = (programs || []).find(p => p.code === campaignCode || p.public_slug === campaignCode)
+        || (programs || []).find(p => p.code === "iac-orientation") || (programs || [])[0] || null;
+      const campaignApps = (apps || []).filter(a => a.program_id === selectedProgram?.id);
+      const campaignCohorts = (cohorts || []).filter(c => c.program_id === selectedProgram?.id);
       const orientationBatchIds = new Set([...(programs || []).map(p => p.batch_id), ...(cohorts || []).map(c => c.batch_id)]);
       window._orientationCourseBatches = (batches || []).filter(b => !orientationBatchIds.has(b.id));
-      window._orientationNames = Object.fromEntries((apps || []).map(a => [a.student_id, a.full_name]));
-      window._orientationProgram = (programs || []).find(p => p.code === "iac-orientation") || null;
-      window._orientationCohorts = cohorts || [];
+      window._orientationNames = Object.fromEntries(campaignApps.map(a => [a.student_id, a.full_name]));
+      window._orientationProgram = selectedProgram;
+      window._orientationCohorts = campaignCohorts;
       window._orientationBatches = batchOf;
-      if (!apps?.length) { el.innerHTML = '<div class="card"><p class="empty">No orientation registrations yet.</p></div>'; return; }
       const teacherOptions = (selected) => `<option value="">— assign teacher —</option>${(teachers || []).map(t => `<option value="${t.id}" ${t.id === selected ? "selected" : ""}>${esc(t.full_name)}</option>`).join("")}`;
-      const cohortCards = (cohorts || []).map(c => {
-        const batch = batchOf[c.batch_id] || {}, used = apps.filter(a => a.cohort_id === c.id).length;
-        return `<div class="card orientation-cohort-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="meta">${used}/${c.capacity} assigned</div></div><span class="pill ${c.session_state === "live" ? "paid" : "pending"}">${esc(c.session_state.replaceAll("_", " "))}</span></div><div class="orientation-cohort-grid"><div class="field"><label>Teacher</label><select id="oc-teacher-${c.id}">${teacherOptions(batch.teacher_id)}</select></div><div class="field"><label>Date and time</label><input id="oc-schedule-${c.id}" maxlength="200" placeholder="e.g. 18 Aug 2026 · 4:00 PM PKT" value="${esc(batch.schedule || "")}"/></div><div class="field"><label>Google Meet link</label><input id="oc-meet-${c.id}" type="url" placeholder="https://meet.google.com/…" value="${esc(c.meet_url || "")}"/></div><div class="field"><label>Google Calendar event link <span class="meta">(staff reference)</span></label><input id="oc-calendar-${c.id}" type="url" placeholder="Paste the Calendar event link" value="${esc(c.calendar_event_url || "")}"/></div><div class="field"><label>Student-facing stage</label><select id="oc-state-${c.id}"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="oc-message-${c.id}" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(c.student_message || "")}"/></div></div><p class="meta">Create this event in Google Calendar, add Google Meet, then paste both links here. Students see the schedule only after announcement and the Meet link only while this cohort is live.</p><div class="row-actions"><button class="btn green sm" onclick="saveOrientationCohort('${c.id}')">Save cohort settings</button>${c.calendar_event_url ? `<a class="btn soft sm" href="${safeUrl(c.calendar_event_url)}" target="_blank" rel="noopener noreferrer">Open Calendar event</a>` : ""}</div></div>`;
+      const cohortCards = campaignCohorts.map(c => {
+        const batch = batchOf[c.batch_id] || {}, used = campaignApps.filter(a => a.cohort_id === c.id).length;
+        return `<div class="card orientation-cohort-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="meta">${used}/${c.capacity} assigned</div></div><span class="pill ${c.session_state === "live" ? "paid" : "pending"}">${esc(c.session_state.replaceAll("_", " "))}</span></div><div class="orientation-cohort-grid"><div class="field"><label>Teacher</label><select id="oc-teacher-${c.id}">${teacherOptions(batch.teacher_id)}</select></div><div class="field"><label>Date and time <span class="meta">(${esc(selectedProgram?.timezone || "Asia/Karachi")})</span></label><input id="oc-schedule-${c.id}" type="datetime-local" value="${esc(isoToZonedLocal(c.scheduled_at, selectedProgram?.timezone || "Asia/Karachi"))}"/></div><div class="field"><label>Duration (minutes)</label><input id="oc-duration-${c.id}" type="number" min="15" max="480" step="15" value="${Number(c.duration_minutes || 60)}"/></div><div class="field"><label>Google Meet link</label><input id="oc-meet-${c.id}" type="url" placeholder="https://meet.google.com/…" value="${esc(c.meet_url || "")}"/></div><div class="field"><label>Google Calendar event link <span class="meta">(staff reference)</span></label><input id="oc-calendar-${c.id}" type="url" placeholder="Paste the Calendar event link" value="${esc(c.calendar_event_url || "")}"/></div><div class="field"><label>Student-facing stage</label><select id="oc-state-${c.id}"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="oc-message-${c.id}" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(c.student_message || "")}"/></div></div><p class="meta">Create this event in Google Calendar, add Google Meet, then paste both links here. Students see the schedule only after announcement and the Meet link only while this cohort is live.</p><div class="row-actions"><button class="btn green sm" onclick="saveOrientationCohort('${c.id}')">Save cohort settings</button>${c.calendar_event_url ? `<a class="btn soft sm" href="${safeUrl(c.calendar_event_url)}" target="_blank" rel="noopener noreferrer">Open Calendar event</a>` : ""}</div></div>`;
       }).join("");
-      el.innerHTML = `<div class="orientation-cohort-list">${cohortCards}</div>
-        <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
-        <div class="card orientation-bulk"><div><h3>Cohort assignment</h3><p class="meta">Open cohorts hold up to 90 students. New registrations are assigned immediately; the next cohort is created automatically when required. Unscheduled cohorts are safely balanced, while announced cohorts stay locked.</p></div><div class="row-actions"><select id="orientation-target-cohort">${(cohorts || []).map(c => `<option value="${c.id}">${esc(c.name)} (${apps.filter(a => a.cohort_id === c.id).length}/${c.capacity})</option>`).join("")}</select><button class="btn green sm" onclick="bulkAssignOrientationCohort()">Assign selected</button><button class="btn soft sm" onclick="autoAssignOrientationCohorts()">Reconcile assignments</button><span class="list-count" id="orientation-selection-count">${window._orientationSel.size} selected</span></div></div>
+      const campaignOptions = (programs || []).map(p => `<option value="${esc(p.public_slug || p.code)}" ${p.id === selectedProgram?.id ? "selected" : ""}>${esc(p.name)} · ${esc(p.campaign_status || "published")}</option>`).join("");
+      const publicLink = selectedProgram ? `${location.origin}/portal/orientation.html?campaign=${encodeURIComponent(selectedProgram.public_slug || selectedProgram.code)}` : "";
+      const statusAction = selectedProgram?.campaign_status === "published" ? `<button class="btn soft sm" onclick="setOrientationCampaignStatus('closed')">Close registration</button>`
+        : selectedProgram?.campaign_status === "archived" ? ""
+        : `<button class="btn soft sm" onclick="setOrientationCampaignStatus('published')">${selectedProgram?.campaign_status === "draft" ? "Publish" : "Reopen"}</button>`;
+      el.innerHTML = `<div class="card orientation-campaign-toolbar"><div><label class="meta">Campaign</label><select onchange="changeOrientationCampaign(this.value)">${campaignOptions}</select><p class="meta" style="margin-top:6px">${esc(selectedProgram?.description || "Select or create an orientation campaign.")}</p></div><div class="row-actions"><button class="btn soft sm" onclick="openCampaignWizard()">New campaign</button>${selectedProgram ? `<button class="btn soft sm" onclick="copyOrientationLink('${esc(publicLink)}')">Copy registration link</button><a class="btn green sm" href="${esc(publicLink)}" target="_blank" rel="noopener">Open form</a>` : ""}</div></div>
+        ${selectedProgram ? `<div class="row-actions" style="margin:-6px 0 14px;align-items:center"><span class="pill ${selectedProgram.campaign_status === "published" ? "paid" : "pending"}">${esc(selectedProgram.campaign_status)}</span>${statusAction}${selectedProgram.campaign_status !== "archived" ? `<button class="btn soft sm" onclick="setOrientationCampaignStatus('archived')">Archive</button>` : ""}</div>` : ""}
+        <div class="orientation-cohort-list">${cohortCards || '<div class="card"><p class="empty">No cohorts yet.</p></div>'}</div>
+        <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${campaignApps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${campaignApps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${campaignApps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
+        <div class="card orientation-bulk"><div><h3>Cohort assignment</h3><p class="meta">Open cohorts hold up to ${Number(selectedProgram?.default_cohort_capacity || 90)} students. New registrations are assigned immediately; the next cohort is created automatically when required. Unscheduled cohorts are safely balanced, while announced cohorts stay locked.</p></div><div class="row-actions"><select id="orientation-target-cohort">${campaignCohorts.map(c => `<option value="${c.id}">${esc(c.name)} (${campaignApps.filter(a => a.cohort_id === c.id).length}/${c.capacity})</option>`).join("")}</select><button class="btn green sm" onclick="bulkAssignOrientationCohort()">Assign selected</button><button class="btn soft sm" onclick="autoAssignOrientationCohorts()">Reconcile assignments</button><span class="list-count" id="orientation-selection-count">${window._orientationSel.size} selected</span></div></div>
         <div id="orientation-list"></div>`;
-      (cohorts || []).forEach(c => { const select = document.getElementById(`oc-state-${c.id}`); if (select) select.value = c.session_state; });
-      mountList("orientation-applications", "orientation-list", apps, {
+      campaignCohorts.forEach(c => { const select = document.getElementById(`oc-state-${c.id}`); if (select) select.value = c.session_state; });
+      const customQuestionLabels = Object.fromEntries((selectedProgram?.form_config?.custom_questions || []).map(q => [q.id, q.label]));
+      const customAnswers = application => Object.entries(application.custom_answers || {}).map(([key,value]) => `${customQuestionLabels[key] || key}: ${value}`).join(" · ");
+      mountList("orientation-applications", "orientation-list", campaignApps, {
         placeholder: "Search applicants, email, city or interests…", noun: "registrations", empty: "No registrations match your search.", pageSize: 10,
         match: (a, term) => `${a.full_name || ""} ${a.email || ""} ${a.phone || ""} ${a.city || ""} ${a.education_level || ""} ${a.institution || ""} ${a.interests || ""} ${a.status || ""} ${cohortOf[a.cohort_id]?.name || "unassigned"}`.toLowerCase().includes(term),
         render: (items) => `<div style="overflow:auto"><table><thead><tr><th><input type="checkbox" aria-label="Select this page" onchange="selectOrientationPage('${items.map(a => a.id).join(",")}',this.checked)"/></th><th>Applicant</th><th>Cohort</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
         ${items.map(a => `<tr><td><input type="checkbox" data-orientation-application="${a.id}" aria-label="Select ${esc(a.full_name)}" ${window._orientationSel.has(a.id) ? "checked" : ""} onchange="toggleOrientationApplication('${a.id}',this.checked)"/></td><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td><td><span class="pill ${a.cohort_id ? "paid" : "pending"}">${esc(cohortOf[a.cohort_id]?.name || "Unassigned")}</span></td>
           <td>${esc(a.email)}<br><span class="meta">${esc(a.phone)} · ${esc(a.city || "—")}</span></td>
-          <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}</span></td>
+          <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}${customAnswers(a) ? `<br>${esc(customAnswers(a))}` : ""}</span></td>
           <td>${new Date(a.submitted_at).toLocaleDateString()}</td><td><span class="pill ${a.status === "attended" ? "paid" : "pending"}">${esc(a.status)}</span><br><button class="btn soft sm" style="margin-top:5px" onclick="setOrientationStatus('${a.id}','${a.status === "attended" ? "reviewed" : "attended"}')">${a.status === "attended" ? "Mark reviewed" : "Mark attended"}</button></td>
           <td><button class="btn green sm" onclick="transitionOrientationStudent('${a.student_id}')">Add to paid course</button></td></tr>`).join("")}
         </tbody></table></div>`
       });
     }
     async function saveOrientationCohort(cohortId) {
+      const timezone = window._orientationProgram?.timezone || "Asia/Karachi";
       const args = {
         p_cohort_id: cohortId,
-        p_schedule: document.getElementById(`oc-schedule-${cohortId}`).value,
+        p_scheduled_at: zonedLocalToIso(document.getElementById(`oc-schedule-${cohortId}`).value, timezone),
+        p_duration_minutes: Number(document.getElementById(`oc-duration-${cohortId}`).value || 60),
         p_teacher_id: document.getElementById(`oc-teacher-${cohortId}`).value || null,
         p_meet_url: document.getElementById(`oc-meet-${cohortId}`).value,
         p_calendar_event_url: document.getElementById(`oc-calendar-${cohortId}`).value,
         p_session_state: document.getElementById(`oc-state-${cohortId}`).value,
         p_student_message: document.getElementById(`oc-message-${cohortId}`).value
       };
-      const { error } = await sb.rpc("update_orientation_cohort_settings", args);
+      const { error } = await sb.rpc("update_orientation_cohort_settings_v2", args);
       if (error) return alert("Could not save cohort settings: " + error.message);
       alert("Cohort settings saved.");
       await loadOrientationApplications();
+    }
+    function changeOrientationCampaign(code) {
+      const url = new URL(location.href); url.searchParams.set("view", "orientation"); url.searchParams.set("campaign", code); location.href = url.href;
+    }
+    async function copyOrientationLink(url) {
+      try { await navigator.clipboard.writeText(url); alert("Registration link copied."); }
+      catch { prompt("Copy this registration link:", url); }
+    }
+    async function setOrientationCampaignStatus(status) {
+      if (!window._orientationProgram) return;
+      const warning = status === "archived" ? "Archive this campaign? Its registrations and attendance history will remain available." : `Change this campaign to ${status}?`;
+      if (!confirm(warning)) return;
+      const { error } = await sb.rpc("update_orientation_campaign_status", { p_program_id: window._orientationProgram.id, p_status: status });
+      if (error) return alert("Could not update campaign: " + error.message);
+      await loadOrientationApplications();
+    }
+    function suggestCampaignSlug() {
+      const slug = document.getElementById("cw-name").value.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+      const input = document.getElementById("cw-slug"); if (!input.dataset.edited) input.value = slug;
+    }
+    function openCampaignWizard() {
+      window._campaignWizardStep = 1;
+      document.getElementById("campaign-wizard").style.display = "flex";
+      document.getElementById("cw-slug").oninput = event => { event.currentTarget.dataset.edited = "1"; };
+      document.getElementById("campaign-field-picker").innerHTML = ORIENTATION_FIELD_CATALOG.map(([name,label]) => `<div class="orientation-field-option"><label><input type="checkbox" data-campaign-field="${name}" checked/> ${esc(label)}</label><label class="meta"><input type="checkbox" data-campaign-required="${name}" ${["city","country","education_level","institution","field_of_study","interests"].includes(name) ? "checked" : ""}/> Required</label></div>`).join("");
+      document.getElementById("campaign-custom-questions").innerHTML = "";
+      showCampaignWizardStep();
+    }
+    function closeCampaignWizard() { document.getElementById("campaign-wizard").style.display = "none"; }
+    function showCampaignWizardStep() {
+      document.querySelectorAll("[data-campaign-step]").forEach(el => el.hidden = Number(el.dataset.campaignStep) !== window._campaignWizardStep);
+      document.querySelectorAll("[data-campaign-step-label]").forEach(el => el.classList.toggle("active", Number(el.dataset.campaignStepLabel) <= window._campaignWizardStep));
+      document.getElementById("cw-back").hidden = window._campaignWizardStep === 1;
+      document.getElementById("cw-next").hidden = window._campaignWizardStep === 3;
+      document.getElementById("cw-create").hidden = window._campaignWizardStep !== 3;
+      if (window._campaignWizardStep === 3) renderCampaignReview();
+    }
+    function validateCampaignBasics() {
+      const required = ["cw-name","cw-project","cw-slug","cw-timezone","cw-capacity"];
+      if (required.some(id => !document.getElementById(id).value.trim())) return "Complete all required campaign fields.";
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(document.getElementById("cw-slug").value.trim())) return "The public link may contain lowercase letters, numbers, and hyphens only.";
+      const capacity = Number(document.getElementById("cw-capacity").value); if (capacity < 1 || capacity > 90) return "Cohort capacity must be between 1 and 90.";
+      try { new Intl.DateTimeFormat("en", { timeZone: document.getElementById("cw-timezone").value.trim() }).format(); }
+      catch { return "Enter a valid timezone such as Asia/Karachi."; }
+      return "";
+    }
+    function campaignWizardNext() {
+      const msg = document.getElementById("campaign-wizard-msg"); msg.className = "msg"; msg.textContent = "";
+      if (window._campaignWizardStep === 1) { const error = validateCampaignBasics(); if (error) { msg.className="msg err"; msg.textContent=error; return; } }
+      window._campaignWizardStep = Math.min(3, window._campaignWizardStep + 1); showCampaignWizardStep();
+    }
+    function campaignWizardBack() { window._campaignWizardStep = Math.max(1, window._campaignWizardStep - 1); showCampaignWizardStep(); }
+    function addCampaignQuestion() {
+      const container = document.getElementById("campaign-custom-questions"), index = container.children.length + 1;
+      if (index > 10) return alert("A campaign can contain up to 10 custom questions.");
+      const row = document.createElement("div"); row.className = "orientation-custom-question";
+      row.innerHTML = `<div class="field"><label>Question</label><input data-custom-label maxlength="160" placeholder="Question ${index}"/></div><div class="field"><label>Answer type</label><select data-custom-type><option value="short_text">Short answer</option><option value="long_text">Long answer</option><option value="select">Choice list</option></select></div><div class="field"><label>Choices <span class="meta">(comma-separated)</span></label><input data-custom-options maxlength="500" placeholder="Option 1, Option 2"/></div><label class="consent"><input type="checkbox" data-custom-required/> Required</label><button class="btn soft sm" type="button" onclick="this.parentElement.remove()">Remove</button>`;
+      container.appendChild(row);
+    }
+    function collectCampaignFormConfig() {
+      const fields = {};
+      ORIENTATION_FIELD_CATALOG.forEach(([name]) => {
+        const enabled = document.querySelector(`[data-campaign-field="${name}"]`)?.checked || false;
+        fields[name] = { enabled, required: enabled && (document.querySelector(`[data-campaign-required="${name}"]`)?.checked || false) };
+      });
+      const custom_questions = [...document.querySelectorAll(".orientation-custom-question")].map((row,index) => {
+        const label = row.querySelector("[data-custom-label]").value.trim(), type = row.querySelector("[data-custom-type]").value;
+        return { id:`custom_${index+1}`, label, type, required:row.querySelector("[data-custom-required]").checked, options: type === "select" ? row.querySelector("[data-custom-options]").value.split(",").map(v=>v.trim()).filter(Boolean).slice(0,20) : [] };
+      }).filter(q => q.label);
+      return { fields, custom_questions, consent_text:"I confirm that the information I have provided is accurate and I agree that NIPS may use it to manage my orientation and course enrolment." };
+    }
+    function renderCampaignReview() {
+      const config = collectCampaignFormConfig(), selected = ORIENTATION_FIELD_CATALOG.filter(([name]) => config.fields[name].enabled).map(([,label])=>label);
+      document.getElementById("campaign-review").innerHTML = `<p class="eyebrow">Ready to create</p><h3>${esc(document.getElementById("cw-name").value)}</h3><p>${esc(document.getElementById("cw-description").value || "Free NIPS orientation registration")}</p><p class="meta"><strong>Link:</strong> ${esc(location.origin)}/portal/orientation.html?campaign=${esc(document.getElementById("cw-slug").value)}<br><strong>Capacity:</strong> ${esc(document.getElementById("cw-capacity").value)} per cohort · ${esc(document.getElementById("cw-timezone").value)}<br><strong>Additional fields:</strong> ${esc(selected.join(", ") || "None")}<br><strong>Custom questions:</strong> ${config.custom_questions.length}</p>`;
+    }
+    async function publishOrientationCampaign() {
+      const errorText = validateCampaignBasics(), msg = document.getElementById("campaign-wizard-msg");
+      if (errorText) { msg.className="msg err"; msg.textContent=errorText; return; }
+      const timezone = document.getElementById("cw-timezone").value.trim(), opens = document.getElementById("cw-opens").value, closes = document.getElementById("cw-closes").value;
+      const args = {
+        p_name: document.getElementById("cw-name").value.trim(), p_project_name: document.getElementById("cw-project").value.trim(),
+        p_slug: document.getElementById("cw-slug").value.trim(), p_description: document.getElementById("cw-description").value.trim(),
+        p_form_config: collectCampaignFormConfig(), p_registration_opens_at: zonedLocalToIso(opens, timezone), p_registration_closes_at: zonedLocalToIso(closes, timezone),
+        p_timezone: timezone, p_capacity: Number(document.getElementById("cw-capacity").value), p_publish: document.getElementById("cw-publish").checked
+      };
+      const button = document.getElementById("cw-create"); button.disabled=true; button.textContent="Creating…";
+      const { error } = await sb.rpc("create_orientation_campaign", args);
+      button.disabled=false; button.textContent="Create campaign";
+      if (error) { msg.className="msg err"; msg.textContent=error.message; return; }
+      closeCampaignWizard(); changeOrientationCampaign(args.p_slug);
     }
     function toggleOrientationApplication(applicationId, checked) {
       checked ? window._orientationSel.add(applicationId) : window._orientationSel.delete(applicationId);
