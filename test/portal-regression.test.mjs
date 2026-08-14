@@ -342,6 +342,7 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   const admin = read("portal/admin.html");
   const fn = read("supabase/functions/orientation-register/index.ts");
   const cohorts = read("supabase/migrations/20260814000000_orientation_cohorts.sql");
+  const autoscale = read("supabase/migrations/20260814010000_orientation_cohort_autoscale.sql");
   const headers = read("_headers");
 
   assert.match(form, /Institute of Arts and Culture Orientation/);
@@ -384,6 +385,16 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(cohorts, /case when c\.session_state = 'live' then c\.meet_url else null/i);
   assert.match(cohorts, /orientation_cohort_audit/i);
   assert.doesNotMatch(cohorts, /drop table|delete from|truncate /i);
+  assert.match(autoscale, /alter column capacity set default 90/i);
+  assert.match(autoscale, /where capacity = 50/i);
+  assert.match(autoscale, /create_next_orientation_cohort/i);
+  assert.match(autoscale, /assign_orientation_application/i);
+  assert.match(autoscale, /rebalance_open_orientation_cohorts/i);
+  assert.match(autoscale, /pg_advisory_xact_lock/i);
+  assert.match(autoscale, /session_state = 'registration_open'/i);
+  assert.doesNotMatch(autoscale, /drop table|delete from|truncate /i);
+  assert.match(admin, /Open cohorts hold up to 90 students/);
+  assert.match(admin, /Reconcile assignments/);
   assert.match(read("portal/student.html"), /Your orientation is being arranged/);
   assert.match(read("portal/student.html"), /Join Orientation on Google Meet/);
   assert.match(read("portal/student.html"), /get_my_orientation_cohorts/);

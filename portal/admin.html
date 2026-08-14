@@ -353,7 +353,7 @@
       }).join("");
       el.innerHTML = `<div class="orientation-cohort-list">${cohortCards}</div>
         <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${apps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${apps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
-        <div class="card orientation-bulk"><div><h3>Cohort assignment</h3><p class="meta">New registrations are balanced automatically. Select registrations below to reassign them safely; their application and account remain intact.</p></div><div class="row-actions"><select id="orientation-target-cohort">${(cohorts || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn green sm" onclick="bulkAssignOrientationCohort()">Assign selected</button><button class="btn soft sm" onclick="autoAssignOrientationCohorts()">Auto-assign unassigned</button><span class="list-count" id="orientation-selection-count">${window._orientationSel.size} selected</span></div></div>
+        <div class="card orientation-bulk"><div><h3>Cohort assignment</h3><p class="meta">Open cohorts hold up to 90 students. New registrations are assigned immediately; the next cohort is created automatically when required. Unscheduled cohorts are safely balanced, while announced cohorts stay locked.</p></div><div class="row-actions"><select id="orientation-target-cohort">${(cohorts || []).map(c => `<option value="${c.id}">${esc(c.name)} (${apps.filter(a => a.cohort_id === c.id).length}/${c.capacity})</option>`).join("")}</select><button class="btn green sm" onclick="bulkAssignOrientationCohort()">Assign selected</button><button class="btn soft sm" onclick="autoAssignOrientationCohorts()">Reconcile assignments</button><span class="list-count" id="orientation-selection-count">${window._orientationSel.size} selected</span></div></div>
         <div id="orientation-list"></div>`;
       (cohorts || []).forEach(c => { const select = document.getElementById(`oc-state-${c.id}`); if (select) select.value = c.session_state; });
       mountList("orientation-applications", "orientation-list", apps, {
@@ -408,7 +408,7 @@
       if (!window._orientationProgram) return;
       const { data: assigned, error } = await sb.rpc("auto_assign_orientation_cohorts", { p_program_id: window._orientationProgram.id });
       if (error) return alert("Could not auto-assign registrations: " + error.message);
-      alert(`${assigned || 0} unassigned registration(s) placed into available cohorts.`);
+      alert(`${assigned || 0} unassigned registration(s) placed. Open cohorts were safely balanced and additional capacity was created if required.`);
       await loadOrientationApplications();
     }
     async function setOrientationStatus(applicationId, status) {
