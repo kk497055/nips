@@ -129,6 +129,135 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
 
 export type EmailAttachment = { filename: string; content: string };
 
+type GmailConfig = {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  fromEmail: string;
+};
+
+let gmailAccessToken = "";
+let gmailAccessTokenExpiresAt = 0;
+
+function env(name: string) {
+  return typeof Deno !== "undefined" ? Deno.env.get(name) || "" : "";
+}
+
+function gmailConfig(): GmailConfig | null {
+  const config = {
+    clientId: env("GOOGLE_OAUTH_CLIENT_ID"),
+    clientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET"),
+    refreshToken: env("GOOGLE_OAUTH_REFRESH_TOKEN"),
+    fromEmail: env("GOOGLE_FROM_EMAIL"),
+  };
+  return Object.values(config).every(Boolean) ? config : null;
+}
+
+function encodeBase64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function wrapBase64(value: string) {
+  return value.match(/.{1,76}/g)?.join("\r\n") || "";
+}
+
+function header(value: string) {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+function encodedHeader(value: string) {
+  return `=?UTF-8?B?${encodeBase64(header(value))}?=`;
+}
+
+async function getGmailAccessToken(config: GmailConfig) {
+  if (gmailAccessToken && Date.now() < gmailAccessTokenExpiresAt - 60_000) return gmailAccessToken;
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      refresh_token: config.refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.access_token) throw new Error(body.error_description || body.error || `Google OAuth ${response.status}`);
+  gmailAccessToken = body.access_token;
+  gmailAccessTokenExpiresAt = Date.now() + Number(body.expires_in || 3600) * 1000;
+  return gmailAccessToken;
+}
+
+function gmailRawMessage(
+  from: string,
+  to: string,
+  subject: string,
+  html: string,
+  opts: { bcc?: string[]; attachments?: EmailAttachment[] },
+) {
+  const common = [
+    `From: ${header(from)}`,
+    `To: ${header(to)}`,
+    ...(opts.bcc?.length ? [`Bcc: ${opts.bcc.map(header).join(", ")}`] : []),
+    `Subject: ${encodedHeader(subject)}`,
+    "MIME-Version: 1.0",
+  ];
+  if (!opts.attachments?.length) {
+    return [...common, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", wrapBase64(encodeBase64(html))].join("\r\n");
+  }
+
+  const boundary = `nips_${crypto.randomUUID().replaceAll("-", "")}`;
+  const parts = [
+    ...common,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    wrapBase64(encodeBase64(html)),
+  ];
+  for (const attachment of opts.attachments) {
+    const filename = header(attachment.filename).replaceAll('"', "'");
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: application/octet-stream; name="${filename}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${filename}"`,
+      "",
+      wrapBase64(attachment.content.replace(/\s/g, "")),
+    );
+  }
+  parts.push(`--${boundary}--`, "");
+  return parts.join("\r\n");
+}
+
+async function sendWithGmail(
+  config: GmailConfig,
+  from: string,
+  to: string,
+  subject: string,
+  html: string,
+  opts: { bcc?: string[]; attachments?: EmailAttachment[] },
+) {
+  const displayName = from.match(/^\s*([^<]+?)\s*</)?.[1]?.trim() || "NIPS Education Solutions";
+  const raw = gmailRawMessage(`${header(displayName)} <${header(config.fromEmail)}>`, to, subject, html, opts);
+  const token = await getGmailAccessToken(config);
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ raw: encodeBase64(raw).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "") }),
+  });
+  if (response.ok) return { ok: true, provider: "gmail" };
+  const body = await response.json().catch(() => ({}));
+  return { ok: false, error: body.error?.message || `Gmail API ${response.status}` };
+}
+
 export async function sendEmail(
   apiKey: string,
   from: string,
@@ -137,12 +266,23 @@ export async function sendEmail(
   html: string,
   opts: { bcc?: string[]; attachments?: EmailAttachment[] } = {},
 ) {
+  const google = gmailConfig();
+  if (google) {
+    try {
+      const result = await sendWithGmail(google, from, to, subject, html, opts);
+      if (result.ok) return result;
+      console.error(`Gmail delivery failed; using Resend fallback: ${result.error}`);
+    } catch (error) {
+      console.error(`Gmail delivery failed; using Resend fallback: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from, to: [to], subject, html, bcc: opts.bcc, attachments: opts.attachments }),
   });
-  if (res.ok) return { ok: true };
+  if (res.ok) return { ok: true, provider: "resend" };
   const b = await res.json().catch(() => ({}));
   return { ok: false, error: b.message || String(res.status) };
 }

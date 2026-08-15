@@ -469,3 +469,17 @@ test("late orientation assignments inherit an explicitly announced schedule", ()
   assert.match(reminders, /orientation_applications/);
   assert.match(reminders, /deliveryKey = `orientation:\$\{cohort\.id\}:\$\{cohort\.scheduled_at\}:announced`/);
 });
+
+test("operational email prefers Google Workspace and retains Resend fallback", () => {
+  const templates = read("supabase/functions/_shared/templates.ts");
+
+  assert.match(templates, /GOOGLE_OAUTH_CLIENT_ID/);
+  assert.match(templates, /GOOGLE_OAUTH_CLIENT_SECRET/);
+  assert.match(templates, /GOOGLE_OAUTH_REFRESH_TOKEN/);
+  assert.match(templates, /GOOGLE_FROM_EMAIL/);
+  assert.match(templates, /https:\/\/gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\/send/);
+  assert.match(templates, /https:\/\/oauth2\.googleapis\.com\/token/);
+  assert.match(templates, /Gmail delivery failed; using Resend fallback/);
+  assert.match(templates, /https:\/\/api\.resend\.com\/emails/);
+  assert.match(templates, /opts\.attachments/);
+});
