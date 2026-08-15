@@ -118,6 +118,10 @@ Deno.serve(async (req) => {
       return json({ error: "Reminder service is not configured" }, 500);
     }
 
+    if (new URL(req.url).searchParams.get("health") === "1") {
+      return json({ ok: true, service: "class-reminders" });
+    }
+
     const force = new URL(req.url).searchParams.get("force") === "1";
     const today = localParts().date;
     const svc = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
