@@ -47,9 +47,14 @@ function shouldSendReminder(schedule = "", now = new Date()) {
 
 function orientationReminderStage(scheduledAt: string, now = new Date()) {
   const minutesUntil = (new Date(scheduledAt).getTime() - now.getTime()) / 60000;
-  if (minutesUntil > 23 * 60 && minutesUntil <= 24 * 60) return { key: "24h", label: "tomorrow" };
   if (minutesUntil > 0 && minutesUntil <= 60) return { key: "1h", label: "in one hour" };
-  return null;
+  if (minutesUntil <= 0) return null;
+
+  const today = localParts(now).date;
+  const scheduledDate = localParts(new Date(scheduledAt)).date;
+  const calendarDaysUntil = Math.round((Date.parse(`${scheduledDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  const label = calendarDaysUntil <= 0 ? "later today" : calendarDaysUntil === 1 ? "tomorrow" : `in ${calendarDaysUntil} days`;
+  return { key: `daily:${today}`, label };
 }
 
 async function sendOrientationAnnouncementCatchups(svc: any, apiKey: string) {
@@ -123,7 +128,11 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
       const { data: announcement } = await svc.from("notification_logs").select("sent_at")
         .eq("notification_type", "orientation_scheduled").eq("batch_id", cohort.batch_id)
         .eq("student_id", profile.id).eq("delivery_key", announcementKey).maybeSingle();
-      if (!announcement || now.getTime() - new Date(announcement.sent_at).getTime() < 60 * 60000) { skipped++; continue; }
+      const announcedToday = announcement && localParts(new Date(announcement.sent_at)).date === localParts(now).date;
+      if (!announcement || now.getTime() - new Date(announcement.sent_at).getTime() < 60 * 60000 || (stage.key.startsWith("daily:") && announcedToday)) {
+        skipped++;
+        continue;
+      }
       await svc.from("portal_notifications").upsert({
         recipient_id: profile.id,
         notification_type: "orientation_reminder",
@@ -153,6 +162,7 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
         student_id: profile.id, delivery_key: deliveryKey,
       });
       sent++;
+      await new Promise((resolve) => setTimeout(resolve, 550));
     }
   }
   return { sent, skipped, failures };

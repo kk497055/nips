@@ -448,8 +448,10 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(notify, /ORIENTATION_CONFIRMATION_TEXT/);
   assert.match(reminders, /ORIENTATION_CONFIRMATION_TEXT/);
   assert.match(reminders, /orientationReminderStage/);
-  assert.match(reminders, /23 \* 60/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
+  assert.match(reminders, /key: `daily:\$\{today\}`/);
+  assert.match(reminders, /calendarDaysUntil === 1 \? "tomorrow"/);
+  assert.match(reminders, /stage\.key\.startsWith\("daily:"\) && announcedToday/);
   assert.match(reminders, /portal_notifications/);
   assert.match(reminders, /sendOrientationAnnouncementCatchups/);
   assert.match(reminders, /notifications_enabled_for_scheduled_at/);
@@ -484,5 +486,8 @@ test("operational email prefers Google Workspace and retains Resend fallback", (
   assert.match(templates, /https:\/\/oauth2\.googleapis\.com\/token/);
   assert.match(templates, /Gmail delivery failed; using Resend fallback/);
   assert.match(templates, /https:\/\/api\.resend\.com\/emails/);
+  assert.match(templates, /NOTIFY_REPLY_TO/);
+  assert.match(templates, /Reply-To:/);
+  assert.match(templates, /reply_to:/);
   assert.match(templates, /opts\.attachments/);
 });

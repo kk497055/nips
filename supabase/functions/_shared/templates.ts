@@ -130,6 +130,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
 };
 
 export type EmailAttachment = { filename: string; content: string };
+type EmailOptions = { bcc?: string[]; attachments?: EmailAttachment[]; replyTo?: string };
 
 type GmailConfig = {
   clientId: string;
@@ -200,11 +201,13 @@ function gmailRawMessage(
   to: string,
   subject: string,
   html: string,
-  opts: { bcc?: string[]; attachments?: EmailAttachment[] },
+  opts: EmailOptions,
 ) {
+  const replyTo = opts.replyTo || env("NOTIFY_REPLY_TO");
   const common = [
     `From: ${header(from)}`,
     `To: ${header(to)}`,
+    ...(replyTo ? [`Reply-To: ${header(replyTo)}`] : []),
     ...(opts.bcc?.length ? [`Bcc: ${opts.bcc.map(header).join(", ")}`] : []),
     `Subject: ${encodedHeader(subject)}`,
     "MIME-Version: 1.0",
@@ -245,7 +248,7 @@ async function sendWithGmail(
   to: string,
   subject: string,
   html: string,
-  opts: { bcc?: string[]; attachments?: EmailAttachment[] },
+  opts: EmailOptions,
 ) {
   const displayName = from.match(/^\s*([^<]+?)\s*</)?.[1]?.trim() || "NIPS Education Solutions";
   const raw = gmailRawMessage(`${header(displayName)} <${header(config.fromEmail)}>`, to, subject, html, opts);
@@ -266,7 +269,7 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  opts: { bcc?: string[]; attachments?: EmailAttachment[] } = {},
+  opts: EmailOptions = {},
 ) {
   const google = gmailConfig();
   if (google) {
@@ -282,7 +285,15 @@ export async function sendEmail(
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html, bcc: opts.bcc, attachments: opts.attachments }),
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html,
+      reply_to: opts.replyTo || env("NOTIFY_REPLY_TO") || undefined,
+      bcc: opts.bcc,
+      attachments: opts.attachments,
+    }),
   });
   if (res.ok) return { ok: true, provider: "resend" };
   const b = await res.json().catch(() => ({}));
