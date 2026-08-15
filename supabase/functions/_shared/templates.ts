@@ -91,6 +91,31 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
       cta: { label: "Join Class", url: PORTAL },
     }),
   }),
+  orientation_scheduled: (c) => ({
+    subject: `Orientation schedule confirmed — ${c.batch}`,
+    html: layout({
+      preheader: `${c.batch} is scheduled for ${c.schedule}.`,
+      heading: "Your orientation is scheduled",
+      body: p(`Dear ${c.name},`) +
+            p(`Your place in <strong>${c.batch}</strong> is confirmed.`) +
+            p(`<strong>Date and time:</strong> ${c.schedule || "See the portal"}`) +
+            (c.message ? p(c.message) : "") +
+            p("Please sign in to the NIPS Portal before the session. The Google Meet button will appear there when the orientation goes live."),
+      cta: { label: "View Orientation Details", url: PORTAL },
+    }),
+  }),
+  orientation_reminder: (c) => ({
+    subject: `Reminder — ${c.batch}`,
+    html: layout({
+      preheader: `${c.batch} starts ${c.title || "soon"}.`,
+      heading: `Orientation starts ${c.title || "soon"}`,
+      body: p(`Dear ${c.name},`) +
+            p(`This is a reminder that <strong>${c.batch}</strong> is scheduled for <strong>${c.schedule || "the announced time"}</strong>.`) +
+            (c.message ? p(c.message) : "") +
+            p("Please sign in early. The Google Meet button will appear in the portal when the session goes live."),
+      cta: { label: "Open the Portal", url: PORTAL },
+    }),
+  }),
   announcement: (c) => ({
     subject: c.title || "A note from NIPS",
     html: layout({

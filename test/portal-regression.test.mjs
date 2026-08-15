@@ -275,7 +275,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=13/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=14/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });
@@ -421,4 +421,34 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(read("portal/student.html"), /get_my_orientation_cohorts/);
   assert.match(read("portal/student.html"), /state === "live"/);
   assert.match(read("portal/teacher.html"), /Open Google Meet/);
+});
+
+test("orientation announcements provide email and in-portal notifications without duplicates", () => {
+  const admin = read("portal/admin.html");
+  const student = read("portal/student.html");
+  const schema = read("supabase/migrations/20260815000000_orientation_notifications.sql");
+  const notify = read("supabase/functions/notify/index.ts");
+  const reminders = read("supabase/functions/class-reminders/index.ts");
+  const templates = read("supabase/functions/_shared/templates.ts");
+
+  assert.match(admin, /Save &amp; notify \$\{used\} students/);
+  assert.match(admin, /type: "orientation_scheduled", cohort_id: cohortId/);
+  assert.match(admin, /Choose Schedule announced before notifying students/);
+  assert.match(schema, /create table if not exists public\.portal_notifications/i);
+  assert.match(schema, /unique \(recipient_id, delivery_key\)/i);
+  assert.match(schema, /recipient_id = auth\.uid\(\)/i);
+  assert.doesNotMatch(schema, /drop table|delete from|truncate /i);
+  assert.match(notify, /orientation_scheduled/);
+  assert.match(notify, /orientation_applications/);
+  assert.match(notify, /portal_notifications/);
+  assert.match(notify, /deliveryKey = `orientation:/);
+  assert.match(templates, /orientation_scheduled/);
+  assert.match(templates, /orientation_reminder/);
+  assert.match(reminders, /orientationReminderStage/);
+  assert.match(reminders, /23 \* 60/);
+  assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
+  assert.match(reminders, /portal_notifications/);
+  assert.match(student, /data-student-nav="notifications"/);
+  assert.match(student, /function renderNotifications\(\)/);
+  assert.match(student, /function markAllNotificationsRead\(\)/);
 });

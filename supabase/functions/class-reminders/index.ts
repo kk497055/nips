@@ -9,6 +9,7 @@ const FROM = Deno.env.get("NOTIFY_FROM") || "NIPS Portal <noreply@nips.com.pk>";
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIME_ZONE = "Asia/Karachi";
 const REMINDER_WINDOW_MINUTES = 90;
+const PORTAL_URL = "https://nips.com.pk/portal/student.html?view=classes";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -42,6 +43,64 @@ function shouldSendReminder(schedule = "", now = new Date()) {
   const classMinutes = Number(time[1]) * 60 + Number(time[2]);
   const minutesUntilClass = classMinutes - local.minutes;
   return minutesUntilClass >= 0 && minutesUntilClass <= REMINDER_WINDOW_MINUTES;
+}
+
+function orientationReminderStage(scheduledAt: string, now = new Date()) {
+  const minutesUntil = (new Date(scheduledAt).getTime() - now.getTime()) / 60000;
+  if (minutesUntil > 23 * 60 && minutesUntil <= 24 * 60) return { key: "24h", label: "tomorrow" };
+  if (minutesUntil > 0 && minutesUntil <= 60) return { key: "1h", label: "in one hour" };
+  return null;
+}
+
+async function sendOrientationReminders(svc: any, apiKey: string, now = new Date()) {
+  const { data: cohorts, error } = await svc.from("orientation_cohorts")
+    .select("id,batch_id,name,scheduled_at,student_message")
+    .eq("session_state", "scheduled").not("scheduled_at", "is", null);
+  if (error) return { sent: 0, skipped: 0, failures: [error.message] };
+  let sent = 0, skipped = 0;
+  const failures: string[] = [];
+  for (const cohort of cohorts || []) {
+    const stage = orientationReminderStage(cohort.scheduled_at, now);
+    if (!stage) continue;
+    const { data: batch } = await svc.from("batches").select("name,schedule").eq("id", cohort.batch_id).single();
+    const { data: applications } = await svc.from("orientation_applications").select("student_id").eq("cohort_id", cohort.id);
+    const ids = [...new Set((applications || []).map((application) => application.student_id))];
+    if (!ids.length) continue;
+    const { data: profiles } = await svc.from("profiles").select("id,full_name").in("id", ids);
+    for (const profile of profiles || []) {
+      const deliveryKey = `orientation:${cohort.id}:${cohort.scheduled_at}:${stage.key}`;
+      await svc.from("portal_notifications").upsert({
+        recipient_id: profile.id,
+        notification_type: "orientation_reminder",
+        title: `Orientation starts ${stage.label}`,
+        message: `${batch?.name || cohort.name} — ${batch?.schedule || "see the portal for details"}`,
+        action_url: PORTAL_URL,
+        delivery_key: deliveryKey,
+      }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });
+      const { data: existing } = await svc.from("notification_logs").select("id")
+        .eq("notification_type", "orientation_reminder").eq("batch_id", cohort.batch_id)
+        .eq("student_id", profile.id).eq("delivery_key", deliveryKey).maybeSingle();
+      if (existing) { skipped++; continue; }
+      const { data: authUser } = await svc.auth.admin.getUserById(profile.id);
+      const email = authUser?.user?.email;
+      if (!email) { failures.push(`${profile.full_name} (no email)`); continue; }
+      const message = T.orientation_reminder({
+        name: profile.full_name,
+        batch: batch?.name || cohort.name,
+        schedule: batch?.schedule,
+        title: stage.label,
+        message: cohort.student_message,
+      });
+      const result = await sendEmail(apiKey, FROM, email, message.subject, message.html);
+      if (!result.ok) { failures.push(`${email}: ${result.error}`); continue; }
+      await svc.from("notification_logs").insert({
+        notification_type: "orientation_reminder", batch_id: cohort.batch_id,
+        student_id: profile.id, delivery_key: deliveryKey,
+      });
+      sent++;
+    }
+  }
+  return { sent, skipped, failures };
 }
 
 Deno.serve(async (req) => {
@@ -129,7 +188,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: sent > 0, sent, skipped, failures });
+    const orientation = await sendOrientationReminders(svc, RESEND_API_KEY);
+    return json({
+      ok: failures.length === 0 && orientation.failures.length === 0,
+      sent, skipped, failures,
+      orientation,
+    });
   } catch (error) {
     return json({ error: String(error?.message ?? error) }, 500);
   }

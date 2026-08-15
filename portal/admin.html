@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=13" />
+  <link rel="stylesheet" href="portal.css?v=14" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -412,7 +412,7 @@
       const teacherOf = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
       const cohortCards = campaignCohorts.map(c => {
         const batch = batchOf[c.batch_id] || {}, used = campaignApps.filter(a => a.cohort_id === c.id).length;
-        return `<div class="card orientation-cohort-card ${selectedCohort?.id === c.id ? "selected" : ""}"><div class="class-top"><div><button class="orientation-cohort-title" onclick="filterOrientationCohort('${c.code}')">${esc(c.name)}</button><div class="meta">${used}/${c.capacity} assigned · click title for details</div></div><span class="pill ${c.session_state === "live" ? "paid" : "pending"}">${esc(c.session_state.replaceAll("_", " "))}</span></div><div class="orientation-cohort-grid"><div class="field"><label>Teacher</label><select id="oc-teacher-${c.id}">${teacherOptions(batch.teacher_id)}</select></div><div class="field"><label>Date and time <span class="meta">(${esc(selectedProgram?.timezone || "Asia/Karachi")})</span></label><input id="oc-schedule-${c.id}" type="datetime-local" value="${esc(isoToZonedLocal(c.scheduled_at, selectedProgram?.timezone || "Asia/Karachi"))}"/></div><div class="field"><label>Duration (minutes)</label><input id="oc-duration-${c.id}" type="number" min="15" max="480" step="15" value="${Number(c.duration_minutes || 60)}"/></div><div class="field"><label>Google Meet link</label><input id="oc-meet-${c.id}" type="url" placeholder="https://meet.google.com/…" value="${esc(c.meet_url || "")}"/></div><div class="field"><label>Google Calendar event link <span class="meta">(staff reference)</span></label><input id="oc-calendar-${c.id}" type="url" placeholder="Paste the Calendar event link" value="${esc(c.calendar_event_url || "")}"/></div><div class="field"><label>Student-facing stage</label><select id="oc-state-${c.id}"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="oc-message-${c.id}" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(c.student_message || "")}"/></div></div><p class="meta">Create this event in Google Calendar, add Google Meet, then paste both links here. Students see the schedule only after announcement and the Meet link only while this cohort is live.</p><div class="row-actions"><button class="btn green sm" onclick="saveOrientationCohort('${c.id}')">Save cohort settings</button>${c.calendar_event_url ? `<a class="btn soft sm" href="${safeUrl(c.calendar_event_url)}" target="_blank" rel="noopener noreferrer">Open Calendar event</a>` : ""}</div></div>`;
+        return `<div class="card orientation-cohort-card ${selectedCohort?.id === c.id ? "selected" : ""}"><div class="class-top"><div><button class="orientation-cohort-title" onclick="filterOrientationCohort('${c.code}')">${esc(c.name)}</button><div class="meta">${used}/${c.capacity} assigned · click title for details</div></div><span class="pill ${c.session_state === "live" ? "paid" : "pending"}">${esc(c.session_state.replaceAll("_", " "))}</span></div><div class="orientation-cohort-grid"><div class="field"><label>Teacher</label><select id="oc-teacher-${c.id}">${teacherOptions(batch.teacher_id)}</select></div><div class="field"><label>Date and time <span class="meta">(${esc(selectedProgram?.timezone || "Asia/Karachi")})</span></label><input id="oc-schedule-${c.id}" type="datetime-local" value="${esc(isoToZonedLocal(c.scheduled_at, selectedProgram?.timezone || "Asia/Karachi"))}"/></div><div class="field"><label>Duration (minutes)</label><input id="oc-duration-${c.id}" type="number" min="15" max="480" step="15" value="${Number(c.duration_minutes || 60)}"/></div><div class="field"><label>Google Meet link</label><input id="oc-meet-${c.id}" type="url" placeholder="https://meet.google.com/…" value="${esc(c.meet_url || "")}"/></div><div class="field"><label>Google Calendar event link <span class="meta">(staff reference)</span></label><input id="oc-calendar-${c.id}" type="url" placeholder="Paste the Calendar event link" value="${esc(c.calendar_event_url || "")}"/></div><div class="field"><label>Student-facing stage</label><select id="oc-state-${c.id}"><option value="registration_open">Registration open</option><option value="scheduled">Schedule announced</option><option value="live">Live now</option><option value="completed">Completed</option></select></div><div class="field"><label>Student message <span class="meta">(optional)</span></label><input id="oc-message-${c.id}" maxlength="500" placeholder="e.g. Please join 10 minutes early." value="${esc(c.student_message || "")}"/></div></div><p class="meta">Create this event in Google Calendar, add Google Meet, then paste both links here. Students see the schedule only after announcement and the Meet link only while this cohort is live.</p><div class="row-actions"><button class="btn soft sm" onclick="saveOrientationCohort('${c.id}')">Save only</button><button class="btn green sm" onclick="saveOrientationCohort('${c.id}',true)">Save &amp; notify ${used} students</button>${c.calendar_event_url ? `<a class="btn soft sm" href="${safeUrl(c.calendar_event_url)}" target="_blank" rel="noopener noreferrer">Open Calendar event</a>` : ""}</div><p class="meta" style="margin-top:8px">Notifications are sent once per scheduled date and time. Saving the same schedule again will not send duplicates.</p></div>`;
       }).join("");
       const campaignOptions = (programs || []).map(p => `<option value="${esc(p.public_slug || p.code)}" ${p.id === selectedProgram?.id ? "selected" : ""}>${esc(p.name)} · ${esc(p.campaign_status || "published")}</option>`).join("");
       const publicLink = selectedProgram ? `${location.origin}/portal/orientation.html?campaign=${encodeURIComponent(selectedProgram.public_slug || selectedProgram.code)}` : "";
@@ -452,6 +452,7 @@
       });
     }
     async function saveOrientationCohort(cohortId) {
+      const notifyStudents = arguments[1] === true;
       const timezone = window._orientationProgram?.timezone || "Asia/Karachi";
       const args = {
         p_cohort_id: cohortId,
@@ -463,9 +464,22 @@
         p_session_state: document.getElementById(`oc-state-${cohortId}`).value,
         p_student_message: document.getElementById(`oc-message-${cohortId}`).value
       };
+      if (notifyStudents && args.p_session_state !== "scheduled") return alert("Choose Schedule announced before notifying students.");
+      if (notifyStudents && !args.p_scheduled_at) return alert("Set the orientation date and time before notifying students.");
+      if (notifyStudents && !confirm("Save this schedule and notify every student assigned to this cohort by email and in the NIPS Portal?")) return;
       const { error } = await sb.rpc("update_orientation_cohort_settings_v2", args);
       if (error) return alert("Could not save cohort settings: " + error.message);
-      alert("Cohort settings saved.");
+      if (notifyStudents) {
+        try {
+          const body = await sendNotify({ type: "orientation_scheduled", cohort_id: cohortId });
+          const summary = body.sent ? `${body.sent} email(s) sent` : "No new emails were needed";
+          alert(`Cohort settings saved. ${summary}; portal notifications are available to all assigned students.${body.failures?.length ? `\n\n${body.failures.length} email(s) could not be sent.` : ""}`);
+        } catch (e) {
+          alert("The cohort settings were saved, but notifications were not completed: " + e.message);
+        }
+      } else {
+        alert("Cohort settings saved without notifying students.");
+      }
       await loadOrientationApplications();
     }
     function changeOrientationCampaign(code) {

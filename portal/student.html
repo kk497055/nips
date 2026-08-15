@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Student</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=13" />
+  <link rel="stylesheet" href="portal.css?v=14" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -39,6 +39,7 @@
       <a data-student-nav="classes" href="student.html?view=classes">My Classes</a>
       <a data-student-nav="learning" href="student.html?view=learning">Learning</a>
       <a data-student-nav="fees" href="student.html?view=fees">Fees &amp; Receipts</a>
+      <a data-student-nav="notifications" href="student.html?view=notifications">Notifications <span id="notification-count"></span></a>
       <a data-student-nav="account" href="student.html?view=account">Account &amp; Help</a>
     </nav>
 
@@ -48,6 +49,7 @@
         <div class="row-actions"><a class="btn green" href="student.html?view=classes">My Classes</a><a class="btn soft" href="student.html?view=fees">Fees &amp; Receipts</a></div>
       </div>
     </div>
+    <div id="notification-summary" data-student-view="home"></div>
     <div id="live-banner" data-student-view="home classes"></div>
     <div id="progress" data-student-view="home learning"></div>
 
@@ -56,6 +58,11 @@
     </div>
 
     <div id="fees" data-student-view="fees"></div>
+
+    <div class="section" data-student-view="notifications">
+      <div class="class-top"><div><h2>Notifications</h2><p class="meta">Schedule announcements and reminders from NIPS.</p></div><button class="btn soft sm" onclick="markAllNotificationsRead()">Mark all as read</button></div>
+      <div id="student-notifications"><div class="card"><p class="empty">Loading notifications…</p></div></div>
+    </div>
 
     <div class="section" data-student-view="account">
       <h2>Account &amp; Help</h2>
@@ -251,7 +258,7 @@
     })();
 
     async function setupStudentWorkspace(profile) {
-      const allowed = ["home", "classes", "learning", "fees", "account"];
+      const allowed = ["home", "classes", "learning", "fees", "notifications", "account"];
       const requested = new URLSearchParams(location.search).get("view");
       const view = allowed.includes(requested) ? requested : "home";
       document.querySelectorAll("[data-student-view]").forEach((section) => {
@@ -268,6 +275,36 @@
         <div><dt>Email</dt><dd>${esc(user?.email || "Not available")}</dd></div>
         <div><dt>Role</dt><dd>Student</dd></div>
       </dl><p class="meta">To change your account details, contact NIPS so your academic records remain accurate.</p>`;
+      await renderNotifications();
+    }
+
+    async function renderNotifications() {
+      const { data, error } = await sb.from("portal_notifications").select("id,title,message,action_url,read_at,created_at").order("created_at", { ascending: false }).limit(50);
+      const list = document.getElementById("student-notifications");
+      const summary = document.getElementById("notification-summary");
+      const count = document.getElementById("notification-count");
+      if (error) {
+        list.innerHTML = '<div class="card"><p class="empty">Notifications could not be loaded. Please refresh the page.</p></div>';
+        summary.innerHTML = "";
+        return;
+      }
+      const notifications = data || [];
+      const unread = notifications.filter(notification => !notification.read_at);
+      count.textContent = unread.length ? `(${unread.length})` : "";
+      summary.innerHTML = unread.length ? `<div class="card student-notification-banner"><div><p class="eyebrow">New from NIPS</p><h3>${esc(unread[0].title)}</h3><p class="meta">${esc(unread[0].message)}</p></div><a class="btn green sm" href="student.html?view=notifications">View ${unread.length} notification${unread.length === 1 ? "" : "s"}</a></div>` : "";
+      list.innerHTML = notifications.length ? notifications.map(notification => `<article class="card student-notification ${notification.read_at ? "" : "unread"}"><div><div class="class-top"><h3>${esc(notification.title)}</h3>${notification.read_at ? "" : '<span class="pill pending">New</span>'}</div><p>${esc(notification.message)}</p><p class="meta">${new Date(notification.created_at).toLocaleString()}</p></div><div class="row-actions">${notification.action_url ? `<a class="btn soft sm" href="${safeUrl(notification.action_url)}">View details</a>` : ""}${notification.read_at ? "" : `<button class="btn green sm" onclick="markNotificationRead('${notification.id}')">Mark read</button>`}</div></article>`).join("") : '<div class="card"><p class="empty">You have no notifications yet.</p></div>';
+    }
+
+    async function markNotificationRead(id) {
+      const { error } = await sb.from("portal_notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
+      if (error) return alert("Could not update notification: " + error.message);
+      await renderNotifications();
+    }
+
+    async function markAllNotificationsRead() {
+      const { error } = await sb.from("portal_notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
+      if (error) return alert("Could not update notifications: " + error.message);
+      await renderNotifications();
     }
 
     async function renderFees() {

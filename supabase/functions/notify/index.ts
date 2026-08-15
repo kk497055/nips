@@ -19,7 +19,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 const FROM = Deno.env.get("NOTIFY_FROM") || "NIPS Portal <noreply@nips.com.pk>";
-const ADMIN_TYPES = new Set(["welcome", "enrolment_paid", "payment_reminder", "class_reminder", "announcement", "payment_receipt"]);
+const ADMIN_TYPES = new Set(["welcome", "enrolment_paid", "payment_reminder", "class_reminder", "announcement", "payment_receipt", "orientation_scheduled"]);
 const TEACHER_TYPES = new Set(["new_recording", "class_reminder"]);
 const BATCH_WIDE = new Set(["new_recording", "class_reminder", "announcement"]);
 
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     if (meError) return json({ error: meError.message }, 500);
 
     const payload = await req.json();
-    const { type, student_id, batch_id, payment_id, title, message } = payload;
+    const { type, student_id, batch_id, payment_id, cohort_id, title, message } = payload;
     if (!T[type] && type !== "payment_receipt") return json({ error: "Unknown notification type" }, 400);
 
     const role = me?.role ?? "student";
@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
     }
     if (type === "announcement" && !message) return json({ error: "message is required" }, 400);
     if (type === "payment_receipt" && !payment_id) return json({ error: "payment_id is required" }, 400);
+    if (type === "orientation_scheduled" && !cohort_id) return json({ error: "cohort_id is required" }, 400);
 
     if (type === "payment_receipt") {
       const { data: payment, error: paymentError } = await svc
@@ -179,7 +180,34 @@ Deno.serve(async (req) => {
     }
 
     let recipients: Recipient[] = [];
-    if (student_id) {
+    let deliveryKey = "";
+    let notificationBatchId = batch_id || null;
+    if (type === "orientation_scheduled") {
+      const { data: cohort, error: cohortError } = await svc
+        .from("orientation_cohorts")
+        .select("id,batch_id,name,scheduled_at,session_state,student_message")
+        .eq("id", cohort_id)
+        .single();
+      if (cohortError || !cohort) return json({ error: cohortError?.message || "Cohort not found" }, 404);
+      if (cohort.session_state !== "scheduled" || !cohort.scheduled_at) {
+        return json({ error: "Announce the cohort schedule before notifying students" }, 400);
+      }
+      const { data: cohortBatch } = await svc.from("batches").select("name,schedule,fee").eq("id", cohort.batch_id).single();
+      batch = cohortBatch ?? { name: cohort.name };
+      notificationBatchId = cohort.batch_id;
+      const { data: applications, error: applicationError } = await svc
+        .from("orientation_applications")
+        .select("student_id")
+        .eq("cohort_id", cohort_id);
+      if (applicationError) return json({ error: applicationError.message }, 500);
+      const ids = [...new Set((applications ?? []).map((application) => application.student_id))];
+      if (ids.length) {
+        const { data: profiles } = await svc.from("profiles").select("id,full_name").in("id", ids);
+        recipients = (profiles ?? []).map((profile) => ({ id: profile.id, name: profile.full_name }));
+      }
+      deliveryKey = `orientation:${cohort.id}:${cohort.scheduled_at}:announced`;
+      payload.message = cohort.student_message || message;
+    } else if (student_id) {
       const { data } = await svc.from("profiles").select("id,full_name").eq("id", student_id).single();
       if (data) recipients = [{ id: data.id, name: data.full_name }];
     } else if (BATCH_WIDE.has(type) && batch_id) {
@@ -197,9 +225,24 @@ Deno.serve(async (req) => {
     if (!recipients.length) return json({ error: "No recipients" }, 400);
 
     let sent = 0;
+    let skipped = 0;
     const failures: string[] = [];
 
     for (const recipient of recipients) {
+      if (deliveryKey) {
+        await svc.from("portal_notifications").upsert({
+          recipient_id: recipient.id,
+          notification_type: type,
+          title: "Your orientation is scheduled",
+          message: `${batch.name || "Your orientation"} — ${batch.schedule || "see the portal for details"}`,
+            action_url: "https://nips.com.pk/portal/student.html?view=classes",
+          delivery_key: deliveryKey,
+        }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });
+        const { data: existing } = await svc.from("notification_logs").select("id")
+          .eq("notification_type", type).eq("batch_id", notificationBatchId)
+          .eq("student_id", recipient.id).eq("delivery_key", deliveryKey).maybeSingle();
+        if (existing) { skipped++; continue; }
+      }
       const { data: authUser } = await svc.auth.admin.getUserById(recipient.id);
       const email = authUser?.user?.email;
       if (!email) {
@@ -213,18 +256,32 @@ Deno.serve(async (req) => {
         schedule: batch.schedule,
         fee: batch.fee,
         title,
-        message,
+        message: payload.message || message,
       });
       const result = await sendEmail(RESEND_API_KEY, FROM, email, subject, html);
-      if (result.ok) sent++;
+      if (result.ok) {
+        sent++;
+        if (deliveryKey) {
+          await svc.from("notification_logs").insert({
+            notification_type: type,
+            batch_id: notificationBatchId,
+            student_id: recipient.id,
+            delivery_key: deliveryKey,
+          });
+        }
+      }
       else failures.push(`${email}: ${result.error}`);
+      // Orientation cohorts can contain up to 90 students. Keep personalized
+      // sends deliberately paced so a large announcement does not burst the
+      // provider's per-second API limit.
+      if (type === "orientation_scheduled") await new Promise((resolve) => setTimeout(resolve, 550));
     }
 
     if (type === "welcome" && student_id === user.id && sent > 0) {
       await svc.from("profiles").update({ welcome_sent_at: new Date().toISOString() }).eq("id", user.id);
     }
 
-    return json({ ok: sent > 0, sent, total: recipients.length, failures });
+    return json({ ok: sent > 0 || skipped > 0, sent, skipped, total: recipients.length, failures });
   } catch (error) {
     return json({ error: String(error?.message ?? error) }, 500);
   }
