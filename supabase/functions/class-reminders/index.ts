@@ -3,7 +3,7 @@
 // per matching batch per day, guarded by notification_logs.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { T, sendEmail } from "../_shared/templates.ts";
+import { ORIENTATION_CONFIRMATION_TEXT, T, sendEmail } from "../_shared/templates.ts";
 
 const FROM = Deno.env.get("NOTIFY_FROM") || "NIPS Portal <noreply@nips.com.pk>";
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -72,7 +72,7 @@ async function sendOrientationAnnouncementCatchups(svc: any, apiKey: string) {
         recipient_id: profile.id,
         notification_type: "orientation_scheduled",
         title: "Your orientation is scheduled",
-        message: `${batch?.name || cohort.name} — ${batch?.schedule || "see the portal for details"}`,
+        message: `${batch?.name || cohort.name} — ${batch?.schedule || "see the portal for details"}. ${ORIENTATION_CONFIRMATION_TEXT}`,
         action_url: PORTAL_URL,
         delivery_key: deliveryKey,
       }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });

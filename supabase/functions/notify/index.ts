@@ -4,7 +4,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
-import { layout, T, sendEmail } from "../_shared/templates.ts";
+import { layout, ORIENTATION_CONFIRMATION_TEXT, T, sendEmail } from "../_shared/templates.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
           recipient_id: recipient.id,
           notification_type: type,
           title: "Your orientation is scheduled",
-          message: `${batch.name || "Your orientation"} — ${batch.schedule || "see the portal for details"}`,
+          message: `${batch.name || "Your orientation"} — ${batch.schedule || "see the portal for details"}. ${ORIENTATION_CONFIRMATION_TEXT}`,
             action_url: "https://nips.com.pk/portal/student.html?view=classes",
           delivery_key: deliveryKey,
         }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });

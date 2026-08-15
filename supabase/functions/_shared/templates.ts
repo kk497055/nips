@@ -3,6 +3,7 @@
 const PORTAL = "https://nips.com.pk/portal/login.html";
 const PHONE = "+92 321 5554125";
 const ADDRESS = "K Block, Johar Town, Lahore";
+export const ORIENTATION_CONFIRMATION_TEXT = "Please confirm receipt of this email and your orientation registration by contacting us at 03137840005.";
 
 export function layout(opts: { preheader: string; heading: string; body: string; cta?: { label: string; url: string } }) {
   const cta = opts.cta
@@ -100,6 +101,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
             p(`Your place in <strong>${c.batch}</strong> is confirmed.`) +
             p(`<strong>Date and time:</strong> ${c.schedule || "See the portal"}`) +
             (c.message ? p(c.message) : "") +
+            p(`<strong>${ORIENTATION_CONFIRMATION_TEXT}</strong>`) +
             p("Please sign in to the NIPS Portal before the session. The Google Meet button will appear there when the orientation goes live."),
       cta: { label: "View Orientation Details", url: PORTAL },
     }),

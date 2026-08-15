@@ -444,6 +444,9 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(notify, /deliveryKey = `orientation:/);
   assert.match(templates, /orientation_scheduled/);
   assert.match(templates, /orientation_reminder/);
+  assert.match(templates, /confirm receipt of this email and your orientation registration by contacting us at 03137840005/);
+  assert.match(notify, /ORIENTATION_CONFIRMATION_TEXT/);
+  assert.match(reminders, /ORIENTATION_CONFIRMATION_TEXT/);
   assert.match(reminders, /orientationReminderStage/);
   assert.match(reminders, /23 \* 60/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
