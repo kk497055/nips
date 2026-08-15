@@ -448,7 +448,24 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(reminders, /23 \* 60/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
   assert.match(reminders, /portal_notifications/);
+  assert.match(reminders, /sendOrientationAnnouncementCatchups/);
+  assert.match(reminders, /notifications_enabled_for_scheduled_at/);
+  assert.match(reminders, /orientation_scheduled/);
+  assert.match(reminders, /announcement\.sent_at/);
   assert.match(student, /data-student-nav="notifications"/);
   assert.match(student, /function renderNotifications\(\)/);
   assert.match(student, /function markAllNotificationsRead\(\)/);
+});
+
+test("late orientation assignments inherit an explicitly announced schedule", () => {
+  const schema = read("supabase/migrations/20260815010000_orientation_notification_catchup.sql");
+  const notify = read("supabase/functions/notify/index.ts");
+  const reminders = read("supabase/functions/class-reminders/index.ts");
+
+  assert.match(schema, /add column if not exists notifications_enabled_for_scheduled_at timestamptz/i);
+  assert.doesNotMatch(schema, /drop table|delete from|truncate /i);
+  assert.match(notify, /notifications_enabled_for_scheduled_at: announcedCohort\.scheduled_at/);
+  assert.match(reminders, /new Date\(cohort\.scheduled_at\)\.getTime\(\) !== new Date\(cohort\.notifications_enabled_for_scheduled_at\)\.getTime\(\)/);
+  assert.match(reminders, /orientation_applications/);
+  assert.match(reminders, /deliveryKey = `orientation:\$\{cohort\.id\}:\$\{cohort\.scheduled_at\}:announced`/);
 });

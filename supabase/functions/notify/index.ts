@@ -181,6 +181,7 @@ Deno.serve(async (req) => {
 
     let recipients: Recipient[] = [];
     let deliveryKey = "";
+    let announcedScheduledAt = "";
     let notificationBatchId = batch_id || null;
     if (type === "orientation_scheduled") {
       const { data: cohort, error: cohortError } = await svc
@@ -206,6 +207,7 @@ Deno.serve(async (req) => {
         recipients = (profiles ?? []).map((profile) => ({ id: profile.id, name: profile.full_name }));
       }
       deliveryKey = `orientation:${cohort.id}:${cohort.scheduled_at}:announced`;
+      announcedScheduledAt = cohort.scheduled_at;
       payload.message = cohort.student_message || message;
     } else if (student_id) {
       const { data } = await svc.from("profiles").select("id,full_name").eq("id", student_id).single();
@@ -222,7 +224,16 @@ Deno.serve(async (req) => {
         recipients = (profiles ?? []).map((profile) => ({ id: profile.id, name: profile.full_name }));
       }
     }
-    if (!recipients.length) return json({ error: "No recipients" }, 400);
+    if (!recipients.length) {
+      if (type === "orientation_scheduled") {
+        const { error: enableError } = await svc.from("orientation_cohorts").update({
+          notifications_enabled_for_scheduled_at: announcedScheduledAt,
+        }).eq("id", cohort_id);
+        if (enableError) return json({ error: enableError.message }, 500);
+        return json({ ok: true, sent: 0, skipped: 0, total: 0, failures: [] });
+      }
+      return json({ error: "No recipients" }, 400);
+    }
 
     let sent = 0;
     let skipped = 0;
@@ -275,6 +286,16 @@ Deno.serve(async (req) => {
       // sends deliberately paced so a large announcement does not burst the
       // provider's per-second API limit.
       if (type === "orientation_scheduled") await new Promise((resolve) => setTimeout(resolve, 550));
+    }
+
+    if (type === "orientation_scheduled") {
+      const { data: announcedCohort } = await svc.from("orientation_cohorts").select("scheduled_at").eq("id", cohort_id).single();
+      if (announcedCohort?.scheduled_at) {
+        const { error: enableError } = await svc.from("orientation_cohorts").update({
+          notifications_enabled_for_scheduled_at: announcedCohort.scheduled_at,
+        }).eq("id", cohort_id);
+        if (enableError) failures.push(`Automatic catch-up could not be enabled: ${enableError.message}`);
+      }
     }
 
     if (type === "welcome" && student_id === user.id && sent > 0) {

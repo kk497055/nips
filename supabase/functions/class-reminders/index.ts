@@ -52,6 +52,56 @@ function orientationReminderStage(scheduledAt: string, now = new Date()) {
   return null;
 }
 
+async function sendOrientationAnnouncementCatchups(svc: any, apiKey: string) {
+  const { data: cohorts, error } = await svc.from("orientation_cohorts")
+    .select("id,batch_id,name,scheduled_at,student_message,notifications_enabled_for_scheduled_at")
+    .eq("session_state", "scheduled").not("notifications_enabled_for_scheduled_at", "is", null);
+  if (error) return { sent: 0, skipped: 0, failures: [error.message] };
+  let sent = 0, skipped = 0;
+  const failures: string[] = [];
+  for (const cohort of cohorts || []) {
+    if (!cohort.scheduled_at || new Date(cohort.scheduled_at).getTime() !== new Date(cohort.notifications_enabled_for_scheduled_at).getTime()) continue;
+    const { data: batch } = await svc.from("batches").select("name,schedule").eq("id", cohort.batch_id).single();
+    const { data: applications } = await svc.from("orientation_applications").select("student_id").eq("cohort_id", cohort.id);
+    const ids = [...new Set((applications || []).map((application) => application.student_id))];
+    if (!ids.length) continue;
+    const { data: profiles } = await svc.from("profiles").select("id,full_name").in("id", ids);
+    for (const profile of profiles || []) {
+      const deliveryKey = `orientation:${cohort.id}:${cohort.scheduled_at}:announced`;
+      await svc.from("portal_notifications").upsert({
+        recipient_id: profile.id,
+        notification_type: "orientation_scheduled",
+        title: "Your orientation is scheduled",
+        message: `${batch?.name || cohort.name} — ${batch?.schedule || "see the portal for details"}`,
+        action_url: PORTAL_URL,
+        delivery_key: deliveryKey,
+      }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });
+      const { data: existing } = await svc.from("notification_logs").select("id")
+        .eq("notification_type", "orientation_scheduled").eq("batch_id", cohort.batch_id)
+        .eq("student_id", profile.id).eq("delivery_key", deliveryKey).maybeSingle();
+      if (existing) { skipped++; continue; }
+      const { data: authUser } = await svc.auth.admin.getUserById(profile.id);
+      const email = authUser?.user?.email;
+      if (!email) { failures.push(`${profile.full_name} (no email)`); continue; }
+      const message = T.orientation_scheduled({
+        name: profile.full_name,
+        batch: batch?.name || cohort.name,
+        schedule: batch?.schedule,
+        message: cohort.student_message,
+      });
+      const result = await sendEmail(apiKey, FROM, email, message.subject, message.html);
+      if (!result.ok) { failures.push(`${email}: ${result.error}`); continue; }
+      await svc.from("notification_logs").insert({
+        notification_type: "orientation_scheduled", batch_id: cohort.batch_id,
+        student_id: profile.id, delivery_key: deliveryKey,
+      });
+      sent++;
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    }
+  }
+  return { sent, skipped, failures };
+}
+
 async function sendOrientationReminders(svc: any, apiKey: string, now = new Date()) {
   const { data: cohorts, error } = await svc.from("orientation_cohorts")
     .select("id,batch_id,name,scheduled_at,student_message")
@@ -69,6 +119,11 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
     const { data: profiles } = await svc.from("profiles").select("id,full_name").in("id", ids);
     for (const profile of profiles || []) {
       const deliveryKey = `orientation:${cohort.id}:${cohort.scheduled_at}:${stage.key}`;
+      const announcementKey = `orientation:${cohort.id}:${cohort.scheduled_at}:announced`;
+      const { data: announcement } = await svc.from("notification_logs").select("sent_at")
+        .eq("notification_type", "orientation_scheduled").eq("batch_id", cohort.batch_id)
+        .eq("student_id", profile.id).eq("delivery_key", announcementKey).maybeSingle();
+      if (!announcement || now.getTime() - new Date(announcement.sent_at).getTime() < 60 * 60000) { skipped++; continue; }
       await svc.from("portal_notifications").upsert({
         recipient_id: profile.id,
         notification_type: "orientation_reminder",
@@ -193,10 +248,12 @@ Deno.serve(async (req) => {
     }
 
     const orientation = await sendOrientationReminders(svc, RESEND_API_KEY);
+    const orientationCatchup = await sendOrientationAnnouncementCatchups(svc, RESEND_API_KEY);
     return json({
-      ok: failures.length === 0 && orientation.failures.length === 0,
+      ok: failures.length === 0 && orientation.failures.length === 0 && orientationCatchup.failures.length === 0,
       sent, skipped, failures,
       orientation,
+      orientationCatchup,
     });
   } catch (error) {
     return json({ error: String(error?.message ?? error) }, 500);
