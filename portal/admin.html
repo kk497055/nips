@@ -401,13 +401,16 @@
       const campaignCohorts = (cohorts || []).filter(c => c.program_id === selectedProgram?.id);
       const cohortCode = orientationParams.get("cohort");
       const selectedCohort = campaignCohorts.find(c => c.code === cohortCode || c.id === cohortCode) || null;
-      const visibleApps = selectedCohort ? campaignApps.filter(a => a.cohort_id === selectedCohort.id) : campaignApps;
+      const studyMode = orientationParams.get("mode") || "";
+      const cohortApps = selectedCohort ? campaignApps.filter(a => a.cohort_id === selectedCohort.id) : campaignApps;
+      const visibleApps = cohortApps.filter(a => !studyMode || (studyMode === "unset" ? !a.study_mode_preference : a.study_mode_preference === studyMode));
       const orientationBatchIds = new Set([...(programs || []).map(p => p.batch_id), ...(cohorts || []).map(c => c.batch_id)]);
       window._orientationCourseBatches = (batches || []).filter(b => !orientationBatchIds.has(b.id));
       window._orientationNames = Object.fromEntries(campaignApps.map(a => [a.student_id, a.full_name]));
       window._orientationProgram = selectedProgram;
       window._orientationCohorts = campaignCohorts;
       window._orientationBatches = batchOf;
+      window._orientationVisibleApps = visibleApps;
       const teacherOptions = (selected) => `<option value="">— assign teacher —</option>${(teachers || []).map(t => `<option value="${t.id}" ${t.id === selected ? "selected" : ""}>${esc(t.full_name)}</option>`).join("")}`;
       const teacherOf = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
       const cohortCards = campaignCohorts.map(c => {
@@ -420,6 +423,7 @@
         : selectedProgram?.campaign_status === "archived" ? ""
         : `<button class="btn soft sm" onclick="setOrientationCampaignStatus('published')">${selectedProgram?.campaign_status === "draft" ? "Publish" : "Reopen"}</button>`;
       const cohortFilterOptions = `<option value="">All cohorts (${campaignApps.length})</option>${campaignCohorts.map(c => `<option value="${c.code}" ${selectedCohort?.id === c.id ? "selected" : ""}>${esc(c.name)} (${campaignApps.filter(a => a.cohort_id === c.id).length}/${c.capacity})</option>`).join("")}`;
+      const modeFilterOptions = `<option value="" ${!studyMode ? "selected" : ""}>All study modes</option><option value="online" ${studyMode === "online" ? "selected" : ""}>Online</option><option value="physical" ${studyMode === "physical" ? "selected" : ""}>Physical / on campus</option><option value="unset" ${studyMode === "unset" ? "selected" : ""}>Not selected</option>`;
       let cohortDetail = "";
       if (selectedCohort) {
         const detailBatch = batchOf[selectedCohort.batch_id] || {};
@@ -430,10 +434,11 @@
       }
       el.innerHTML = `<div class="card orientation-campaign-toolbar"><div><label class="meta">Campaign</label><select onchange="changeOrientationCampaign(this.value)">${campaignOptions}</select><p class="meta" style="margin-top:6px">${esc(selectedProgram?.description || "Select or create an orientation campaign.")}</p></div><div class="row-actions"><button class="btn soft sm" onclick="openCampaignWizard()">New campaign</button>${selectedProgram ? `<button class="btn soft sm" onclick="copyOrientationLink('${esc(publicLink)}')">Copy registration link</button><a class="btn green sm" href="${esc(publicLink)}" target="_blank" rel="noopener">Open form</a>` : ""}</div></div>
         ${selectedProgram ? `<div class="row-actions" style="margin:-6px 0 14px;align-items:center"><span class="pill ${selectedProgram.campaign_status === "published" ? "paid" : "pending"}">${esc(selectedProgram.campaign_status)}</span>${statusAction}${selectedProgram.campaign_status !== "archived" ? `<button class="btn soft sm" onclick="setOrientationCampaignStatus('archived')">Archive</button>` : ""}</div>` : ""}
-        <div class="card orientation-cohort-filter"><div><label for="orientation-cohort-filter"><strong>Student roster</strong></label><p class="meta">Filter registrations by cohort or select a cohort title below to open its details.</p></div><select id="orientation-cohort-filter" onchange="filterOrientationCohort(this.value)">${cohortFilterOptions}</select></div>
+        <div class="card orientation-cohort-filter"><div><label for="orientation-cohort-filter"><strong>Student roster</strong></label><p class="meta">Filter registrations by cohort and preferred regular-course mode.</p></div><div class="row-actions"><select id="orientation-cohort-filter" onchange="filterOrientationCohort(this.value)">${cohortFilterOptions}</select><select id="orientation-mode-filter" onchange="filterOrientationStudyMode(this.value)">${modeFilterOptions}</select></div></div>
         ${cohortDetail}
         <div class="orientation-cohort-list">${cohortCards || '<div class="card"><p class="empty">No cohorts yet.</p></div>'}</div>
-        <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${campaignApps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${campaignApps.filter(a => a.status === "submitted").length}</div><div class="lbl">Awaiting review</div></div><div class="stat"><div class="num">${campaignApps.filter(a => a.status === "attended").length}</div><div class="lbl">Attended</div></div></div>
+        <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="num">${campaignApps.length}</div><div class="lbl">Registrations</div></div><div class="stat"><div class="num">${campaignApps.filter(a => a.study_mode_preference === "online").length}</div><div class="lbl">Online</div></div><div class="stat"><div class="num">${campaignApps.filter(a => a.study_mode_preference === "physical").length}</div><div class="lbl">Physical</div></div><div class="stat"><div class="num amber">${campaignApps.filter(a => !a.study_mode_preference).length}</div><div class="lbl">Mode not selected</div></div></div>
+        ${campaignApps.some(a => !a.study_mode_preference) ? `<div class="card orientation-bulk"><div><h3>Collect study-mode preferences</h3><p class="meta">Email and notify only applicants who have not chosen online or physical study. Delivery is duplicate-protected.</p></div><button class="btn green sm" onclick="requestOrientationStudyModes()">Request from ${campaignApps.filter(a => !a.study_mode_preference).length} students</button></div>` : ""}
         <div class="card orientation-bulk"><div><h3>Cohort assignment</h3><p class="meta">Open cohorts hold up to ${Number(selectedProgram?.default_cohort_capacity || 90)} students. New registrations are assigned immediately; the next cohort is created automatically when required. Unscheduled cohorts are safely balanced, while announced cohorts stay locked.</p></div><div class="row-actions"><select id="orientation-target-cohort">${campaignCohorts.map(c => `<option value="${c.id}">${esc(c.name)} (${campaignApps.filter(a => a.cohort_id === c.id).length}/${c.capacity})</option>`).join("")}</select><button class="btn green sm" onclick="bulkAssignOrientationCohort()">Assign selected</button><button class="btn soft sm" onclick="autoAssignOrientationCohorts()">Reconcile assignments</button><span class="list-count" id="orientation-selection-count">${window._orientationSel.size} selected</span></div></div>
         <div id="orientation-list"></div>`;
       campaignCohorts.forEach(c => { const select = document.getElementById(`oc-state-${c.id}`); if (select) select.value = c.session_state; });
@@ -442,8 +447,9 @@
       mountList("orientation-applications", "orientation-list", visibleApps, {
         placeholder: "Search applicants, email, city or interests…", noun: "registrations", empty: "No registrations match your search.", pageSize: 10,
         match: (a, term) => `${a.full_name || ""} ${a.email || ""} ${a.phone || ""} ${a.city || ""} ${a.education_level || ""} ${a.institution || ""} ${a.interests || ""} ${a.status || ""} ${cohortOf[a.cohort_id]?.name || "unassigned"}`.toLowerCase().includes(term),
-        render: (items) => `<div style="overflow:auto"><table><thead><tr><th><input type="checkbox" aria-label="Select this page" onchange="selectOrientationPage('${items.map(a => a.id).join(",")}',this.checked)"/></th><th>Applicant</th><th>Cohort</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
+        render: (items) => `<div style="overflow:auto"><table><thead><tr><th><input type="checkbox" aria-label="Select this page" onchange="selectOrientationPage('${items.map(a => a.id).join(",")}',this.checked)"/></th><th>Applicant</th><th>Cohort</th><th>Study mode</th><th>Contact</th><th>Education &amp; interests</th><th>Submitted</th><th>Status</th><th>Next step</th></tr></thead><tbody>
         ${items.map(a => `<tr><td><input type="checkbox" data-orientation-application="${a.id}" aria-label="Select ${esc(a.full_name)}" ${window._orientationSel.has(a.id) ? "checked" : ""} onchange="toggleOrientationApplication('${a.id}',this.checked)"/></td><td><strong>${esc(a.full_name)}</strong><br><span class="meta">${esc(programOf[a.program_id]?.name || "Orientation")}</span></td><td><span class="pill ${a.cohort_id ? "paid" : "pending"}">${esc(cohortOf[a.cohort_id]?.name || "Unassigned")}</span></td>
+          <td><select aria-label="Study mode for ${esc(a.full_name)}" onchange="setOrientationStudyMode('${a.id}',this.value)"><option value="" ${!a.study_mode_preference ? "selected" : ""} disabled>Not selected</option><option value="online" ${a.study_mode_preference === "online" ? "selected" : ""}>Online</option><option value="physical" ${a.study_mode_preference === "physical" ? "selected" : ""}>Physical</option></select></td>
           <td>${esc(a.email)}<br><span class="meta">${esc(a.phone)} · ${esc(a.city || "—")}</span></td>
           <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}${customAnswers(a) ? `<br>${esc(customAnswers(a))}` : ""}</span></td>
           <td>${new Date(a.submitted_at).toLocaleDateString()}</td><td><span class="pill ${a.status === "attended" ? "paid" : "pending"}">${esc(a.status)}</span><br><button class="btn soft sm" style="margin-top:5px" onclick="setOrientationStatus('${a.id}','${a.status === "attended" ? "reviewed" : "attended"}')">${a.status === "attended" ? "Mark reviewed" : "Mark attended"}</button></td>
@@ -490,6 +496,27 @@
       if (window._orientationProgram) url.searchParams.set("campaign", window._orientationProgram.public_slug || window._orientationProgram.code);
       code ? url.searchParams.set("cohort", code) : url.searchParams.delete("cohort");
       location.href = url.href;
+    }
+    function filterOrientationStudyMode(mode) {
+      const url = new URL(location.href); url.searchParams.set("view", "orientation");
+      mode ? url.searchParams.set("mode", mode) : url.searchParams.delete("mode");
+      location.href = url.href;
+    }
+    async function setOrientationStudyMode(applicationId, mode) {
+      if (!mode) return;
+      const { error } = await sb.rpc("admin_set_orientation_study_mode", { p_application_id: applicationId, p_mode: mode });
+      if (error) return alert("Could not update study mode: " + error.message);
+      await loadOrientationApplications();
+    }
+    async function requestOrientationStudyModes() {
+      const program = window._orientationProgram;
+      if (!program) return;
+      if (!confirm("Email and send a portal notification to every applicant in this campaign who has not selected a study mode? Students who already answered will not be contacted.")) return;
+      try {
+        const body = await sendNotify({ type: "orientation_study_mode_request", program_id: program.id });
+        alert(`Study-mode request complete: ${body.sent || 0} email(s) sent, ${body.skipped || 0} duplicate(s) skipped.`);
+        await loadOrientationApplications();
+      } catch (error) { alert("Could not send study-mode requests: " + error.message); }
     }
     async function copyOrientationLink(url) {
       try { await navigator.clipboard.writeText(url); alert("Registration link copied."); }

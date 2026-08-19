@@ -49,6 +49,7 @@
         <div class="row-actions"><a class="btn green" href="student.html?view=classes">My Classes</a><a class="btn soft" href="student.html?view=fees">Fees &amp; Receipts</a></div>
       </div>
     </div>
+    <div id="study-mode-preference" data-student-view="home classes account"></div>
     <div id="notification-summary" data-student-view="home"></div>
     <div id="live-banner" data-student-view="home classes"></div>
     <div id="progress" data-student-view="home learning"></div>
@@ -275,7 +276,28 @@
         <div><dt>Email</dt><dd>${esc(user?.email || "Not available")}</dd></div>
         <div><dt>Role</dt><dd>Student</dd></div>
       </dl><p class="meta">To change your account details, contact NIPS so your academic records remain accurate.</p>`;
+      await renderStudyModePreference();
       await renderNotifications();
+    }
+
+    async function renderStudyModePreference() {
+      const el = document.getElementById("study-mode-preference");
+      const { data: applications, error } = await sb.from("orientation_applications")
+        .select("id,program_id,study_mode_preference,submitted_at")
+        .order("submitted_at", { ascending: false });
+      if (error || !applications?.length) { el.innerHTML = ""; return; }
+      const application = applications[0], mode = application.study_mode_preference || "";
+      el.innerHTML = `<div class="card study-mode-card"><div class="class-top"><div><p class="eyebrow">Course planning</p><h2>How would you prefer to attend your regular course?</h2></div>${mode ? `<span class="pill paid study-mode-pill">${esc(mode)}</span>` : '<span class="pill pending">Response needed</span>'}</div><p class="meta">Choose online or physical/on-campus study for the course you may join after orientation. This does not change your orientation access.</p><div class="study-mode-options"><label><input type="radio" name="student-study-mode" value="online" ${mode === "online" ? "checked" : ""}/> <span><strong>Online</strong><small>Attend regular classes remotely through the NIPS Portal.</small></span></label><label><input type="radio" name="student-study-mode" value="physical" ${mode === "physical" ? "checked" : ""}/> <span><strong>Physical / on campus</strong><small>Attend regular classes at the institute.</small></span></label></div><div class="row-actions"><button class="btn green" onclick="saveMyStudyMode('${application.id}')">Save preference</button><span class="meta" id="study-mode-msg"></span></div></div>`;
+    }
+
+    async function saveMyStudyMode(applicationId) {
+      const selected = document.querySelector('input[name="student-study-mode"]:checked');
+      const msg = document.getElementById("study-mode-msg");
+      if (!selected) { msg.textContent = "Choose online or physical first."; return; }
+      msg.textContent = "Saving…";
+      const { error } = await sb.rpc("set_my_orientation_study_mode", { p_application_id: applicationId, p_mode: selected.value });
+      if (error) { msg.textContent = "Could not save: " + error.message; return; }
+      await renderStudyModePreference();
     }
 
     async function renderNotifications() {

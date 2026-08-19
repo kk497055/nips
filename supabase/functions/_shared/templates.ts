@@ -106,6 +106,17 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
       cta: { label: "View Orientation Details", url: PORTAL },
     }),
   }),
+  orientation_study_mode_request: (c) => ({
+    subject: "Choose your preferred study mode — NIPS",
+    html: layout({
+      preheader: "Tell NIPS whether you prefer online or physical classes.",
+      heading: "How would you prefer to study?",
+      body: p(`Dear ${c.name},`) +
+            p("Please choose whether you would prefer to attend your <strong>regular course after orientation</strong> online or physically/on campus.") +
+            p("This choice does not change your orientation registration or access. You can update it later from your NIPS Portal account."),
+      cta: { label: "Choose Study Mode", url: "https://nips.com.pk/portal/student.html?view=home#study-mode-preference" },
+    }),
+  }),
   orientation_reminder: (c) => ({
     subject: `Reminder — ${c.batch}`,
     html: layout({

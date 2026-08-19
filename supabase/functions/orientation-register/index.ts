@@ -33,6 +33,8 @@ Deno.serve(async (req) => {
       .slice(0, 20)
       .filter(([name]) => /^[a-z0-9_-]{1,60}$/i.test(name))
       .map(([name, value]) => [name, text(value, 1000)]));
+    const studyMode = text(data.study_mode_preference, 20).toLowerCase();
+    if (studyMode && !["online", "physical"].includes(studyMode)) return json({ error: "Choose online or physical study mode." }, 400);
     const payload = {
       orientation_program: campaign,
       full_name: text(data.full_name, 160), phone: text(data.phone, 50),
@@ -53,6 +55,20 @@ Deno.serve(async (req) => {
       p_student_id: user.id, p_email: user.email, p_payload: payload,
     });
     if (error) return json({ error: error.message }, 400);
+    if (studyMode) {
+      const { data: current } = await svc.from("orientation_applications")
+        .select("study_mode_preference").eq("id", applicationId).single();
+      if (current?.study_mode_preference !== studyMode) {
+        const { error: modeError } = await svc.from("orientation_applications")
+          .update({ study_mode_preference: studyMode, updated_at: new Date().toISOString() })
+          .eq("id", applicationId);
+        if (modeError) return json({ error: modeError.message }, 500);
+        await svc.from("orientation_study_mode_audit").insert({
+          application_id: applicationId, old_mode: current?.study_mode_preference || null,
+          new_mode: studyMode, changed_by: user.id, source: "registration",
+        });
+      }
+    }
     return json({ ok: true, application_id: applicationId });
   } catch (error) {
     return json({ error: String(error?.message ?? error) }, 500);

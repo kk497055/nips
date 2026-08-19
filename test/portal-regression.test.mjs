@@ -491,3 +491,23 @@ test("operational email prefers Google Workspace and retains Resend fallback", (
   assert.match(templates, /reply_to:/);
   assert.match(templates, /opts\.attachments/);
 });
+
+test("orientation study mode is additive, self-service, and duplicate protected", () => {
+  const form = read("portal/orientation.html");
+  const student = read("portal/student.html");
+  const admin = read("portal/admin.html");
+  const notify = read("supabase/functions/notify/index.ts");
+  const templates = read("supabase/functions/_shared/templates.ts");
+  const migration = read("supabase/migrations/20260819000000_orientation_study_mode.sql");
+  assert.match(form, /name="study_mode_preference" value="online" required/);
+  assert.match(form, /name="study_mode_preference" value="physical" required/);
+  assert.match(student, /set_my_orientation_study_mode/);
+  assert.match(admin, /admin_set_orientation_study_mode/);
+  assert.match(admin, /orientation_study_mode_request/);
+  assert.match(notify, /study-mode-request-v1/);
+  assert.match(notify, /is\("study_mode_preference", null\)/);
+  assert.match(templates, /Choose your preferred study mode/);
+  assert.match(migration, /add column if not exists study_mode_preference/);
+  assert.match(migration, /Existing applications intentionally remain NULL/);
+  assert.doesNotMatch(migration, /delete from public\.orientation_applications/i);
+});

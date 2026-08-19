@@ -19,7 +19,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 const FROM = Deno.env.get("NOTIFY_FROM") || "NIPS Portal <noreply@nips.com.pk>";
-const ADMIN_TYPES = new Set(["welcome", "enrolment_paid", "payment_reminder", "class_reminder", "announcement", "payment_receipt", "orientation_scheduled"]);
+const ADMIN_TYPES = new Set(["welcome", "enrolment_paid", "payment_reminder", "class_reminder", "announcement", "payment_receipt", "orientation_scheduled", "orientation_study_mode_request"]);
 const TEACHER_TYPES = new Set(["new_recording", "class_reminder"]);
 const BATCH_WIDE = new Set(["new_recording", "class_reminder", "announcement"]);
 
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     if (meError) return json({ error: meError.message }, 500);
 
     const payload = await req.json();
-    const { type, student_id, batch_id, payment_id, cohort_id, title, message } = payload;
+    const { type, student_id, batch_id, payment_id, cohort_id, program_id, title, message } = payload;
     if (!T[type] && type !== "payment_receipt") return json({ error: "Unknown notification type" }, 400);
 
     const role = me?.role ?? "student";
@@ -129,6 +129,7 @@ Deno.serve(async (req) => {
     if (type === "announcement" && !message) return json({ error: "message is required" }, 400);
     if (type === "payment_receipt" && !payment_id) return json({ error: "payment_id is required" }, 400);
     if (type === "orientation_scheduled" && !cohort_id) return json({ error: "cohort_id is required" }, 400);
+    if (type === "orientation_study_mode_request" && !program_id) return json({ error: "program_id is required" }, 400);
 
     if (type === "payment_receipt") {
       const { data: payment, error: paymentError } = await svc
@@ -183,7 +184,22 @@ Deno.serve(async (req) => {
     let deliveryKey = "";
     let announcedScheduledAt = "";
     let notificationBatchId = batch_id || null;
-    if (type === "orientation_scheduled") {
+    if (type === "orientation_study_mode_request") {
+      const { data: program, error: programError } = await svc.from("orientation_programs")
+        .select("id,name,batch_id").eq("id", program_id).single();
+      if (programError || !program) return json({ error: programError?.message || "Campaign not found" }, 404);
+      batch = { name: program.name };
+      notificationBatchId = program.batch_id;
+      const { data: applications, error: applicationError } = await svc.from("orientation_applications")
+        .select("student_id").eq("program_id", program_id).is("study_mode_preference", null);
+      if (applicationError) return json({ error: applicationError.message }, 500);
+      const ids = [...new Set((applications ?? []).map((application) => application.student_id))];
+      if (ids.length) {
+        const { data: profiles } = await svc.from("profiles").select("id,full_name").in("id", ids);
+        recipients = (profiles ?? []).map((profile) => ({ id: profile.id, name: profile.full_name }));
+      }
+      deliveryKey = `orientation:${program.id}:study-mode-request-v1`;
+    } else if (type === "orientation_scheduled") {
       const { data: cohort, error: cohortError } = await svc
         .from("orientation_cohorts")
         .select("id,batch_id,name,scheduled_at,session_state,student_message")
@@ -232,6 +248,7 @@ Deno.serve(async (req) => {
         if (enableError) return json({ error: enableError.message }, 500);
         return json({ ok: true, sent: 0, skipped: 0, total: 0, failures: [] });
       }
+      if (type === "orientation_study_mode_request") return json({ ok: true, sent: 0, skipped: 0, total: 0, failures: [] });
       return json({ error: "No recipients" }, 400);
     }
 
@@ -241,12 +258,17 @@ Deno.serve(async (req) => {
 
     for (const recipient of recipients) {
       if (deliveryKey) {
+        const isModeRequest = type === "orientation_study_mode_request";
         await svc.from("portal_notifications").upsert({
           recipient_id: recipient.id,
           notification_type: type,
-          title: "Your orientation is scheduled",
-          message: `${batch.name || "Your orientation"} — ${batch.schedule || "see the portal for details"}. ${ORIENTATION_CONFIRMATION_TEXT}`,
-            action_url: "https://nips.com.pk/portal/student.html?view=classes",
+          title: isModeRequest ? "Choose your preferred study mode" : "Your orientation is scheduled",
+          message: isModeRequest
+            ? "Please choose online or physical/on-campus study for the regular course you may join after orientation. Your orientation access is unchanged."
+            : `${batch.name || "Your orientation"} — ${batch.schedule || "see the portal for details"}. ${ORIENTATION_CONFIRMATION_TEXT}`,
+          action_url: isModeRequest
+            ? "https://nips.com.pk/portal/student.html?view=home#study-mode-preference"
+            : "https://nips.com.pk/portal/student.html?view=classes",
           delivery_key: deliveryKey,
         }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });
         const { data: existing } = await svc.from("notification_logs").select("id")
@@ -285,7 +307,7 @@ Deno.serve(async (req) => {
       // Orientation cohorts can contain up to 90 students. Keep personalized
       // sends deliberately paced so a large announcement does not burst the
       // provider's per-second API limit.
-      if (type === "orientation_scheduled") await new Promise((resolve) => setTimeout(resolve, 550));
+      if (type === "orientation_scheduled" || type === "orientation_study_mode_request") await new Promise((resolve) => setTimeout(resolve, 550));
     }
 
     if (type === "orientation_scheduled") {
