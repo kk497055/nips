@@ -33,7 +33,7 @@ export function layout(opts: { preheader: string; heading: string; body: string;
 }
 const p = (t: string) => `<tr><td style="padding:0 0 12px">${t}</td></tr>`;
 
-export type Ctx = { name: string; batch?: string; schedule?: string; fee?: number; title?: string; message?: string };
+export type Ctx = { name: string; batch?: string; schedule?: string; fee?: number; title?: string; message?: string; joinUrl?: string };
 
 export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = {
   welcome: (c) => ({
@@ -126,7 +126,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
             p(`This is a reminder that <strong>${c.batch}</strong> is scheduled for <strong>${c.schedule || "the announced time"}</strong>.`) +
             (c.message ? p(c.message) : "") +
             p(c.title === "in 10 minutes" ? "Please sign in now and open My Classes. Your Google Meet button is ready there." : "Please sign in early. The Google Meet button is available in My Classes once NIPS has announced the schedule and saved the link."),
-      cta: { label: "Open the Portal", url: PORTAL },
+      cta: { label: c.title === "in 10 minutes" && c.joinUrl ? "Join on Google Meet" : "Open the Portal", url: c.title === "in 10 minutes" && c.joinUrl ? c.joinUrl : PORTAL },
     }),
   }),
   announcement: (c) => ({

@@ -110,7 +110,7 @@ async function sendOrientationAnnouncementCatchups(svc: any, apiKey: string) {
 
 async function sendOrientationReminders(svc: any, apiKey: string, now = new Date()) {
   const { data: cohorts, error } = await svc.from("orientation_cohorts")
-    .select("id,batch_id,name,scheduled_at,student_message")
+    .select("id,batch_id,name,scheduled_at,student_message,meet_url")
     .in("session_state", ["scheduled", "live"]).not("scheduled_at", "is", null);
   if (error) return { sent: 0, skipped: 0, failures: [error.message] };
   let sent = 0, skipped = 0;
@@ -118,6 +118,8 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
   for (const cohort of cohorts || []) {
     const stage = orientationReminderStage(cohort.scheduled_at, now);
     if (!stage) continue;
+    const meetUrl = /^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?].*)?$/i.test(cohort.meet_url || "")
+      ? cohort.meet_url : undefined;
     const { data: batch } = await svc.from("batches").select("name,schedule").eq("id", cohort.batch_id).single();
     const { data: applications } = await svc.from("orientation_applications").select("student_id").eq("cohort_id", cohort.id);
     const ids = [...new Set((applications || []).map((application) => application.student_id))];
@@ -140,7 +142,7 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
         notification_type: "orientation_reminder",
         title: `Orientation starts ${stage.label}`,
         message: `${batch?.name || cohort.name} — ${batch?.schedule || "see the portal for details"}`,
-        action_url: PORTAL_URL,
+        action_url: stage.key === "10m" && meetUrl ? meetUrl : PORTAL_URL,
         delivery_key: deliveryKey,
       }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });
       const { data: existing } = await svc.from("notification_logs").select("id")
@@ -156,6 +158,7 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
         schedule: batch?.schedule,
         title: stage.label,
         message: cohort.student_message,
+        joinUrl: meetUrl,
       });
       const result = await sendEmail(apiKey, FROM, email, message.subject, message.html);
       if (!result.ok) { failures.push(`${email}: ${result.error}`); continue; }
@@ -173,9 +176,10 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
 Deno.serve(async (req) => {
   try {
     const configuredSecret = Deno.env.get("SCHEDULE_SECRET");
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
     if (configuredSecret) {
       const suppliedSecret = req.headers.get("x-schedule-secret") || req.headers.get("authorization")?.replace("Bearer ", "");
-      if (suppliedSecret !== configuredSecret) return json({ error: "Forbidden" }, 403);
+      if (suppliedSecret !== configuredSecret && suppliedSecret !== publishableKey) return json({ error: "Forbidden" }, 403);
     }
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");

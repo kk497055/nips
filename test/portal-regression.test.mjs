@@ -452,6 +452,9 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(reminders, /key: "10m", label: "in 10 minutes"/);
   assert.match(reminders, /stage\.key !== "10m" && announcementIsRecent/);
   assert.match(reminders, /\.in\("session_state", \["scheduled", "live"\]\)/);
+  assert.match(reminders, /select\("id,batch_id,name,scheduled_at,student_message,meet_url"\)/);
+  assert.match(reminders, /stage\.key === "10m" && meetUrl \? meetUrl : PORTAL_URL/);
+  assert.match(reminders, /joinUrl: meetUrl/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
   assert.match(reminders, /key: `daily:\$\{today\}`/);
   assert.match(reminders, /calendarDaysUntil === 1 \? "tomorrow"/);
@@ -531,4 +534,17 @@ test("announced orientation schedules expose saved Meet links only to assigned s
   assert.match(student, /const canJoin = \(state === "scheduled" \|\| isLive\)/);
   assert.match(student, /canJoin \? `<a class="btn green"/);
   assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
+});
+
+test("orientation reminders run every five minutes and use the assigned cohort Meet URL", () => {
+  const schedule = read("supabase/migrations/20260822010000_orientation_reminder_scheduler.sql");
+  const reminders = read("supabase/functions/class-reminders/index.ts");
+  const templates = read("supabase/functions/_shared/templates.ts");
+  assert.match(schedule, /nips-class-reminders-five-minutes/);
+  assert.match(schedule, /'\*\/5 \* \* \* \*'/);
+  assert.match(schedule, /functions\/v1\/class-reminders/);
+  assert.match(reminders, /meetUrl/);
+  assert.match(templates, /Join on Google Meet/);
+  assert.doesNotMatch(schedule, /service_role/i);
+  assert.doesNotMatch(schedule, /delete from|truncate |drop table/i);
 });
