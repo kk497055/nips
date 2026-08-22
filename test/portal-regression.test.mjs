@@ -452,9 +452,14 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(reminders, /key: "10m", label: "in 10 minutes"/);
   assert.match(reminders, /stage\.key !== "10m" && announcementIsRecent/);
   assert.match(reminders, /\.in\("session_state", \["scheduled", "live"\]\)/);
-  assert.match(reminders, /select\("id,batch_id,name,scheduled_at,student_message,meet_url"\)/);
-  assert.match(reminders, /stage\.key === "10m" && meetUrl \? meetUrl : PORTAL_URL/);
+  assert.match(reminders, /select\("id,code,batch_id,name,scheduled_at,student_message,meet_url"\)/);
+  assert.match(reminders, /\(stage\.key === "10m" \|\| stage\.key === "started"\) && meetUrl \? meetUrl : PORTAL_URL/);
   assert.match(reminders, /joinUrl: meetUrl/);
+  assert.match(reminders, /immediateCohortCode \? \{ key: "started", label: "now" \}/);
+  assert.match(reminders, /orientation_cohort/);
+  assert.match(reminders, /failure_count: orientation\.failures\.length/);
+  assert.match(reminders, /no valid Google Meet link is saved/);
+  assert.match(reminders, /`https:\/\/\$\{savedMeetUrl\}`/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
   assert.match(reminders, /key: `daily:\$\{today\}`/);
   assert.match(reminders, /calendarDaysUntil === 1 \? "tomorrow"/);

@@ -108,18 +108,26 @@ async function sendOrientationAnnouncementCatchups(svc: any, apiKey: string) {
   return { sent, skipped, failures };
 }
 
-async function sendOrientationReminders(svc: any, apiKey: string, now = new Date()) {
-  const { data: cohorts, error } = await svc.from("orientation_cohorts")
-    .select("id,batch_id,name,scheduled_at,student_message,meet_url")
+async function sendOrientationReminders(svc: any, apiKey: string, now = new Date(), immediateCohortCode = "") {
+  let cohortQuery = svc.from("orientation_cohorts")
+    .select("id,code,batch_id,name,scheduled_at,student_message,meet_url")
     .in("session_state", ["scheduled", "live"]).not("scheduled_at", "is", null);
+  if (immediateCohortCode) cohortQuery = cohortQuery.eq("code", immediateCohortCode);
+  const { data: cohorts, error } = await cohortQuery;
   if (error) return { sent: 0, skipped: 0, failures: [error.message] };
   let sent = 0, skipped = 0;
   const failures: string[] = [];
   for (const cohort of cohorts || []) {
-    const stage = orientationReminderStage(cohort.scheduled_at, now);
+    const stage = immediateCohortCode ? { key: "started", label: "now" } : orientationReminderStage(cohort.scheduled_at, now);
     if (!stage) continue;
-    const meetUrl = /^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?].*)?$/i.test(cohort.meet_url || "")
-      ? cohort.meet_url : undefined;
+    const savedMeetUrl = String(cohort.meet_url || "").trim();
+    const normalizedMeetUrl = /^meet\.google\.com\//i.test(savedMeetUrl) ? `https://${savedMeetUrl}` : savedMeetUrl;
+    const meetUrl = /^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?].*)?$/i.test(normalizedMeetUrl)
+      ? normalizedMeetUrl : undefined;
+    if (immediateCohortCode && !meetUrl) {
+      failures.push(`${cohort.name}: no valid Google Meet link is saved`);
+      continue;
+    }
     const { data: batch } = await svc.from("batches").select("name,schedule").eq("id", cohort.batch_id).single();
     const { data: applications } = await svc.from("orientation_applications").select("student_id").eq("cohort_id", cohort.id);
     const ids = [...new Set((applications || []).map((application) => application.student_id))];
@@ -133,7 +141,7 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
         .eq("student_id", profile.id).eq("delivery_key", announcementKey).maybeSingle();
       const announcedToday = announcement && localParts(new Date(announcement.sent_at)).date === localParts(now).date;
       const announcementIsRecent = now.getTime() - new Date(announcement?.sent_at || 0).getTime() < 60 * 60000;
-      if (!announcement || (stage.key !== "10m" && announcementIsRecent) || (stage.key.startsWith("daily:") && announcedToday)) {
+      if (!immediateCohortCode && (!announcement || (stage.key !== "10m" && announcementIsRecent) || (stage.key.startsWith("daily:") && announcedToday))) {
         skipped++;
         continue;
       }
@@ -142,7 +150,7 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
         notification_type: "orientation_reminder",
         title: `Orientation starts ${stage.label}`,
         message: `${batch?.name || cohort.name} — ${batch?.schedule || "see the portal for details"}`,
-        action_url: stage.key === "10m" && meetUrl ? meetUrl : PORTAL_URL,
+        action_url: (stage.key === "10m" || stage.key === "started") && meetUrl ? meetUrl : PORTAL_URL,
         delivery_key: deliveryKey,
       }, { onConflict: "recipient_id,delivery_key", ignoreDuplicates: true });
       const { data: existing } = await svc.from("notification_logs").select("id")
@@ -196,6 +204,15 @@ Deno.serve(async (req) => {
     const force = new URL(req.url).searchParams.get("force") === "1";
     const today = localParts().date;
     const svc = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const immediateCohortCode = new URL(req.url).searchParams.get("orientation_cohort") || "";
+    if (immediateCohortCode) {
+      if (!/^cohort-[a-z0-9-]+$/.test(immediateCohortCode)) return json({ error: "Invalid cohort" }, 400);
+      const orientation = await sendOrientationReminders(svc, RESEND_API_KEY, new Date(), immediateCohortCode);
+      return json({ ok: orientation.failures.length === 0, orientation: {
+        sent: orientation.sent, skipped: orientation.skipped, failure_count: orientation.failures.length,
+        failure_reason: orientation.failures.some((failure) => failure.includes("no valid Google Meet link")) ? "missing_or_invalid_meet_url" : orientation.failures.length ? "delivery_failed" : null,
+      }});
+    }
 
     const { data: batches, error: batchError } = await svc
       .from("batches")
