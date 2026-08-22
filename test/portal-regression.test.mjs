@@ -518,3 +518,13 @@ test("orientation roster exposes the existing secure password-reset workflow", (
   assert.match(admin, /sendPasswordReset\('\$\{a\.student_id\}',this\.dataset\.name\)/);
   assert.match(admin, /Send password reset/);
 });
+
+test("announced orientation schedules expose saved Meet links only to assigned students", () => {
+  const migration = read("supabase/migrations/20260822000000_orientation_meet_access.sql");
+  const student = read("portal/student.html");
+  assert.match(migration, /session_state in \('scheduled', 'live'\)/);
+  assert.match(migration, /where a\.student_id = auth\.uid\(\)/);
+  assert.match(student, /const canJoin = \(state === "scheduled" \|\| isLive\)/);
+  assert.match(student, /canJoin \? `<a class="btn green"/);
+  assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
+});

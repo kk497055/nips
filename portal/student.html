@@ -150,6 +150,7 @@
         if (orientation) {
           const state = orientation.session_state || "registration_open";
           const isLive = state === "live";
+          const canJoin = (state === "scheduled" || isLive) && Boolean(orientation.join_url);
           const labels = {
             registration_open: { pill: "Registration confirmed", title: "Your orientation is being arranged", text: "Your registration is confirmed. NIPS will announce the orientation date, time, and teacher here once they are finalized." },
             scheduled: { pill: "Scheduled", title: "Your orientation is scheduled", text: "Your NIPS orientation session has been announced. Please be ready before the scheduled time." },
@@ -157,7 +158,7 @@
             completed: { pill: "Orientation completed", title: "Thank you for attending", text: "NIPS will contact you about the best next course and its enrolment process." }
           };
           const view = labels[state] || labels.registration_open;
-          box.innerHTML += `<div class="card class-card orientation-student-card"><div class="class-top"><span class="pill ${isLive ? "paid" : "pending"}">${view.pill}</span><span class="class-category">Institute of Arts and Culture</span></div><h3>${esc(orientation.name || b.name)}</h3><div class="meta">${esc(view.text)}</div>${state === "scheduled" || state === "live" ? `<div class="orientation-schedule"><strong>Session details</strong><br>${esc(orientation.schedule || "Schedule being finalized")}</div>` : ""}${orientation.student_message ? `<div class="orientation-message">${esc(orientation.student_message)}</div>` : ""}<div class="row-actions">${isLive && orientation.join_url ? `<a class="btn green" href="${safeUrl(orientation.join_url)}" target="_blank" rel="noopener noreferrer">Join Orientation on Google Meet</a>` : `<a class="btn soft" href="?view=account">Contact NIPS</a>`}</div></div>`;
+          box.innerHTML += `<div class="card class-card orientation-student-card"><div class="class-top"><span class="pill ${isLive ? "paid" : "pending"}">${view.pill}</span><span class="class-category">Institute of Arts and Culture</span></div><h3>${esc(orientation.name || b.name)}</h3><div class="meta">${esc(view.text)}</div>${state === "scheduled" || state === "live" ? `<div class="orientation-schedule"><strong>Session details</strong><br>${esc(orientation.schedule || "Schedule being finalized")}</div>` : ""}${orientation.student_message ? `<div class="orientation-message">${esc(orientation.student_message)}</div>` : ""}<div class="row-actions">${canJoin ? `<a class="btn green" href="${safeUrl(orientation.join_url)}" target="_blank" rel="noopener noreferrer">Join Orientation on Google Meet</a>` : `<a class="btn soft" href="?view=account">Contact NIPS</a>`}</div></div>`;
           continue;
         }
         const { data: recs } = await sb.from("sessions")

@@ -102,7 +102,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
             p(`<strong>Date and time:</strong> ${c.schedule || "See the portal"}`) +
             (c.message ? p(c.message) : "") +
             p(`<strong>${ORIENTATION_CONFIRMATION_TEXT}</strong>`) +
-            p("Please sign in to the NIPS Portal before the session. The Google Meet button will appear there when the orientation goes live."),
+            p("Please sign in to the NIPS Portal before the session. Once the schedule is announced and the Meet link is saved, the Google Meet button will appear in My Classes."),
       cta: { label: "View Orientation Details", url: PORTAL },
     }),
   }),
@@ -125,7 +125,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
       body: p(`Dear ${c.name},`) +
             p(`This is a reminder that <strong>${c.batch}</strong> is scheduled for <strong>${c.schedule || "the announced time"}</strong>.`) +
             (c.message ? p(c.message) : "") +
-            p("Please sign in early. The Google Meet button will appear in the portal when the session goes live."),
+            p("Please sign in early. The Google Meet button is available in My Classes once NIPS has announced the schedule and saved the link."),
       cta: { label: "Open the Portal", url: PORTAL },
     }),
   }),
