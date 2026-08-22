@@ -511,3 +511,10 @@ test("orientation study mode is additive, self-service, and duplicate protected"
   assert.match(migration, /Existing applications intentionally remain NULL/);
   assert.doesNotMatch(migration, /delete from public\.orientation_applications/i);
 });
+
+test("orientation roster exposes the existing secure password-reset workflow", () => {
+  const admin = read("portal/admin.html");
+  assert.match(admin, /transitionOrientationStudent\('\$\{a\.student_id\}'\)/);
+  assert.match(admin, /sendPasswordReset\('\$\{a\.student_id\}',this\.dataset\.name\)/);
+  assert.match(admin, /Send password reset/);
+});

@@ -453,7 +453,7 @@
           <td>${esc(a.email)}<br><span class="meta">${esc(a.phone)} · ${esc(a.city || "—")}</span></td>
           <td>${esc(a.education_level || "—")} · ${esc(a.institution || "—")}<br><span class="meta">${esc(a.interests || "No interests stated")}${customAnswers(a) ? `<br>${esc(customAnswers(a))}` : ""}</span></td>
           <td>${new Date(a.submitted_at).toLocaleDateString()}</td><td><span class="pill ${a.status === "attended" ? "paid" : "pending"}">${esc(a.status)}</span><br><button class="btn soft sm" style="margin-top:5px" onclick="setOrientationStatus('${a.id}','${a.status === "attended" ? "reviewed" : "attended"}')">${a.status === "attended" ? "Mark reviewed" : "Mark attended"}</button></td>
-          <td><button class="btn green sm" onclick="transitionOrientationStudent('${a.student_id}')">Add to paid course</button></td></tr>`).join("")}
+          <td><div class="row-actions"><button class="btn green sm" onclick="transitionOrientationStudent('${a.student_id}')">Add to paid course</button><button class="btn soft sm" data-name="${esc(a.full_name)}" onclick="sendPasswordReset('${a.student_id}',this.dataset.name)">Send password reset</button></div></td></tr>`).join("")}
         </tbody></table></div>`
       });
     }
