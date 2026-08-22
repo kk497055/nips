@@ -125,7 +125,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
       body: p(`Dear ${c.name},`) +
             p(`This is a reminder that <strong>${c.batch}</strong> is scheduled for <strong>${c.schedule || "the announced time"}</strong>.`) +
             (c.message ? p(c.message) : "") +
-            p("Please sign in early. The Google Meet button is available in My Classes once NIPS has announced the schedule and saved the link."),
+            p(c.title === "in 10 minutes" ? "Please sign in now and open My Classes. Your Google Meet button is ready there." : "Please sign in early. The Google Meet button is available in My Classes once NIPS has announced the schedule and saved the link."),
       cta: { label: "Open the Portal", url: PORTAL },
     }),
   }),

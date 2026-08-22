@@ -47,6 +47,7 @@ function shouldSendReminder(schedule = "", now = new Date()) {
 
 function orientationReminderStage(scheduledAt: string, now = new Date()) {
   const minutesUntil = (new Date(scheduledAt).getTime() - now.getTime()) / 60000;
+  if (minutesUntil > 0 && minutesUntil <= 10) return { key: "10m", label: "in 10 minutes" };
   if (minutesUntil > 0 && minutesUntil <= 60) return { key: "1h", label: "in one hour" };
   if (minutesUntil <= 0) return null;
 
@@ -129,7 +130,8 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
         .eq("notification_type", "orientation_scheduled").eq("batch_id", cohort.batch_id)
         .eq("student_id", profile.id).eq("delivery_key", announcementKey).maybeSingle();
       const announcedToday = announcement && localParts(new Date(announcement.sent_at)).date === localParts(now).date;
-      if (!announcement || now.getTime() - new Date(announcement.sent_at).getTime() < 60 * 60000 || (stage.key.startsWith("daily:") && announcedToday)) {
+      const announcementIsRecent = now.getTime() - new Date(announcement?.sent_at || 0).getTime() < 60 * 60000;
+      if (!announcement || (stage.key !== "10m" && announcementIsRecent) || (stage.key.startsWith("daily:") && announcedToday)) {
         skipped++;
         continue;
       }

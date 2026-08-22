@@ -448,6 +448,9 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(notify, /ORIENTATION_CONFIRMATION_TEXT/);
   assert.match(reminders, /ORIENTATION_CONFIRMATION_TEXT/);
   assert.match(reminders, /orientationReminderStage/);
+  assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 10/);
+  assert.match(reminders, /key: "10m", label: "in 10 minutes"/);
+  assert.match(reminders, /stage\.key !== "10m" && announcementIsRecent/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
   assert.match(reminders, /key: `daily:\$\{today\}`/);
   assert.match(reminders, /calendarDaysUntil === 1 \? "tomorrow"/);
