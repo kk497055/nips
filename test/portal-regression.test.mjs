@@ -460,6 +460,8 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(reminders, /failure_count: orientation\.failures\.length/);
   assert.match(reminders, /no valid Google Meet link is saved/);
   assert.match(reminders, /`https:\/\/\$\{savedMeetUrl\}`/);
+  assert.match(reminders, /meet_url_valid: meetUrlValid/);
+  assert.match(reminders, /assigned_students: count \|\| 0/);
   assert.match(reminders, /minutesUntil > 0 && minutesUntil <= 60/);
   assert.match(reminders, /key: `daily:\$\{today\}`/);
   assert.match(reminders, /calendarDaysUntil === 1 \? "tomorrow"/);

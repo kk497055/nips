@@ -207,6 +207,20 @@ Deno.serve(async (req) => {
     const immediateCohortCode = new URL(req.url).searchParams.get("orientation_cohort") || "";
     if (immediateCohortCode) {
       if (!/^cohort-[a-z0-9-]+$/.test(immediateCohortCode)) return json({ error: "Invalid cohort" }, 400);
+      if (new URL(req.url).searchParams.get("preview") === "1") {
+        const { data: cohort, error: cohortError } = await svc.from("orientation_cohorts")
+          .select("id,name,session_state,scheduled_at,meet_url").eq("code", immediateCohortCode).single();
+        if (cohortError || !cohort) return json({ error: "Cohort not found" }, 404);
+        const savedMeetUrl = String(cohort.meet_url || "").trim();
+        const normalizedMeetUrl = /^meet\.google\.com\//i.test(savedMeetUrl) ? `https://${savedMeetUrl}` : savedMeetUrl;
+        const meetUrlValid = /^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?].*)?$/i.test(normalizedMeetUrl);
+        const { count } = await svc.from("orientation_applications")
+          .select("id", { count: "exact", head: true }).eq("cohort_id", cohort.id);
+        return json({ ok: true, cohort: {
+          name: cohort.name, session_state: cohort.session_state, scheduled_at: cohort.scheduled_at,
+          assigned_students: count || 0, meet_url_valid: meetUrlValid,
+        }});
+      }
       const orientation = await sendOrientationReminders(svc, RESEND_API_KEY, new Date(), immediateCohortCode);
       return json({ ok: orientation.failures.length === 0, orientation: {
         sent: orientation.sent, skipped: orientation.skipped, failure_count: orientation.failures.length,
