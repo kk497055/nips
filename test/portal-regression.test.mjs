@@ -552,6 +552,8 @@ test("orientation reminders run every five minutes and use the assigned cohort M
   assert.match(schedule, /functions\/v1\/class-reminders/);
   assert.match(reminders, /meetUrl/);
   assert.match(templates, /Join on Google Meet/);
+  assert.match(templates, /orientation_thank_you/);
+  assert.match(templates, /separate online joining link/);
   assert.doesNotMatch(schedule, /service_role/i);
   assert.doesNotMatch(schedule, /delete from|truncate |drop table/i);
 });

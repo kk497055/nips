@@ -129,6 +129,17 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
       cta: { label: (c.title === "in 10 minutes" || c.title === "now") && c.joinUrl ? "Join on Google Meet" : "Open the Portal", url: (c.title === "in 10 minutes" || c.title === "now") && c.joinUrl ? c.joinUrl : PORTAL },
     }),
   }),
+  orientation_thank_you: (c) => ({
+    subject: "Thank you for joining the IAC Orientation — next steps",
+    html: layout({
+      preheader: "Thank you for attending. Here is what happens next.",
+      heading: "Thank you for joining us",
+      body: p("Thank you for attending the <strong>Institute of Arts and Culture Orientation</strong>. We appreciate your time, questions, and interest in learning with NIPS.") +
+            p("We will send the confirmed course schedule, start date, and a <strong>separate online joining link</strong> in a follow-up communication.") +
+            (c.title === "join_portal" ? p("Please join the NIPS Portal using the link below so you can receive course updates and access your learning account.") : p("Please continue checking your registered email and NIPS Portal notifications for the next update.")),
+      cta: { label: c.title === "join_portal" ? "Join the NIPS Portal" : "Open the NIPS Portal", url: PORTAL },
+    }),
+  }),
   announcement: (c) => ({
     subject: c.title || "A note from NIPS",
     html: layout({
