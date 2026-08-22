@@ -111,7 +111,7 @@ async function sendOrientationAnnouncementCatchups(svc: any, apiKey: string) {
 async function sendOrientationReminders(svc: any, apiKey: string, now = new Date()) {
   const { data: cohorts, error } = await svc.from("orientation_cohorts")
     .select("id,batch_id,name,scheduled_at,student_message")
-    .eq("session_state", "scheduled").not("scheduled_at", "is", null);
+    .in("session_state", ["scheduled", "live"]).not("scheduled_at", "is", null);
   if (error) return { sent: 0, skipped: 0, failures: [error.message] };
   let sent = 0, skipped = 0;
   const failures: string[] = [];
