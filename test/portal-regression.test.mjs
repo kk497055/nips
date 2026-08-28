@@ -377,8 +377,8 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /function bulkAssignOrientationCohort\(\)/);
   assert.match(admin, /function autoAssignOrientationCohorts\(\)/);
   assert.match(admin, /function selectOrientationPage\(csvIds, checked\)/);
-  assert.match(admin, /Google Meet link/);
-  assert.match(admin, /Google Calendar event link/);
+  assert.match(admin, /Live-class link/);
+  assert.match(admin, /Calendar event link/);
   assert.match(read("portal/orientation-workflow.sql"), /add column if not exists session_state/i);
   assert.doesNotMatch(read("portal/orientation-workflow.sql"), /drop |delete |truncate /i);
   assert.match(cohorts, /create table if not exists public\.orientation_cohorts/i);
@@ -417,10 +417,10 @@ test("IAC orientation registration is isolated, verified, and transition-ready",
   assert.match(admin, /mountList\("orientation-applications", "orientation-list", visibleApps/);
   assert.match(admin, /click title for details/);
   assert.match(read("portal/student.html"), /Your orientation is being arranged/);
-  assert.match(read("portal/student.html"), /Join Orientation on Google Meet/);
+  assert.match(read("portal/student.html"), /Join Orientation/);
   assert.match(read("portal/student.html"), /get_my_orientation_cohorts/);
   assert.match(read("portal/student.html"), /state === "live"/);
-  assert.match(read("portal/teacher.html"), /Open Google Meet/);
+  assert.match(read("portal/teacher.html"), /Open Live Class/);
 });
 
 test("orientation announcements provide email and in-portal notifications without duplicates", () => {
@@ -458,7 +458,7 @@ test("orientation announcements provide email and in-portal notifications withou
   assert.match(reminders, /immediateCohortCode \? \{ key: "started", label: "now" \}/);
   assert.match(reminders, /orientation_cohort/);
   assert.match(reminders, /failure_count: orientation\.failures\.length/);
-  assert.match(reminders, /no valid Google Meet link is saved/);
+  assert.match(reminders, /no valid class link is saved/);
   assert.match(reminders, /`https:\/\/\$\{savedMeetUrl\}`/);
   assert.match(reminders, /meet_url_valid: meetUrlValid/);
   assert.match(reminders, /assigned_students: count \|\| 0/);
@@ -543,7 +543,7 @@ test("announced orientation schedules expose saved Meet links only to assigned s
   assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
 });
 
-test("orientation reminders run every five minutes and use the assigned cohort Meet URL", () => {
+test("orientation reminders run every five minutes and use provider-neutral class URLs", () => {
   const schedule = read("supabase/migrations/20260822010000_orientation_reminder_scheduler.sql");
   const reminders = read("supabase/functions/class-reminders/index.ts");
   const templates = read("supabase/functions/_shared/templates.ts");
@@ -551,9 +551,30 @@ test("orientation reminders run every five minutes and use the assigned cohort M
   assert.match(schedule, /'\*\/5 \* \* \* \*'/);
   assert.match(schedule, /functions\/v1\/class-reminders/);
   assert.match(reminders, /meetUrl/);
-  assert.match(templates, /Join on Google Meet/);
+  assert.match(templates, /Join Class/);
   assert.match(templates, /orientation_thank_you/);
   assert.match(templates, /separate online joining link/);
   assert.doesNotMatch(schedule, /service_role/i);
   assert.doesNotMatch(schedule, /delete from|truncate |drop table/i);
+});
+
+test("external live classes preserve existing classrooms and safely provision the IAC online batch", () => {
+  const migration = read("supabase/migrations/20260828000000_provider_neutral_live_classes.sql");
+  const admin = read("portal/admin.html");
+  const student = read("portal/student.html");
+  const teacher = read("portal/teacher.html");
+  const reminders = read("supabase/functions/class-reminders/index.ts");
+  assert.match(migration, /add column if not exists live_class_url/);
+  assert.match(migration, /Warda Mubashir/i);
+  assert.match(migration, /Sat · 19:00 \(from 2026-08-29\)/);
+  assert.match(migration, /study_mode_preference = 'online'/);
+  assert.match(migration, /c\.code in \('cohort-a', 'cohort-b'\)/);
+  assert.match(migration, /on conflict \(batch_id, student_id\) do nothing/);
+  assert.match(migration, /'demo', 0/);
+  assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
+  assert.match(admin, /External live-class link/);
+  assert.match(student, /b\.live_class_url \? safeUrl\(b\.live_class_url\)/);
+  assert.match(teacher, /b\.live_class_url \? safeUrl\(b\.live_class_url\)/);
+  assert.match(reminders, /select\("id,name,schedule,live_class_url"\)/);
+  assert.match(reminders, /\.in\("payment_status", \["paid", "demo"\]\)/);
 });

@@ -174,9 +174,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, sent: 1, total: 1, receipt_number: receiptNumber });
     }
 
-    let batch: { name?: string; schedule?: string; fee?: number } = {};
+    let batch: { name?: string; schedule?: string; fee?: number; live_class_url?: string } = {};
     if (batch_id) {
-      const { data } = await svc.from("batches").select("name,schedule,fee").eq("id", batch_id).single();
+      const { data } = await svc.from("batches").select("name,schedule,fee,live_class_url").eq("id", batch_id).single();
       batch = data ?? {};
     }
 
@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
         .from("enrollments")
         .select("student_id")
         .eq("batch_id", batch_id)
-        .eq("payment_status", "paid");
+        .in("payment_status", ["paid", "demo"]);
       const ids = (enrollments ?? []).map((e) => e.student_id);
       if (ids.length) {
         const { data: profiles } = await svc.from("profiles").select("id,full_name").in("id", ids);
@@ -290,6 +290,7 @@ Deno.serve(async (req) => {
         fee: batch.fee,
         title,
         message: payload.message || message,
+        joinUrl: batch.live_class_url,
       });
       const result = await sendEmail(RESEND_API_KEY, FROM, email, subject, html);
       if (result.ok) {

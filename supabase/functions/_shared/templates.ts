@@ -89,7 +89,19 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
             p(`This is a reminder that your <strong>${c.batch}</strong> class is scheduled for today.`) +
             p(`<strong>Timing:</strong> ${c.schedule || "See the portal"}`) +
             p("Join a few minutes early so you're ready to start on time."),
-      cta: { label: "Join Class", url: PORTAL },
+      cta: { label: "Join Class", url: c.joinUrl || PORTAL },
+    }),
+  }),
+  class_schedule: (c) => ({
+    subject: `Classes begin Saturday at 7:00 PM — ${c.batch}`,
+    html: layout({
+      preheader: "Your online class schedule and joining link are ready.",
+      heading: "Your online classes begin tomorrow",
+      body: p(`Dear ${c.name},`) +
+            p(`You have been added to <strong>${c.batch}</strong> with <strong>Warda Mubashir</strong>.`) +
+            p("Your first online class is <strong>Saturday, August 29, 2026 at 7:00 PM Pakistan time</strong>.") +
+            p("Use the Join Class button below or open My Classes in the NIPS Portal. Please join a few minutes early."),
+      cta: { label: "Join Class", url: c.joinUrl || PORTAL },
     }),
   }),
   orientation_scheduled: (c) => ({
@@ -102,7 +114,7 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
             p(`<strong>Date and time:</strong> ${c.schedule || "See the portal"}`) +
             (c.message ? p(c.message) : "") +
             p(`<strong>${ORIENTATION_CONFIRMATION_TEXT}</strong>`) +
-            p("Please sign in to the NIPS Portal before the session. Once the schedule is announced and the Meet link is saved, the Google Meet button will appear in My Classes."),
+            p("Please sign in to the NIPS Portal before the session. Once the schedule is announced and the class link is saved, the Join Class button will appear in My Classes."),
       cta: { label: "View Orientation Details", url: PORTAL },
     }),
   }),
@@ -125,8 +137,8 @@ export const T: Record<string, (c: Ctx) => { subject: string; html: string }> = 
       body: p(`Dear ${c.name},`) +
             p(`This is a reminder that <strong>${c.batch}</strong> is scheduled for <strong>${c.schedule || "the announced time"}</strong>.`) +
             (c.message ? p(c.message) : "") +
-            p(c.title === "in 10 minutes" ? "Please sign in now and open My Classes. Your Google Meet button is ready there." : "Please sign in early. The Google Meet button is available in My Classes once NIPS has announced the schedule and saved the link."),
-      cta: { label: (c.title === "in 10 minutes" || c.title === "now") && c.joinUrl ? "Join on Google Meet" : "Open the Portal", url: (c.title === "in 10 minutes" || c.title === "now") && c.joinUrl ? c.joinUrl : PORTAL },
+            p(c.title === "in 10 minutes" ? "Please sign in now and open My Classes. Your Join Class button is ready there." : "Please sign in early. The Join Class button is available in My Classes once NIPS has announced the schedule and saved the link."),
+      cta: { label: (c.title === "in 10 minutes" || c.title === "now") && c.joinUrl ? "Join Class" : "Open the Portal", url: (c.title === "in 10 minutes" || c.title === "now") && c.joinUrl ? c.joinUrl : PORTAL },
     }),
   }),
   orientation_thank_you: (c) => ({

@@ -122,10 +122,10 @@ async function sendOrientationReminders(svc: any, apiKey: string, now = new Date
     if (!stage) continue;
     const savedMeetUrl = String(cohort.meet_url || "").trim();
     const normalizedMeetUrl = /^meet\.google\.com\//i.test(savedMeetUrl) ? `https://${savedMeetUrl}` : savedMeetUrl;
-    const meetUrl = /^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?].*)?$/i.test(normalizedMeetUrl)
+    const meetUrl = /^https:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(normalizedMeetUrl)
       ? normalizedMeetUrl : undefined;
     if (immediateCohortCode && !meetUrl) {
-      failures.push(`${cohort.name}: no valid Google Meet link is saved`);
+      failures.push(`${cohort.name}: no valid class link is saved`);
       continue;
     }
     const { data: batch } = await svc.from("batches").select("name,schedule").eq("id", cohort.batch_id).single();
@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
         if (cohortError || !cohort) return json({ error: "Cohort not found" }, 404);
         const savedMeetUrl = String(cohort.meet_url || "").trim();
         const normalizedMeetUrl = /^meet\.google\.com\//i.test(savedMeetUrl) ? `https://${savedMeetUrl}` : savedMeetUrl;
-        const meetUrlValid = /^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?].*)?$/i.test(normalizedMeetUrl);
+        const meetUrlValid = /^https:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(normalizedMeetUrl);
         const { count } = await svc.from("orientation_applications")
           .select("id", { count: "exact", head: true }).eq("cohort_id", cohort.id);
         return json({ ok: true, cohort: {
@@ -224,13 +224,13 @@ Deno.serve(async (req) => {
       const orientation = await sendOrientationReminders(svc, RESEND_API_KEY, new Date(), immediateCohortCode);
       return json({ ok: orientation.failures.length === 0, orientation: {
         sent: orientation.sent, skipped: orientation.skipped, failure_count: orientation.failures.length,
-        failure_reason: orientation.failures.some((failure) => failure.includes("no valid Google Meet link")) ? "missing_or_invalid_meet_url" : orientation.failures.length ? "delivery_failed" : null,
+        failure_reason: orientation.failures.some((failure) => failure.includes("no valid class link")) ? "missing_or_invalid_class_url" : orientation.failures.length ? "delivery_failed" : null,
       }});
     }
 
     const { data: batches, error: batchError } = await svc
       .from("batches")
-      .select("id,name,schedule")
+      .select("id,name,schedule,live_class_url")
       .eq("is_active", true);
     if (batchError) return json({ error: batchError.message }, 500);
 
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
         .from("enrollments")
         .select("student_id")
         .eq("batch_id", batch.id)
-        .eq("payment_status", "paid");
+        .in("payment_status", ["paid", "demo"]);
       const ids = (enrollments ?? []).map((e) => e.student_id);
       if (!ids.length) continue;
 
@@ -278,6 +278,7 @@ Deno.serve(async (req) => {
           name: profile.full_name,
           batch: batch.name,
           schedule: batch.schedule,
+          joinUrl: batch.live_class_url || undefined,
         });
         const result = await sendEmail(RESEND_API_KEY, FROM, email, subject, html);
         if (result.ok) {
