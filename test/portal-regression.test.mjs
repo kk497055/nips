@@ -578,3 +578,13 @@ test("external live classes preserve existing classrooms and safely provision th
   assert.match(reminders, /select\("id,name,schedule,live_class_url"\)/);
   assert.match(reminders, /\.in\("payment_status", \["paid", "demo"\]\)/);
 });
+
+test("IAC expansion adds all Cohort A and B students without changing prior records", () => {
+  const migration = read("supabase/migrations/20260828010000_expand_iac_online_batch.sql");
+  assert.match(migration, /c\.code in \('cohort-a', 'cohort-b'\)/);
+  assert.doesNotMatch(migration, /study_mode_preference/);
+  assert.match(migration, /on conflict \(batch_id, student_id\) do nothing/);
+  assert.match(migration, /'demo', 0/);
+  assert.match(migration, /on conflict \(recipient_id, delivery_key\) do nothing/);
+  assert.doesNotMatch(migration, /delete from|truncate |drop table|update public\.orientation/i);
+});
