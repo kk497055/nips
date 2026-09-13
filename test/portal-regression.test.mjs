@@ -588,3 +588,26 @@ test("IAC expansion adds all Cohort A and B students without changing prior reco
   assert.match(migration, /on conflict \(recipient_id, delivery_key\) do nothing/);
   assert.doesNotMatch(migration, /delete from|truncate |drop table|update public\.orientation/i);
 });
+
+test("student profiles and subject-based batch matching are additive and pending-only", () => {
+  const migration = read("supabase/migrations/20260913000000_student_profiles_and_batch_matching.sql");
+  const student = read("portal/student.html");
+  const admin = read("portal/admin.html");
+  assert.match(migration, /add column if not exists subjects text\[\]/);
+  assert.match(migration, /add column if not exists preferred_study_modes text\[\]/);
+  assert.match(migration, /add column if not exists student_code text/);
+  assert.match(migration, /'NIPS' \|\| v_grade \|\| v_subject \|\| v_period/);
+  assert.match(migration, /save_my_student_profile/);
+  assert.match(migration, /auto_enroll_students_for_batch/);
+  assert.match(migration, /'pending'/);
+  assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
+  assert.match(student, /Complete your profile/);
+  assert.match(student, /name="sp-subject"/);
+  assert.match(student, /name="sp-mode"/);
+  assert.match(student, /name="sp-time"/);
+  assert.match(admin, /id="b-subject"/);
+  assert.match(admin, /id="b-period"/);
+  assert.match(admin, /Filter by subject/);
+  assert.match(admin, /openStudentProfileDetail/);
+  assert.match(admin, /profile_submitted_at/);
+});

@@ -49,6 +49,7 @@
         <div class="row-actions"><a class="btn green" href="student.html?view=classes">My Classes</a><a class="btn soft" href="student.html?view=fees">Fees &amp; Receipts</a></div>
       </div>
     </div>
+    <div id="student-profile-card" data-student-view="home account"></div>
     <div id="study-mode-preference" data-student-view="home classes account"></div>
     <div id="notification-summary" data-student-view="home"></div>
     <div id="live-banner" data-student-view="home classes"></div>
@@ -275,10 +276,41 @@
       document.getElementById("account-details").innerHTML = `<dl>
         <div><dt>Name</dt><dd>${esc(profile.full_name)}</dd></div>
         <div><dt>Email</dt><dd>${esc(user?.email || "Not available")}</dd></div>
+        <div><dt>Student ID</dt><dd>${esc(profile.student_code || "Assigned after profile completion")}</dd></div>
         <div><dt>Role</dt><dd>Student</dd></div>
-      </dl><p class="meta">To change your account details, contact NIPS so your academic records remain accurate.</p>`;
+      </dl><p class="meta">Use the profile form to keep your academic preferences current.</p>`;
+      await renderStudentProfile(profile, user?.email || "");
       await renderStudyModePreference();
       await renderNotifications();
+    }
+
+    const STUDENT_SUBJECTS = ["physics","maths","chemistry","biology","computer","english","accounting","other"];
+    async function renderStudentProfile(profile, authEmail) {
+      const { data: contact } = await sb.from("student_contacts").select("phone,email,city,education_board").eq("student_id", profile.id).maybeSingle();
+      const chosenSubjects = new Set(profile.subjects || []), chosenModes = new Set(profile.preferred_study_modes || []);
+      const gradeOptions = ["9","10","11","12","O-Level","A-Level","Other"];
+      document.getElementById("student-profile-card").innerHTML = `<div class="card" id="student-profile-form"><div class="class-top"><div><p class="eyebrow">Student profile</p><h2>${profile.profile_completed_at ? "Update your learning preferences" : "Complete your profile"}</h2></div>${profile.student_code ? `<span class="pill paid">${esc(profile.student_code)}</span>` : '<span class="pill pending">Required</span>'}</div><p class="meta">Choose every subject you want to study. NIPS can use these preferences to place eligible students into matching batches.</p><div class="orientation-grid" style="margin-top:14px"><div class="field"><label>Full name *</label><input id="sp-name" value="${esc(profile.full_name || "")}"/></div><div class="field"><label>Email</label><input id="sp-email" type="email" value="${esc(contact?.email || authEmail)}" readonly/></div><div class="field"><label>Phone</label><input id="sp-phone" value="${esc(contact?.phone || "")}"/></div><div class="field"><label>City</label><input id="sp-city" value="${esc(contact?.city || "")}"/></div><div class="field"><label>Class / grade *</label><select id="sp-grade"><option value="">Choose class</option>${gradeOptions.map(g => `<option value="${g}" ${profile.grade_level === g ? "selected" : ""}>${g}</option>`).join("")}</select></div><div class="field"><label>Education board</label><input id="sp-board" value="${esc(contact?.education_board || "")}" placeholder="e.g. Federal Board"/></div><div class="field orientation-span"><label>Subjects *</label><div class="study-mode-options">${STUDENT_SUBJECTS.map(s => `<label><input type="checkbox" name="sp-subject" value="${s}" ${chosenSubjects.has(s) ? "checked" : ""}/><span><strong>${s === "maths" ? "Mathematics" : s[0].toUpperCase()+s.slice(1)}</strong></span></label>`).join("")}</div></div><div class="field orientation-span" id="sp-other-wrap" ${chosenSubjects.has("other") ? "" : "hidden"}><label>Other subject *</label><input id="sp-other" value="${esc(profile.other_subject || "")}" placeholder="Specify subject"/></div><div class="field orientation-span"><label>Preferred study mode *</label><div class="study-mode-options"><label><input type="checkbox" name="sp-mode" value="online" ${chosenModes.has("online") ? "checked" : ""}/><span><strong>Online</strong></span></label><label><input type="checkbox" name="sp-mode" value="physical" ${chosenModes.has("physical") ? "checked" : ""}/><span><strong>Physical / on campus</strong></span></label></div></div><div class="field orientation-span"><label>Preferred time *</label><div class="study-mode-options"><label><input type="radio" name="sp-time" value="morning" ${profile.time_preference === "morning" ? "checked" : ""}/><span><strong>Morning</strong></span></label><label><input type="radio" name="sp-time" value="evening" ${profile.time_preference === "evening" ? "checked" : ""}/><span><strong>Evening</strong></span></label></div></div></div><div class="row-actions" style="margin-top:14px"><button class="btn green" onclick="saveStudentProfile()">Save profile</button><span class="meta" id="sp-msg"></span></div></div>`;
+      document.querySelector('input[name="sp-subject"][value="other"]').onchange = (event) => { document.getElementById("sp-other-wrap").hidden = !event.target.checked; };
+    }
+
+    async function saveStudentProfile() {
+      const msg = document.getElementById("sp-msg");
+      const subjects = [...document.querySelectorAll('input[name="sp-subject"]:checked')].map(el => el.value);
+      const modes = [...document.querySelectorAll('input[name="sp-mode"]:checked')].map(el => el.value);
+      const time = document.querySelector('input[name="sp-time"]:checked')?.value || "";
+      msg.textContent = "Saving…";
+      const { data, error } = await sb.rpc("save_my_student_profile", {
+        p_full_name: document.getElementById("sp-name").value,
+        p_grade_level: document.getElementById("sp-grade").value,
+        p_subjects: subjects, p_other_subject: document.getElementById("sp-other").value,
+        p_study_modes: modes, p_time_preference: time,
+        p_phone: document.getElementById("sp-phone").value, p_city: document.getElementById("sp-city").value,
+        p_education_board: document.getElementById("sp-board").value, p_email: document.getElementById("sp-email").value
+      });
+      if (error) { msg.textContent = "Could not save: " + error.message; return; }
+      const result = data?.[0];
+      msg.textContent = `Saved. Student ID: ${result?.student_code || "assigned"}${result?.enrollments_added ? ` · ${result.enrollments_added} matching enrollment(s) added as pending` : ""}`;
+      setTimeout(() => location.reload(), 1200);
     }
 
     async function renderStudyModePreference() {

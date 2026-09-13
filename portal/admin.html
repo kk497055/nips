@@ -98,6 +98,8 @@
           </div>
           <div class="field"><label>Start Date *</label><input id="b-date" type="date"/></div>
           <div class="field"><label>Class Time *</label><input id="b-time" type="time"/></div>
+          <div class="field"><label>Subject *</label><select id="b-subject"><option value="">— select subject —</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
+          <div class="field"><label>Session *</label><select id="b-period"><option value="">— select session —</option><option value="morning">Morning</option><option value="evening">Evening</option></select></div>
           <div class="field" style="grid-column:1 / -1"><label>Class Days</label>
             <div id="b-days" style="display:flex;gap:6px;flex-wrap:wrap">
               <label class="daybtn"><input type="checkbox" value="Mon"/> Mon</label>
@@ -148,6 +150,8 @@
           <div class="field"><label>Fee (PKR)</label><input id="eb-fee" type="number" min="0" step="1"/></div>
           <div class="field"><label>Primary Teacher</label><select id="eb-teacher"></select></div>
           <div class="field"><label>Room slug</label><input id="eb-room"/></div>
+          <div class="field"><label>Subject</label><select id="eb-subject"><option value="">Not specified</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
+          <div class="field"><label>Session</label><select id="eb-period"><option value="">Not specified</option><option value="morning">Morning</option><option value="evening">Evening</option></select></div>
           <div class="field" style="grid-column:1 / -1"><label>External live-class link (optional)</label><input id="eb-live-url" type="url" placeholder="https://zoom.us/… or another meeting link"/></div>
           <div class="field"><label style="display:flex;align-items:center;gap:8px"><input id="eb-active" type="checkbox" style="width:auto"/> Active batch</label></div>
           <div class="field" style="grid-column:1 / -1"><label style="display:flex;align-items:center;gap:8px"><input id="eb-monthly" type="checkbox" style="width:auto"/> Monthly billing (due on the 1st; 7-day grace period; live-class access pauses after grace)</label></div>
@@ -310,8 +314,10 @@
     <div class="section" data-admin-view="students staff">
       <h2 id="people-heading">People</h2>
       <p class="meta" id="people-note" style="margin-bottom:8px">Promote signed-up users to Teacher or Admin, or enrol students into batches after payment review.</p>
+      <div id="student-filter-tools" class="field" style="max-width:280px" hidden><label>Filter by subject</label><select id="student-subject-filter"><option value="">All subjects</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
       <div id="people"><p class="empty">Loading…</p></div>
     </div>
+    <div id="student-profile-detail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;align-items:center;justify-content:center;padding:16px"><div class="card" style="width:100%;max-width:720px;max-height:88vh;overflow:auto"><div class="class-top"><h3 id="student-profile-detail-title">Student profile</h3><button class="btn soft sm" onclick="closeStudentProfileDetail()">Close</button></div><div id="student-profile-detail-content"></div></div></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -662,11 +668,13 @@
     window._beSel = new Set();
     let _beStudents = [];
     async function loadBulkEnrol() {
-      const [{ data: students }, { data: batches }] = await Promise.all([
-        sb.from("profiles").select("id,full_name").eq("role","student").order("full_name"),
+      const [{ data: students }, { data: contacts }, { data: batches }] = await Promise.all([
+        sb.from("profiles").select("id,full_name,student_code,grade_level,subjects,time_preference,profile_submitted_at,created_at").eq("role","student").order("full_name"),
+        sb.from("student_contacts").select("student_id,email"),
         sb.from("batches").select("id,name").order("created_at",{ascending:false})
       ]);
-      _beStudents = students || [];
+      const contactOf = Object.fromEntries((contacts || []).map(contact => [contact.student_id, contact]));
+      _beStudents = (students || []).map(student => ({ ...student, email: contactOf[student.id]?.email || "" }));
       document.getElementById("be-batch").innerHTML =
         (batches||[]).map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("") || '<option value="">No batches</option>';
       renderBEList();
@@ -674,10 +682,9 @@
     }
     function renderBEList() {
       const term = document.getElementById("be-search").value.trim().toLowerCase();
-      const rows = _beStudents.filter(s => (s.full_name||"").toLowerCase().includes(term));
+      const rows = _beStudents.filter(s => `${s.full_name||""} ${s.email||""} ${(s.subjects||[]).join(" ")}`.toLowerCase().includes(term));
       const list = document.getElementById("be-list");
-      list.innerHTML = rows.length ? rows.map(s => `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:14px">
-        <input type="checkbox" data-sid="${s.id}" ${window._beSel.has(s.id)?"checked":""}/> ${esc(s.full_name)}</label>`).join("") : '<p class="empty">No students.</p>';
+      list.innerHTML = rows.length ? `<table><thead><tr><th></th><th>Student</th><th>Email</th><th>Subjects</th><th>Submitted</th></tr></thead><tbody>${rows.map(s => `<tr><td><input type="checkbox" data-sid="${s.id}" ${window._beSel.has(s.id)?"checked":""}/></td><td><strong>${esc(s.full_name)}</strong><br><span class="meta">${esc(s.student_code || s.grade_level || "Profile pending")}</span></td><td>${esc(s.email || "—")}</td><td>${esc((s.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td>${new Date(s.profile_submitted_at || s.created_at).toLocaleDateString()}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">No students.</p>';
       list.querySelectorAll("input[type=checkbox]").forEach(cb => cb.onchange = () => {
         cb.checked ? window._beSel.add(cb.dataset.sid) : window._beSel.delete(cb.dataset.sid);
         document.getElementById("be-count").textContent = window._beSel.size + " selected";
@@ -890,6 +897,8 @@
       const date = document.getElementById("b-date").value;   // YYYY-MM-DD (canonical)
       const time = document.getElementById("b-time").value;   // HH:MM 24h (canonical)
       const feeRaw = document.getElementById("b-fee").value.trim();
+      const subject_key = document.getElementById("b-subject").value;
+      const session_period = document.getElementById("b-period").value;
       const days = [...document.querySelectorAll("#b-days input:checked")].map(c => c.value);
 
       // --- validation ---
@@ -898,6 +907,8 @@
       if (!date) return showBatchMsg("Please pick a start date.");
       if (isNaN(Date.parse(date))) return showBatchMsg("Start date is invalid.");
       if (!time) return showBatchMsg("Please pick a class time.");
+      if (!subject_key) return showBatchMsg("Please select a subject.");
+      if (!session_period) return showBatchMsg("Please select morning or evening.");
       let fee = 0;
       if (feeRaw !== "") {
         fee = Number(feeRaw);
@@ -916,7 +927,8 @@
 
       btn.disabled = true; btn.textContent = "Creating…";
       const { error } = await sb.from("batches").insert({
-        name, category, schedule, fee, teacher_id: teacher, jitsi_room: room, live_class_url: document.getElementById("b-live-url").value.trim() || null, monthly_billing_enabled
+        name, category, schedule, fee, teacher_id: teacher, jitsi_room: room,
+        subject_key, session_period, live_class_url: document.getElementById("b-live-url").value.trim() || null, monthly_billing_enabled
       });
       btn.disabled = false; btn.textContent = "Create Batch";
       if (error) return showBatchMsg("Error: " + error.message);
@@ -924,6 +936,8 @@
       showBatchMsg(`Batch "${name}" created.`, true);
       ["b-name","b-date","b-time","b-fee","b-room","b-live-url"].forEach(id=>document.getElementById(id).value="");
       document.getElementById("b-cat").value = "";
+      document.getElementById("b-subject").value = "";
+      document.getElementById("b-period").value = "";
       document.getElementById("b-monthly").checked = false;
       document.querySelectorAll("#b-days input:checked").forEach(c => c.checked = false);
       await Promise.all([loadBatches(), loadBulkEnrol(), loadPeople()]);
@@ -1057,6 +1071,8 @@
         <div class="meta" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:18px">
           <div><strong>Category</strong><br>${esc(batch.category || "—")}</div>
           <div><strong>Schedule</strong><br>${esc(batch.schedule || "—")}</div>
+          <div><strong>Subject</strong><br>${esc(batch.subject_key ? (batch.subject_key === "maths" ? "Mathematics" : batch.subject_key) : "—")}</div>
+          <div><strong>Session</strong><br>${esc(batch.session_period || "—")}</div>
           <div><strong>Fee</strong><br>${pkr(batch.fee)}</div>
           <div><strong>Status</strong><br>${batch.is_active ? "Active" : "Inactive"}</div>
           <div><strong>Billing</strong><br>${batch.monthly_billing_enabled ? "Monthly - due 1st" : "One-time"}</div>
@@ -1088,6 +1104,8 @@
       document.getElementById("eb-schedule").value = batch.schedule || "";
       document.getElementById("eb-fee").value = batch.fee ?? 0;
       document.getElementById("eb-room").value = batch.jitsi_room || "";
+      document.getElementById("eb-subject").value = batch.subject_key || "";
+      document.getElementById("eb-period").value = batch.session_period || "";
       document.getElementById("eb-live-url").value = batch.live_class_url || "";
       document.getElementById("eb-active").checked = !!batch.is_active;
       document.getElementById("eb-monthly").checked = !!batch.monthly_billing_enabled;
@@ -1115,6 +1133,8 @@
         fee,
         teacher_id: document.getElementById("eb-teacher").value || null,
         jitsi_room: room,
+        subject_key: document.getElementById("eb-subject").value || null,
+        session_period: document.getElementById("eb-period").value || null,
         live_class_url: document.getElementById("eb-live-url").value.trim() || null,
         is_active: document.getElementById("eb-active").checked,
         monthly_billing_enabled: document.getElementById("eb-monthly").checked
@@ -1252,13 +1272,26 @@
     };
 
     async function loadPeople() {
-      const { data: people } = await sb.from("profiles").select("*").order("created_at",{ascending:false});
-      const { data: batches } = await sb.from("batches").select("id,name");
+      const [{ data: people }, { data: contacts }, { data: batches }] = await Promise.all([
+        sb.from("profiles").select("*").order("created_at",{ascending:false}),
+        sb.from("student_contacts").select("student_id,phone,email,city,education_board"),
+        sb.from("batches").select("id,name")
+      ]);
       const box = document.getElementById("people");
       window._batches = batches || [];
       renderBatchSelect();
       const view = window._adminView;
-      const visiblePeople = (people || []).filter(u => view === "students" ? u.role === "student" : view === "staff" ? u.role !== "student" : true);
+      const contactOf = Object.fromEntries((contacts || []).map(contact => [contact.student_id, contact]));
+      const enrichedPeople = (people || []).map(person => ({ ...person, contact: contactOf[person.id] || {} }));
+      window._peopleById = Object.fromEntries(enrichedPeople.map(person => [person.id, person]));
+      const subjectFilter = document.getElementById("student-subject-filter");
+      document.getElementById("student-filter-tools").hidden = view !== "students";
+      if (view === "students" && !subjectFilter.dataset.bound) {
+        subjectFilter.dataset.bound = "1";
+        subjectFilter.onchange = loadPeople;
+      }
+      const selectedSubject = view === "students" ? subjectFilter.value : "";
+      const visiblePeople = enrichedPeople.filter(u => view === "students" ? u.role === "student" && (!selectedSubject || (u.subjects || []).includes(selectedSubject)) : view === "staff" ? u.role !== "student" : true);
       if (view === "students") {
         document.getElementById("people-heading").textContent = "Student Accounts";
         document.getElementById("people-note").textContent = "Review student accounts and enrol them into the appropriate batches after payment review.";
@@ -1271,7 +1304,8 @@
       const rowHtml = (u) => {
         const isSelf = u.id === window._meId;
         return `<tr>
-          <td>${esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}</td>
+          <td>${u.role === "student" ? `<button class="orientation-cohort-title" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
+          ${view === "students" ? `<td>${esc(u.contact.email || "—")}</td><td>${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td>${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : ""}
           <td><span class="badge">${u.role}</span></td>
           <td class="row-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `
@@ -1288,9 +1322,19 @@
       mountList("people", "people", visiblePeople, {
         placeholder: view === "students" ? "Search students…" : "Search staff by name or role…",
         noun: view === "students" ? "students" : "staff", empty: "No people match your search.", pageSize: 10,
-        match: (u, t) => `${u.full_name||''} ${u.role||''}`.toLowerCase().includes(t),
-        render: (items) => `<table><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table>`
+        match: (u, t) => `${u.full_name||''} ${u.contact.email||''} ${(u.subjects||[]).join(" ")} ${u.student_code||''} ${u.role||''}`.toLowerCase().includes(t),
+        render: (items) => `<table><thead><tr><th>Name</th>${view === "students" ? "<th>Email</th><th>Subjects</th><th>Submitted</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table>`
       });
+    }
+
+    function closeStudentProfileDetail() { document.getElementById("student-profile-detail").style.display = "none"; }
+    function openStudentProfileDetail(studentId) {
+      const student = (window._peopleById || {})[studentId];
+      if (!student) return alert("Student profile is unavailable. Please refresh and try again.");
+      const contact = student.contact || {};
+      document.getElementById("student-profile-detail-title").textContent = student.full_name;
+      document.getElementById("student-profile-detail-content").innerHTML = `<div class="orientation-detail-grid" style="margin-top:14px"><div><span class="meta">Student ID</span><strong>${esc(student.student_code || "Not assigned")}</strong></div><div><span class="meta">Email</span><strong>${esc(contact.email || "—")}</strong></div><div><span class="meta">Phone</span><strong>${esc(contact.phone || "—")}</strong></div><div><span class="meta">Class / grade</span><strong>${esc(student.grade_level || "—")}</strong></div><div><span class="meta">Subjects</span><strong>${esc((student.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</strong>${student.other_subject ? `<small>${esc(student.other_subject)}</small>` : ""}</div><div><span class="meta">Study mode</span><strong>${esc((student.preferred_study_modes || []).join(", ") || "—")}</strong></div><div><span class="meta">Time preference</span><strong>${esc(student.time_preference || "—")}</strong></div><div><span class="meta">City</span><strong>${esc(contact.city || "—")}</strong></div><div><span class="meta">Education board</span><strong>${esc(contact.education_board || "—")}</strong></div><div><span class="meta">Submitted</span><strong>${new Date(student.profile_submitted_at || student.created_at).toLocaleString()}</strong></div></div>`;
+      document.getElementById("student-profile-detail").style.display = "flex";
     }
 
     async function setRole(id, role) {
