@@ -78,14 +78,26 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   assert.doesNotMatch(admin, /from\("enrollments"\)\.delete\(/, "student management must not remove enrollments");
 });
 
-test("batch creation offers discrete school and college class categories", () => {
+test("batch creation offers the approved academic and arts category hierarchy", () => {
   const admin = read("portal/admin.html");
 
-  for (const category of ["5th", "6th", "7th", "8th", "9th", "10th", "First Year", "Second Year"]) {
+  for (const category of ["5th", "6th", "7th", "8th", "9th", "10th", "O1", "O2", "O3", "First Year", "Second Year", "A1", "A2", "Painting", "Calligraphy", "Sketching"]) {
     assert.match(admin, new RegExp(`<option>${category}</option>`));
   }
-  assert.match(admin, /<option>Matric \(9th &amp; 10th\)<\/option>/, "legacy categories remain available");
-  assert.match(admin, /<option>Intermediate<\/option>/, "existing batches remain compatible");
+  assert.match(admin, /<optgroup label="Institute of Arts and Culture">/);
+  assert.doesNotMatch(admin, /<optgroup label="Other Academic Programs">/);
+  assert.equal((admin.match(/<option>Calligraphy<\/option>/g) || []).length, 1, "Calligraphy is listed only under Institute of Arts and Culture");
+});
+
+test("orientation students can be enrolled into a selected existing batch", () => {
+  const admin = read("portal/admin.html");
+
+  assert.match(admin, /— select existing batch —/);
+  assert.match(admin, /Enroll in batch/);
+  assert.match(admin, /transitionOrientationStudent\('\$\{a\.student_id\}','orientation-batch-\$\{a\.id\}'\)/);
+  assert.match(admin, /courses\.find\(course => course\.id === batchId\)/);
+  assert.match(admin, /payment_status: "pending"/);
+  assert.match(admin, /if \(existing\) return alert/);
 });
 
 test("discount schema patch is additive", () => {
@@ -285,7 +297,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=14/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=15/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });
@@ -538,7 +550,7 @@ test("orientation study mode is additive, self-service, and duplicate protected"
 
 test("orientation roster exposes the existing secure password-reset workflow", () => {
   const admin = read("portal/admin.html");
-  assert.match(admin, /transitionOrientationStudent\('\$\{a\.student_id\}'\)/);
+  assert.match(admin, /transitionOrientationStudent\('\$\{a\.student_id\}','orientation-batch-\$\{a\.id\}'\)/);
   assert.match(admin, /sendPasswordReset\('\$\{a\.student_id\}',this\.dataset\.name\)/);
   assert.match(admin, /Send password reset/);
 });
