@@ -78,6 +78,16 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   assert.doesNotMatch(admin, /from\("enrollments"\)\.delete\(/, "student management must not remove enrollments");
 });
 
+test("batch creation offers discrete school and college class categories", () => {
+  const admin = read("portal/admin.html");
+
+  for (const category of ["5th", "6th", "7th", "8th", "9th", "10th", "First Year", "Second Year"]) {
+    assert.match(admin, new RegExp(`<option>${category}</option>`));
+  }
+  assert.match(admin, /<option>Matric \(9th &amp; 10th\)<\/option>/, "legacy categories remain available");
+  assert.match(admin, /<option>Intermediate<\/option>/, "existing batches remain compatible");
+});
+
 test("discount schema patch is additive", () => {
   const patch = read("portal/enrollment-discounts.sql");
   assert.match(patch, /alter table public\.enrollments/i);
