@@ -77,12 +77,16 @@
         configOverwrite: {
           startWithAudioMuted: !tok.moderator,
           prejoinPageEnabled: false,
+          disableChat: true,
+          toolbarButtons: tok.moderator
+            ? ['microphone','camera','desktop','whiteboard','raisehand','tileview','recording','hangup','settings']
+            : ['microphone','camera','whiteboard','raisehand','tileview','hangup'],
           whiteboard: { enabled: true }
         },
         interfaceConfigOverwrite: {
           TOOLBAR_BUTTONS: tok.moderator
-            ? ['microphone','camera','desktop','chat','whiteboard','raisehand','tileview','recording','hangup','settings']
-            : ['microphone','camera','chat','whiteboard','raisehand','tileview','hangup']
+            ? ['microphone','camera','desktop','whiteboard','raisehand','tileview','recording','hangup','settings']
+            : ['microphone','camera','whiteboard','raisehand','tileview','hangup']
         }
       });
 

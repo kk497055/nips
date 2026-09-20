@@ -78,6 +78,26 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   assert.doesNotMatch(admin, /from\("enrollments"\)\.delete\(/, "student management must not remove enrollments");
 });
 
+test("embedded video classes disable participant chat", () => {
+  const classroom = read("portal/classroom.html");
+
+  assert.match(classroom, /disableChat:\s*true/);
+  assert.doesNotMatch(classroom, /\['microphone','camera'[^\]]*'chat'/);
+});
+
+test("admins can atomically move students and safely retire batches", () => {
+  const admin = read("portal/admin.html");
+  const migration = read("supabase/migrations/20260921000000_safe_batch_operations.sql");
+
+  assert.match(admin, /Move \/ retire/);
+  assert.match(admin, /admin_move_batch_students/);
+  assert.match(admin, /admin_retire_empty_batch/);
+  assert.match(migration, /if not public\.is_admin\(\)/);
+  assert.match(migration, /update public\.enrollments\s+set batch_id = p_target_batch_id/i);
+  assert.match(migration, /set is_active = false/);
+  assert.doesNotMatch(migration, /delete from public\.batches/i, "retiring a batch must preserve its history");
+});
+
 test("batch creation offers the approved academic and arts category hierarchy", () => {
   const admin = read("portal/admin.html");
 

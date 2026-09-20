@@ -177,6 +177,23 @@
       </div>
     </div>
 
+    <!-- MOVE / RETIRE BATCH -->
+    <div id="batch-operations" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:100%;max-width:600px;max-height:88vh;overflow:auto">
+        <h3 id="batch-operations-title">Move or retire batch</h3>
+        <p class="meta" id="batch-operations-summary"></p>
+        <div class="msg" id="batch-operations-msg"></div>
+        <div class="field"><label>Destination batch</label><select id="batch-operations-target"><option value="">— select destination batch —</option></select></div>
+        <p class="meta">Moving preserves each student's payment status and agreed fee. Attendance, payments, recordings, and other historical records remain attached to the original batch.</p>
+        <div class="row-actions">
+          <button class="btn green" onclick="moveBatchStudents(false)">Move students</button>
+          <button class="btn" onclick="moveBatchStudents(true)">Move students &amp; retire batch</button>
+          <button class="btn soft" id="retire-empty-batch" onclick="retireEmptyBatch()">Retire empty batch</button>
+          <button class="btn" style="background:#e5e7eb" onclick="closeBatchOperations()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <!-- BATCH STUDENTS -->
     <div id="batch-students" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;padding:16px">
       <div class="card" style="width:100%;max-width:680px;max-height:88vh;overflow:auto">
@@ -975,7 +992,10 @@
         (coByBatch[bt.batch_id] ||= []).push(bt);
       });
       const paidByBatch = {};
+      const enrolledByBatch = {};
       (enrollments||[]).forEach(e => { if (e.payment_status === "paid") paidByBatch[e.batch_id] = (paidByBatch[e.batch_id]||0)+1; });
+      (enrollments||[]).forEach(e => { enrolledByBatch[e.batch_id] = (enrolledByBatch[e.batch_id]||0)+1; });
+      window._batchEnrollmentCounts = enrolledByBatch;
       const box = document.getElementById("batches");
       if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches yet.</p>'; return; }
 
@@ -1000,10 +1020,53 @@
             <button class="btn soft sm" onclick="addCoTeacher('${b.id}')">Add Co-teacher</button>
             <button class="btn soft sm" onclick="removeCoTeacher('${b.id}')">Remove Co-teacher</button>
             <button class="btn sm" onclick="toggleBatch('${b.id}',${b.is_active})">${b.is_active?'Deactivate':'Activate'}</button>
+            <button class="btn soft sm" onclick="openBatchOperations('${b.id}')">Move / retire</button>
           </div>
         </div>`;
         }).join("")
       });
+    }
+
+    let operatingBatchId = null;
+    function openBatchOperations(batchId) {
+      const batch = (window._batchList || []).find(item => item.id === batchId);
+      if (!batch) return;
+      operatingBatchId = batchId;
+      const count = Number((window._batchEnrollmentCounts || {})[batchId] || 0);
+      const targets = (window._batchList || []).filter(item => item.id !== batchId && item.is_active);
+      document.getElementById("batch-operations-title").textContent = `Move or retire: ${batch.name}`;
+      document.getElementById("batch-operations-summary").textContent = `${count} enrolled student${count === 1 ? "" : "s"}. Retiring removes this batch from active use without deleting its history.`;
+      document.getElementById("batch-operations-target").innerHTML = `<option value="">— select destination batch —</option>${targets.map(item => `<option value="${item.id}">${esc(item.name)}${item.category ? ` · ${esc(item.category)}` : ""}</option>`).join("")}`;
+      document.getElementById("retire-empty-batch").disabled = count > 0;
+      const msg = document.getElementById("batch-operations-msg");
+      msg.className = "msg"; msg.textContent = count > 0 ? "Move the students before retiring this batch." : "This batch has no students and can be safely retired.";
+      document.getElementById("batch-operations").style.display = "flex";
+    }
+    function closeBatchOperations() {
+      operatingBatchId = null;
+      document.getElementById("batch-operations").style.display = "none";
+    }
+    async function moveBatchStudents(retireSource) {
+      const targetId = document.getElementById("batch-operations-target").value;
+      const source = (window._batchList || []).find(item => item.id === operatingBatchId);
+      const target = (window._batchList || []).find(item => item.id === targetId);
+      if (!source || !target) return alert("Select an active destination batch first.");
+      const action = retireSource ? "move all students and retire the source batch" : "move all students";
+      if (!confirm(`Confirm: ${action} from ${source.name} to ${target.name}?`)) return;
+      const { data: moved, error } = await sb.rpc("admin_move_batch_students", { p_source_batch_id: source.id, p_target_batch_id: target.id, p_retire_source: retireSource });
+      if (error) return alert("Could not move students: " + error.message);
+      alert(`${moved || 0} student enrollment(s) moved to ${target.name}.${retireSource ? " The source batch was retired." : ""}`);
+      closeBatchOperations();
+      await Promise.all([loadBatches(), loadBulkEnrol()]);
+    }
+    async function retireEmptyBatch() {
+      const source = (window._batchList || []).find(item => item.id === operatingBatchId);
+      if (!source) return;
+      if (!confirm(`Retire ${source.name}? Its historical records will be preserved.`)) return;
+      const { error } = await sb.rpc("admin_retire_empty_batch", { p_batch_id: source.id });
+      if (error) return alert("Could not retire batch: " + error.message);
+      closeBatchOperations();
+      await loadBatches();
     }
 
     async function assignTeacher(batchId) {
