@@ -136,8 +136,8 @@
     </div>
 
     <!-- BATCHES -->
-    <div class="section" data-admin-view="batches">
-      <h2>Batches</h2>
+    <div class="section" data-admin-view="batches retired">
+      <h2 id="batch-list-heading">Active Batches</h2>
       <div id="batches"><p class="empty">Loading…</p></div>
     </div>
 
@@ -357,6 +357,7 @@
     const ADMIN_VIEWS = {
       overview: { label: "Overview", title: "Admin Overview", subtitle: "Your operational snapshot: revenue, collections, batches, and teaching activity." },
       batches: { label: "Batches", title: "Batches", subtitle: "Create and run batches, manage teachers, schedules, students, and monthly billing." },
+      retired: { label: "Retired Batches", title: "Retired Batches", subtitle: "Review or restore batches removed from active operations. Historical records remain available." },
       students: { label: "Students", title: "Students & Enrolments", subtitle: "Add students to batches, set agreed fees, and manage enrolment access." },
       orientation: { label: "Orientation", title: "Orientation Campaigns", subtitle: "Publish registration forms, manage cohorts, and transition students to paid courses." },
       billing: { label: "Billing", title: "Payments & Billing", subtitle: "Confirm payments, manage monthly collections, grace periods, receipts, and revenue history." },
@@ -387,7 +388,7 @@
       window._meId = p.id;
       const view = window._adminView;
       if (view === "overview") { initOverviewControls(); await loadOverview(); }
-      if (view === "batches") await Promise.all([loadTeacherSelect(), loadBatches()]);
+      if (view === "batches" || view === "retired") await Promise.all([loadTeacherSelect(), loadBatches()]);
       if (view === "students") await Promise.all([loadPeople(), loadBulkEnrol()]);
       if (view === "orientation") await loadOrientationApplications();
       if (view === "billing") await Promise.all([loadPendingPayments(), loadMonthlyCollections(), loadPaymentLedger()]);
@@ -703,7 +704,7 @@
       const [{ data: students }, { data: contacts }, { data: batches }] = await Promise.all([
         sb.from("profiles").select("id,full_name,student_code,grade_level,subjects,time_preference,profile_submitted_at,created_at").eq("role","student").order("full_name"),
         sb.from("student_contacts").select("student_id,email"),
-        sb.from("batches").select("id,name").order("created_at",{ascending:false})
+        sb.from("batches").select("id,name").eq("is_active", true).order("created_at",{ascending:false})
       ]);
       const contactOf = Object.fromEntries((contacts || []).map(contact => [contact.student_id, contact]));
       _beStudents = (students || []).map(student => ({ ...student, email: contactOf[student.id]?.email || "" }));
@@ -997,9 +998,13 @@
       (enrollments||[]).forEach(e => { enrolledByBatch[e.batch_id] = (enrolledByBatch[e.batch_id]||0)+1; });
       window._batchEnrollmentCounts = enrolledByBatch;
       const box = document.getElementById("batches");
-      if (!batches || !batches.length) { box.innerHTML = '<p class="empty">No batches yet.</p>'; return; }
+      const showingRetired = window._adminView === "retired";
+      const visibleBatches = (batches || []).filter(batch => showingRetired ? !batch.is_active : batch.is_active);
+      const heading = document.getElementById("batch-list-heading");
+      if (heading) heading.textContent = showingRetired ? "Retired Batches" : "Active Batches";
+      if (!visibleBatches.length) { box.innerHTML = `<p class="empty">${showingRetired ? "No retired batches." : "No active batches yet."}</p>`; return; }
 
-      mountList("batches", "batches", batches, {
+      mountList("batches", "batches", visibleBatches, {
         placeholder: "Search batches by name, category…",
         noun: "batches", empty: "No batches match your search.", pageSize: 8,
         match: (b, t) => {
@@ -1009,18 +1014,21 @@
         render: (items) => items.map(b => {
           const coRows = (coByBatch[b.id]||[]).filter(bt => bt.teacher_id !== b.teacher_id);
           const coNames = coRows.map(bt => esc(tmap[bt.teacher_id]||"Teacher")).join(", ") || "none";
-          return `<div class="card" style="margin-bottom:12px">
-          <h3><button type="button" onclick="openBatchDetails('${b.id}')" style="padding:0;border:0;background:none;color:var(--primary);font:inherit;font-weight:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px" aria-label="View details for ${esc(b.name)}">${esc(b.name)}</button> ${b.is_active?'':'<span class="pill pending">inactive</span>'}</h3>
-          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · ${b.monthly_billing_enabled ? 'Monthly billing · ' : ''}Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
-          <div class="row-actions">
-            <a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
+          const actions = showingRetired
+            ? `<button class="btn green sm" onclick="toggleBatch('${b.id}',false)">Restore Batch</button>`
+            : `<a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
             <button class="btn green sm" onclick="openBatchStudents('${b.id}')">Students</button>
             <button class="btn soft sm" onclick="openBatchEditor('${b.id}')">Edit Batch</button>
             <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Primary</button>
             <button class="btn soft sm" onclick="addCoTeacher('${b.id}')">Add Co-teacher</button>
             <button class="btn soft sm" onclick="removeCoTeacher('${b.id}')">Remove Co-teacher</button>
-            <button class="btn sm" onclick="toggleBatch('${b.id}',${b.is_active})">${b.is_active?'Deactivate':'Activate'}</button>
-            <button class="btn soft sm" onclick="openBatchOperations('${b.id}')">Move / retire</button>
+            <button class="btn sm" onclick="toggleBatch('${b.id}',true)">Deactivate</button>
+            <button class="btn soft sm" onclick="openBatchOperations('${b.id}')">Move / retire</button>`;
+          return `<div class="card" style="margin-bottom:12px">
+          <h3><button type="button" onclick="openBatchDetails('${b.id}')" style="padding:0;border:0;background:none;color:var(--primary);font:inherit;font-weight:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px" aria-label="View details for ${esc(b.name)}">${esc(b.name)}</button> ${b.is_active?'':'<span class="pill pending">retired</span>'}</h3>
+          <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · ${b.monthly_billing_enabled ? 'Monthly billing · ' : ''}Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
+          <div class="row-actions">
+            ${actions}
           </div>
         </div>`;
         }).join("")
@@ -1353,7 +1361,7 @@
       const [{ data: people }, { data: contacts }, { data: batches }] = await Promise.all([
         sb.from("profiles").select("*").order("created_at",{ascending:false}),
         sb.from("student_contacts").select("student_id,phone,email,city,education_board"),
-        sb.from("batches").select("id,name")
+        sb.from("batches").select("id,name").eq("is_active", true)
       ]);
       const box = document.getElementById("people");
       window._batches = batches || [];

@@ -87,11 +87,19 @@ test("embedded video classes disable participant chat", () => {
 
 test("admins can atomically move students and safely retire batches", () => {
   const admin = read("portal/admin.html");
+  const teacher = read("portal/teacher.html");
+  const student = read("portal/student.html");
   const migration = read("supabase/migrations/20260921000000_safe_batch_operations.sql");
 
   assert.match(admin, /Move \/ retire/);
+  assert.match(admin, /retired: \{ label: "Retired Batches"/);
+  assert.match(admin, /showingRetired \? !batch\.is_active : batch\.is_active/);
+  assert.match(admin, /Restore Batch/);
+  assert.match(admin, /data-admin-view="batches retired"/);
   assert.match(admin, /admin_move_batch_students/);
   assert.match(admin, /admin_retire_empty_batch/);
+  assert.match(teacher, /from\("batches"\)\.select\("\*"\)\.eq\("is_active", true\)/);
+  assert.match(student, /from\("batches"\)\.select\("\*"\)\.eq\("is_active", true\)/);
   assert.match(migration, /if not public\.is_admin\(\)/);
   assert.match(migration, /update public\.enrollments\s+set batch_id = p_target_batch_id/i);
   assert.match(migration, /set is_active = false/);
@@ -297,7 +305,7 @@ test("admin business overview defaults to bounded date-range activity", () => {
 test("admin console is organized into focused routed workspaces", () => {
   const admin = read("portal/admin.html");
 
-  for (const view of ["overview", "batches", "students", "billing", "communications", "staff"]) {
+  for (const view of ["overview", "batches", "retired", "students", "billing", "communications", "staff"]) {
     assert.match(admin, new RegExp(`${view}: \\{ label:`));
     assert.match(admin, new RegExp(`data-admin-view=\"[^\"]*${view}`));
   }

@@ -137,7 +137,7 @@
     async function render() {
       // RLS returns only batches this teacher/co-teacher is assigned to.
       const [{ data: batches }, { data: orientationCohorts }] = await Promise.all([
-        sb.from("batches").select("*").order("created_at", { ascending: false }),
+        sb.from("batches").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         sb.from("orientation_cohorts").select("batch_id,name,session_state,meet_url")
       ]);
       const box = document.getElementById("batches");
