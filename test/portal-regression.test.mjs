@@ -282,6 +282,21 @@ test("admins can send a secure reset link without handling another user's passwo
   assert.match(read("portal/login.html"), /resetPasswordForEmail\(email/);
 });
 
+test("student administration remains readable on desktop and mobile", () => {
+  const admin = read("portal/admin.html");
+  const css = read("portal/portal.css");
+
+  assert.match(admin, /class="people-table"/);
+  assert.match(admin, /data-label="Email" class="breakable"/);
+  assert.match(admin, /<details class="action-menu">/);
+  assert.match(admin, /class="student-profile-grid"/);
+  assert.doesNotMatch(admin, /student-profile-detail-content[\s\S]{0,500}orientation-detail-grid/);
+  assert.match(css, /\.student-profile-grid\{[^}]*repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css, /\.student-profile-grid strong\{[^}]*overflow-wrap:anywhere/);
+  assert.match(css, /@media\(max-width:760px\)[\s\S]*\.people-table thead\{display:none\}/);
+  assert.match(css, /\.student-profile-grid\{grid-template-columns:1fr/);
+});
+
 test("admin business overview defaults to bounded date-range activity", () => {
   const admin = read("portal/admin.html");
   const css = read("portal/portal.css");
@@ -325,7 +340,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/login.html",
     "portal/classroom.html",
   ]) {
-    assert.match(read(file), /portal\.css\?v=15/, `${file} should request the latest portal.css`);
+    assert.match(read(file), /portal\.css\?v=16/, `${file} should request the latest portal.css`);
     assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
   }
 });

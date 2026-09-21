@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>NIPS Portal — Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="portal.css?v=15" />
+  <link rel="stylesheet" href="portal.css?v=16" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a5336" />
   <link rel="apple-touch-icon" href="../assets/nips-logo.png" />
@@ -348,7 +348,7 @@
       <div id="student-filter-tools" class="field" style="max-width:280px" hidden><label>Filter by subject</label><select id="student-subject-filter"><option value="">All subjects</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
       <div id="people"><p class="empty">Loading…</p></div>
     </div>
-    <div id="student-profile-detail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;align-items:center;justify-content:center;padding:16px"><div class="card" style="width:100%;max-width:720px;max-height:88vh;overflow:auto"><div class="class-top"><h3 id="student-profile-detail-title">Student profile</h3><button class="btn soft sm" onclick="closeStudentProfileDetail()">Close</button></div><div id="student-profile-detail-content"></div></div></div>
+    <div id="student-profile-detail" class="student-profile-modal"><div class="card student-profile-card"><div class="class-top"><h3 id="student-profile-detail-title">Student profile</h3><button class="btn soft sm" onclick="closeStudentProfileDetail()">Close</button></div><div id="student-profile-detail-content"></div></div></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1390,18 +1390,18 @@
       const rowHtml = (u) => {
         const isSelf = u.id === window._meId;
         return `<tr>
-          <td>${u.role === "student" ? `<button class="orientation-cohort-title" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
-          ${view === "students" ? `<td>${esc(u.contact.email || "—")}</td><td>${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td>${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : ""}
-          <td><span class="badge">${u.role}</span></td>
-          <td class="row-actions">
-            ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `
+          <td data-label="Name">${u.role === "student" ? `<button class="person-name-button" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
+          ${view === "students" ? `<td data-label="Email" class="breakable">${esc(u.contact.email || "—")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : ""}
+          <td data-label="Role"><span class="badge">${u.role}</span></td>
+          <td data-label="Actions" class="people-actions">
+            ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `<details class="action-menu"><summary>Manage</summary><div class="action-menu-panel">
             ${u.role!=='admin'?`<button class="btn danger sm" onclick="setRole('${u.id}','admin')">Make Admin</button>`:''}
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
             <button class="btn soft sm" data-name="${esc(u.full_name)}" onclick="sendPasswordReset('${u.id}', this.dataset.name)">Send password reset</button>
             ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
             <button class="btn soft sm" onclick="enrol('${u.id}','demo')">Enrol Demo</button>
-            <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}`}
+            <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}</div></details>`}
           </td>
         </tr>`; };
 
@@ -1409,7 +1409,7 @@
         placeholder: view === "students" ? "Search students…" : "Search staff by name or role…",
         noun: view === "students" ? "students" : "staff", empty: "No people match your search.", pageSize: 10,
         match: (u, t) => `${u.full_name||''} ${u.contact.email||''} ${(u.subjects||[]).join(" ")} ${u.student_code||''} ${u.role||''}`.toLowerCase().includes(t),
-        render: (items) => `<table><thead><tr><th>Name</th>${view === "students" ? "<th>Email</th><th>Subjects</th><th>Submitted</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table>`
+        render: (items) => `<div class="people-table-wrap"><table class="people-table"><thead><tr><th>Name</th>${view === "students" ? "<th>Email</th><th>Subjects</th><th>Submitted</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
       });
     }
 
@@ -1419,7 +1419,7 @@
       if (!student) return alert("Student profile is unavailable. Please refresh and try again.");
       const contact = student.contact || {};
       document.getElementById("student-profile-detail-title").textContent = student.full_name;
-      document.getElementById("student-profile-detail-content").innerHTML = `<div class="orientation-detail-grid" style="margin-top:14px"><div><span class="meta">Student ID</span><strong>${esc(student.student_code || "Not assigned")}</strong></div><div><span class="meta">Email</span><strong>${esc(contact.email || "—")}</strong></div><div><span class="meta">Phone</span><strong>${esc(contact.phone || "—")}</strong></div><div><span class="meta">Class / grade</span><strong>${esc(student.grade_level || "—")}</strong></div><div><span class="meta">Subjects</span><strong>${esc((student.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</strong>${student.other_subject ? `<small>${esc(student.other_subject)}</small>` : ""}</div><div><span class="meta">Study mode</span><strong>${esc((student.preferred_study_modes || []).join(", ") || "—")}</strong></div><div><span class="meta">Time preference</span><strong>${esc(student.time_preference || "—")}</strong></div><div><span class="meta">City</span><strong>${esc(contact.city || "—")}</strong></div><div><span class="meta">Education board</span><strong>${esc(contact.education_board || "—")}</strong></div><div><span class="meta">Submitted</span><strong>${new Date(student.profile_submitted_at || student.created_at).toLocaleString()}</strong></div></div>`;
+      document.getElementById("student-profile-detail-content").innerHTML = `<div class="student-profile-grid"><div><span class="meta">Student ID</span><strong>${esc(student.student_code || "Not assigned")}</strong></div><div><span class="meta">Email</span><strong>${esc(contact.email || "—")}</strong></div><div><span class="meta">Phone</span><strong>${esc(contact.phone || "—")}</strong></div><div><span class="meta">Class / grade</span><strong>${esc(student.grade_level || "—")}</strong></div><div><span class="meta">Subjects</span><strong>${esc((student.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</strong>${student.other_subject ? `<small>${esc(student.other_subject)}</small>` : ""}</div><div><span class="meta">Study mode</span><strong>${esc((student.preferred_study_modes || []).join(", ") || "—")}</strong></div><div><span class="meta">Time preference</span><strong>${esc(student.time_preference || "—")}</strong></div><div><span class="meta">City</span><strong>${esc(contact.city || "—")}</strong></div><div><span class="meta">Education board</span><strong>${esc(contact.education_board || "—")}</strong></div><div><span class="meta">Submitted</span><strong>${new Date(student.profile_submitted_at || student.created_at).toLocaleString()}</strong></div></div>`;
       document.getElementById("student-profile-detail").style.display = "flex";
     }
 
