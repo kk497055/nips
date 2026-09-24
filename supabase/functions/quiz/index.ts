@@ -35,7 +35,8 @@ Deno.serve(async (req) => {
     if (!token) return json({ error: "Not signed in" }, 401);
     const { data: { user } } = await svc.auth.getUser(token);
     if (!user) return json({ error: "Invalid session" }, 401);
-    const { data: me } = await svc.from("profiles").select("role,full_name").eq("id", user.id).single();
+    const { data: me } = await svc.from("profiles").select("role,full_name,is_active").eq("id", user.id).single();
+    if (me?.is_active === false) return json({ error: "Account is inactive" }, 403);
     const role = me?.role ?? "student";
 
     const { action, quiz_id, answers } = await req.json();

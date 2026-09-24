@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
     if (!token) return json({ error: "Not signed in" }, 401);
     const { data: { user } } = await svc.auth.getUser(token);
     if (!user) return json({ error: "Invalid session" }, 401);
-    const { data: me } = await svc.from("profiles").select("role").eq("id", user.id).single();
-    if (me?.role !== "admin") return json({ error: "Forbidden" }, 403);
+    const { data: me } = await svc.from("profiles").select("role,is_active").eq("id", user.id).single();
+    if (me?.role !== "admin" || me?.is_active === false) return json({ error: "Forbidden" }, 403);
 
     const { email, password, full_name, role } = await req.json();
     if (!email || !password) return json({ error: "email and password are required" }, 400);

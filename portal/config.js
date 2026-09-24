@@ -97,6 +97,11 @@ async function getProfile() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return null;
   const { data } = await sb.from("profiles").select("*").eq("id", user.id).single();
+  if (data && data.is_active === false) {
+    await sb.auth.signOut();
+    if (!window.location.pathname.endsWith("/login.html")) window.location.href = "login.html?inactive=1";
+    return null;
+  }
   return data;
 }
 

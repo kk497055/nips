@@ -54,7 +54,8 @@ Deno.serve(async (req) => {
     const { data: batch } = await svc.from("batches").select("id,name,jitsi_room,teacher_id,monthly_billing_enabled").eq("id", batchId).single();
     if (!batch) return json({ error: "Batch not found" }, 404);
 
-    const { data: profile } = await svc.from("profiles").select("full_name,role").eq("id", user.id).single();
+    const { data: profile } = await svc.from("profiles").select("full_name,role,is_active").eq("id", user.id).single();
+    if (profile?.is_active === false) return json({ error: "Account is inactive" }, 403);
     const role = profile?.role ?? "student";
 
     // 3. Decide access + moderator status (mirrors the portal's RLS).

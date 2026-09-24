@@ -101,10 +101,11 @@ Deno.serve(async (req) => {
 
     const { data: me, error: meError } = await svc
       .from("profiles")
-      .select("role,welcome_sent_at")
+      .select("role,welcome_sent_at,is_active")
       .eq("id", user.id)
       .single();
     if (meError) return json({ error: meError.message }, 500);
+    if (me?.is_active === false) return json({ error: "Account is inactive" }, 403);
 
     const payload = await req.json();
     const { type, student_id, batch_id, payment_id, cohort_id, program_id, title, message } = payload;

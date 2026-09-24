@@ -3238,6 +3238,14 @@ textarea.form-control {
 
   }
 
+  .nav-actions .portal-btn {
+
+    display: inline-flex;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.875rem;
+
+  }
+
 
 
   .hero-stats {

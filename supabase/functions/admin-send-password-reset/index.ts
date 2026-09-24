@@ -27,8 +27,8 @@ Deno.serve(async (req) => {
 
     const { data: { user: caller } } = await svc.auth.getUser(token);
     if (!caller) return json({ error: "Invalid session" }, 401);
-    const { data: profile } = await svc.from("profiles").select("role").eq("id", caller.id).single();
-    if (profile?.role !== "admin") return json({ error: "Forbidden" }, 403);
+    const { data: profile } = await svc.from("profiles").select("role,is_active").eq("id", caller.id).single();
+    if (profile?.role !== "admin" || profile?.is_active === false) return json({ error: "Forbidden" }, 403);
 
     const { user_id } = await req.json();
     if (!user_id || typeof user_id !== "string") return json({ error: "user_id is required" }, 400);

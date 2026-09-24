@@ -341,7 +341,7 @@ test("portal pages use current stylesheet cache key", () => {
     "portal/classroom.html",
   ]) {
     assert.match(read(file), /portal\.css\?v=16/, `${file} should request the latest portal.css`);
-    assert.match(read(file), /config\.js\?v=9/, `${file} should request the latest portal behavior`);
+    assert.match(read(file), /config\.js\?v=10/, `${file} should request the latest portal behavior`);
   }
 });
 
@@ -675,4 +675,29 @@ test("student profiles and subject-based batch matching are additive and pending
   assert.match(admin, /Filter by subject/);
   assert.match(admin, /openStudentProfileDetail/);
   assert.match(admin, /profile_submitted_at/);
+});
+
+test("mobile public navigation keeps the portal entry visible", () => {
+  const css = read("css/style.css");
+  for (const page of ["index.html", "about.html", "contact.html", "resources.html"]) {
+    const html = read(page);
+    assert.match(html, /href="\/portal\/login\.html" class="btn btn-outline portal-btn"/);
+    assert.match(html, /css\/style\.css\?v=5/);
+  }
+  assert.match(css, /\.nav-actions \.portal-btn\s*\{[\s\S]*?display:\s*inline-flex/);
+});
+
+test("admin membership and access controls preserve records", () => {
+  const migration = read("supabase/migrations/20260924000000_admin_membership_and_account_controls.sql");
+  const admin = read("portal/admin.html");
+  const accessFn = read("supabase/functions/admin-set-staff-active/index.ts");
+  assert.match(migration, /add column if not exists is_active boolean not null default true/);
+  assert.match(migration, /admin_remove_student_from_batch/);
+  assert.match(migration, /delete from public\.enrollments/);
+  assert.doesNotMatch(migration, /delete from public\.profiles|delete from auth\.users|truncate |drop table/i);
+  assert.match(admin, /removeStudentFromBatch/);
+  assert.match(admin, /admin_save_student_profile/);
+  assert.match(admin, /setStaffActive/);
+  assert.match(accessFn, /ban_duration: active \? "none" : "876000h"/);
+  assert.doesNotMatch(accessFn, /deleteUser/);
 });

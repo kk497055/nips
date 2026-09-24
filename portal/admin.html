@@ -348,11 +348,11 @@
       <div id="student-filter-tools" class="field" style="max-width:280px" hidden><label>Filter by subject</label><select id="student-subject-filter"><option value="">All subjects</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
       <div id="people"><p class="empty">Loading…</p></div>
     </div>
-    <div id="student-profile-detail" class="student-profile-modal"><div class="card student-profile-card"><div class="class-top"><h3 id="student-profile-detail-title">Student profile</h3><button class="btn soft sm" onclick="closeStudentProfileDetail()">Close</button></div><div id="student-profile-detail-content"></div></div></div>
+    <div id="student-profile-detail" class="student-profile-modal"><div class="card student-profile-card"><div class="class-top"><h3 id="student-profile-detail-title">Student profile</h3><div class="row-actions"><button class="btn green sm" id="student-profile-edit-button" onclick="openStudentProfileEditor()">Edit profile</button><button class="btn soft sm" onclick="closeStudentProfileDetail()">Close</button></div></div><div id="student-profile-detail-content"></div></div></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=9"></script>
+  <script src="config.js?v=10"></script>
   <script>
     const ADMIN_VIEWS = {
       overview: { label: "Overview", title: "Admin Overview", subtitle: "Your operational snapshot: revenue, collections, batches, and teaching activity." },
@@ -1256,8 +1256,20 @@
       const names = Object.fromEntries((window._batchStudentList || []).map(s => [s.id, s.full_name]));
       const batch = (window._batchList || []).find(b => b.id === managingBatchId);
       document.getElementById("bs-roster").innerHTML = batchRosterRows.length ? `<table><thead><tr><th>Student</th><th>Access</th><th>Agreed Fee</th><th>Discount Note</th><th></th></tr></thead><tbody>${batchRosterRows.map(r =>
-        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td><td>${pkr(agreedFeeFor(r, batch?.fee))}</td><td>${esc(r.discount_note || "—")}</td><td><button class="btn soft sm" onclick="openEnrollmentFee('${r.student_id}')">Edit fee</button></td></tr>`
+        `<tr><td>${esc(names[r.student_id] || "Student")}</td><td><span class="pill ${r.payment_status === "paid" ? "paid" : "pending"}">${esc(r.payment_status)}</span></td><td>${pkr(agreedFeeFor(r, batch?.fee))}</td><td>${esc(r.discount_note || "—")}</td><td><div class="row-actions"><button class="btn soft sm" onclick="openEnrollmentFee('${r.student_id}')">Edit fee</button><button class="btn danger sm" data-name="${esc(names[r.student_id] || "Student")}" onclick="removeStudentFromBatch('${r.student_id}', this.dataset.name)">Remove</button></div></td></tr>`
       ).join("")}</tbody></table>` : '<p class="empty">No students have been added to this batch yet.</p>';
+    }
+    async function removeStudentFromBatch(studentId, studentName) {
+      if (!managingBatchId) return;
+      const batch = (window._batchList || []).find(b => b.id === managingBatchId);
+      if (!confirm(`Remove ${studentName || "this student"} from ${batch?.name || "this batch"}? Their account and historical records will remain in the system.`)) return;
+      const { data: removed, error } = await sb.rpc("admin_remove_student_from_batch", { p_batch_id: managingBatchId, p_student_id: studentId });
+      if (error) return alert("Student was not removed: " + error.message);
+      if (!removed) return alert("This student is no longer enrolled in the batch.");
+      batchRosterRows = batchRosterRows.filter(row => row.student_id !== studentId);
+      renderBatchStudentChoices();
+      renderBatchRoster();
+      await Promise.all([loadBatches(), loadOverview(), loadPendingPayments()]);
     }
     async function openBatchStudents(batchId) {
       const batch = (window._batchList || []).find(b => b.id === batchId);
@@ -1392,13 +1404,14 @@
         return `<tr>
           <td data-label="Name">${u.role === "student" ? `<button class="person-name-button" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
           ${view === "students" ? `<td data-label="Email" class="breakable">${esc(u.contact.email || "—")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : ""}
-          <td data-label="Role"><span class="badge">${u.role}</span></td>
+          <td data-label="Role"><span class="badge">${u.role}</span>${view === "staff" ? `<br><span class="pill ${u.is_active === false ? "pending" : "paid"}">${u.is_active === false ? "inactive" : "active"}</span>` : ""}</td>
           <td data-label="Actions" class="people-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `<details class="action-menu"><summary>Manage</summary><div class="action-menu-panel">
             ${u.role!=='admin'?`<button class="btn danger sm" onclick="setRole('${u.id}','admin')">Make Admin</button>`:''}
             ${u.role!=='teacher'?`<button class="btn sm" onclick="setRole('${u.id}','teacher')">Make Teacher</button>`:''}
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
             <button class="btn soft sm" data-name="${esc(u.full_name)}" onclick="sendPasswordReset('${u.id}', this.dataset.name)">Send password reset</button>
+            ${view === "staff" ? `<button class="btn ${u.is_active === false ? "green" : "danger"} sm" data-name="${esc(u.full_name)}" onclick="setStaffActive('${u.id}', ${u.is_active === false}, this.dataset.name)">${u.is_active === false ? "Reactivate staff" : "Deactivate staff"}</button>` : ""}
             ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
             <button class="btn soft sm" onclick="enrol('${u.id}','demo')">Enrol Demo</button>
             <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}</div></details>`}
@@ -1413,14 +1426,72 @@
       });
     }
 
-    function closeStudentProfileDetail() { document.getElementById("student-profile-detail").style.display = "none"; }
+    let selectedStudentProfileId = null;
+    function closeStudentProfileDetail() { document.getElementById("student-profile-detail").style.display = "none"; selectedStudentProfileId = null; }
     function openStudentProfileDetail(studentId) {
       const student = (window._peopleById || {})[studentId];
       if (!student) return alert("Student profile is unavailable. Please refresh and try again.");
+      selectedStudentProfileId = studentId;
+      document.getElementById("student-profile-edit-button").hidden = false;
       const contact = student.contact || {};
       document.getElementById("student-profile-detail-title").textContent = student.full_name;
       document.getElementById("student-profile-detail-content").innerHTML = `<div class="student-profile-grid"><div><span class="meta">Student ID</span><strong>${esc(student.student_code || "Not assigned")}</strong></div><div><span class="meta">Email</span><strong>${esc(contact.email || "—")}</strong></div><div><span class="meta">Phone</span><strong>${esc(contact.phone || "—")}</strong></div><div><span class="meta">Class / grade</span><strong>${esc(student.grade_level || "—")}</strong></div><div><span class="meta">Subjects</span><strong>${esc((student.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</strong>${student.other_subject ? `<small>${esc(student.other_subject)}</small>` : ""}</div><div><span class="meta">Study mode</span><strong>${esc((student.preferred_study_modes || []).join(", ") || "—")}</strong></div><div><span class="meta">Time preference</span><strong>${esc(student.time_preference || "—")}</strong></div><div><span class="meta">City</span><strong>${esc(contact.city || "—")}</strong></div><div><span class="meta">Education board</span><strong>${esc(contact.education_board || "—")}</strong></div><div><span class="meta">Submitted</span><strong>${new Date(student.profile_submitted_at || student.created_at).toLocaleString()}</strong></div></div>`;
       document.getElementById("student-profile-detail").style.display = "flex";
+    }
+
+    function openStudentProfileEditor() {
+      const student = (window._peopleById || {})[selectedStudentProfileId];
+      if (!student) return;
+      const contact = student.contact || {};
+      const subjectOptions = [["physics","Physics"],["maths","Mathematics"],["chemistry","Chemistry"],["biology","Biology"],["computer","Computer"],["english","English"],["accounting","Accounting"],["other","Other"]];
+      const selectedSubjects = new Set(student.subjects || []);
+      const selectedModes = new Set(student.preferred_study_modes || []);
+      document.getElementById("student-profile-detail-title").textContent = "Edit student profile";
+      document.getElementById("student-profile-edit-button").hidden = true;
+      document.getElementById("student-profile-detail-content").innerHTML = `<div class="msg" id="student-profile-edit-msg"></div><div class="student-profile-grid">
+        <div class="field"><label>Full name *</label><input id="spe-name" value="${esc(student.full_name || "")}"/></div>
+        <div class="field"><label>Class / grade</label><input id="spe-grade" value="${esc(student.grade_level || "")}" placeholder="e.g. 10th, O2, A1"/></div>
+        <div class="field"><label>Contact email</label><input id="spe-email" type="email" value="${esc(contact.email || "")}"/><small class="meta">This does not change the student's sign-in email.</small></div>
+        <div class="field"><label>Phone</label><input id="spe-phone" value="${esc(contact.phone || "")}"/></div>
+        <div class="field"><label>City</label><input id="spe-city" value="${esc(contact.city || "")}"/></div>
+        <div class="field"><label>Education board</label><input id="spe-board" value="${esc(contact.education_board || "")}"/></div>
+      </div><div class="field"><label>Subjects</label><div class="row-actions">${subjectOptions.map(([value,label]) => `<label class="consent"><input type="checkbox" name="spe-subject" value="${value}" ${selectedSubjects.has(value) ? "checked" : ""}/> ${label}</label>`).join("")}</div></div>
+      <div class="field"><label>Other subject</label><input id="spe-other" value="${esc(student.other_subject || "")}"/></div>
+      <div class="field"><label>Study mode</label><div class="row-actions"><label class="consent"><input type="checkbox" name="spe-mode" value="online" ${selectedModes.has("online") ? "checked" : ""}/> Online</label><label class="consent"><input type="checkbox" name="spe-mode" value="physical" ${selectedModes.has("physical") ? "checked" : ""}/> Physical</label></div></div>
+      <div class="field"><label>Time preference</label><select id="spe-period"><option value="">Not specified</option><option value="morning" ${student.time_preference === "morning" ? "selected" : ""}>Morning</option><option value="evening" ${student.time_preference === "evening" ? "selected" : ""}>Evening</option></select></div>
+      <div class="row-actions"><button class="btn green" onclick="saveStudentProfileEditor()">Save profile</button><button class="btn soft" onclick="openStudentProfileDetail('${student.id}')">Cancel</button></div>`;
+    }
+
+    async function saveStudentProfileEditor() {
+      const msg = document.getElementById("student-profile-edit-msg");
+      const payload = {
+        p_student_id: selectedStudentProfileId,
+        p_full_name: document.getElementById("spe-name").value.trim(),
+        p_grade_level: document.getElementById("spe-grade").value.trim(),
+        p_subjects: [...document.querySelectorAll('[name="spe-subject"]:checked')].map(input => input.value),
+        p_other_subject: document.getElementById("spe-other").value.trim(),
+        p_study_modes: [...document.querySelectorAll('[name="spe-mode"]:checked')].map(input => input.value),
+        p_time_preference: document.getElementById("spe-period").value || null,
+        p_phone: document.getElementById("spe-phone").value.trim(), p_city: document.getElementById("spe-city").value.trim(),
+        p_education_board: document.getElementById("spe-board").value.trim(), p_contact_email: document.getElementById("spe-email").value.trim()
+      };
+      if (!payload.p_full_name) { msg.className = "msg err"; msg.textContent = "Full name is required."; return; }
+      const { error } = await sb.rpc("admin_save_student_profile", payload);
+      if (error) { msg.className = "msg err"; msg.textContent = "Profile was not saved: " + error.message; return; }
+      const studentId = selectedStudentProfileId;
+      await loadPeople();
+      openStudentProfileDetail(studentId);
+    }
+
+    async function setStaffActive(userId, active, fullName) {
+      if (userId === window._meId) return alert("You cannot deactivate your own account.");
+      if (!active && !confirm(`Deactivate ${fullName || "this staff member"}? They will not be able to sign in, but their profile and history will remain.`)) return;
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return alert("Your session has expired. Please sign in again.");
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-set-staff-active`, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId, active }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return alert("Staff access was not changed: " + (body.error || "Unknown error"));
+      await loadPeople();
     }
 
     async function setRole(id, role) {

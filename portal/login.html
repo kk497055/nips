@@ -71,10 +71,14 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=9"></script>
+  <script src="config.js?v=10"></script>
   <script>
     let mode = "signin";
     const msg = document.getElementById("msg");
+    if (new URLSearchParams(location.search).get("inactive") === "1") {
+      msg.className = "msg err";
+      msg.textContent = "This staff account is inactive. Contact an NIPS administrator to restore access.";
+    }
     const show = (t, ok=false) => { msg.className = "msg " + (ok?"ok":"err"); msg.textContent = t; };
     const requestedReturn = new URLSearchParams(location.search).get("return");
     function safeReturnUrl() {
