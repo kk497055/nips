@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <title>NIPS Portal — Batch Students</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css?v=17" />
+  <meta name="theme-color" content="#1a5336" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Portal</div>
+    <div class="right"><span id="who"></span><span class="badge">Admin</span><button class="btn ghost sm" onclick="logout()">Logout</button></div>
+  </div>
+
+  <main class="wrap batch-admin-page">
+    <div class="batch-page-heading">
+      <div><a href="admin.html?view=batches" class="meta">← Back to batches</a><h1 id="batch-title">Batch</h1><p class="sub" id="batch-subtitle">Loading batch details…</p></div>
+      <div class="row-actions"><a class="btn soft" id="edit-batch-link" href="admin.html?view=batches">Batch settings</a><a class="btn green" id="join-batch-link" href="#">Join class</a></div>
+    </div>
+
+    <section class="section">
+      <div class="batch-summary-grid" id="batch-summary"><p class="empty">Loading…</p></div>
+    </section>
+
+    <section class="section">
+      <div class="class-top"><div><h2>Enrolled students</h2><p class="meta">Search, review and manage this batch membership. Removing a student does not delete their account or history.</p></div></div>
+      <div id="roster"><p class="empty">Loading students…</p></div>
+    </section>
+
+    <section class="section">
+      <div class="class-top"><div><h2>Add students</h2><p class="meta">Select one or more students who are not already enrolled in this batch.</p></div></div>
+      <div class="card batch-add-controls">
+        <div class="field"><label>Access status</label><select id="add-status"><option value="pending">Pending — no class access</option><option value="demo">Demo — class access</option><option value="paid">Paid — class access</option></select></div>
+        <div class="field"><label>Agreed fee per student (PKR)</label><input id="add-fee" type="number" min="0" step="1"/></div>
+        <div class="field"><label>Discount reason</label><input id="add-note" placeholder="Required when below standard fee"/></div>
+        <div class="row-actions"><span class="list-count" id="add-count">0 selected</span><button class="btn green" id="add-selected">Add selected</button></div>
+      </div>
+      <div class="msg" id="add-msg"></div>
+      <div id="available"><p class="empty">Loading available students…</p></div>
+    </section>
+  </main>
+
+  <div id="fee-modal" class="student-profile-modal"><div class="card student-profile-card" style="max-width:520px"><div class="class-top"><h3 id="fee-title">Edit agreed fee</h3><button class="btn soft sm" onclick="closeFeeEditor()">Close</button></div><div class="msg" id="fee-msg"></div><div class="field"><label>Agreed fee (PKR)</label><input id="fee-amount" type="number" min="0" step="1"/></div><div class="field"><label>Discount reason</label><textarea id="fee-note" rows="3" placeholder="Required when below the standard fee"></textarea></div><button class="btn green" id="save-fee">Save changes</button></div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js?v=10"></script>
+  <script>
+    const batchId = new URLSearchParams(location.search).get("id");
+    let batch = null, rosterRows = [], students = [], contacts = {}, teachers = {}, editingStudentId = null;
+    const selected = new Set();
+    const pkr = value => "PKR " + Math.round(Number(value || 0)).toLocaleString();
+    const agreedFee = row => Number.isFinite(Number(row?.amount)) && (Number(row.amount) > 0 || row.discount_note) ? Number(row.amount) : Number(batch?.fee || 0);
+    const subjectName = value => value === "maths" ? "Mathematics" : value ? value[0].toUpperCase() + value.slice(1) : "—";
+
+    async function init() {
+      const session = await requireAuth(); if (!session) return;
+      const me = await getProfile(); if (!me) return;
+      if (me.role !== "admin") return routeByRole(me.role);
+      if (!batchId) return showFatal("No batch was selected.");
+      window._meId = me.id;
+      document.getElementById("who").textContent = me.full_name;
+      await loadPage();
+    }
+
+    async function loadPage() {
+      const [batchResult, enrollmentResult, studentResult, contactResult, teacherResult] = await Promise.all([
+        sb.from("batches").select("*").eq("id", batchId).single(),
+        sb.from("enrollments").select("student_id,payment_status,amount,discount_note,enrolled_at").eq("batch_id", batchId).order("enrolled_at", { ascending: false }),
+        sb.from("profiles").select("id,full_name,student_code,grade_level,subjects,preferred_study_modes,time_preference,profile_submitted_at,created_at").eq("role", "student").order("full_name"),
+        sb.from("student_contacts").select("student_id,email,phone,city,education_board"),
+        sb.from("profiles").select("id,full_name").in("role", ["teacher","admin"])
+      ]);
+      if (batchResult.error) return showFatal("Batch could not be loaded: " + batchResult.error.message);
+      batch = batchResult.data; rosterRows = enrollmentResult.data || []; students = studentResult.data || [];
+      contacts = Object.fromEntries((contactResult.data || []).map(item => [item.student_id, item]));
+      teachers = Object.fromEntries((teacherResult.data || []).map(item => [item.id, item.full_name]));
+      document.title = `${batch.name} — NIPS Portal`;
+      document.getElementById("batch-title").textContent = batch.name;
+      document.getElementById("batch-subtitle").textContent = `${batch.category || "Uncategorised"} · ${batch.schedule || "Schedule not set"}`;
+      document.getElementById("join-batch-link").href = `classroom.html?batch=${encodeURIComponent(batch.id)}`;
+      document.getElementById("edit-batch-link").href = `admin.html?view=batches&edit=${encodeURIComponent(batch.id)}`;
+      document.getElementById("add-fee").value = Number(batch.fee || 0);
+      renderSummary(); renderRoster(); renderAvailable();
+    }
+
+    function showFatal(message) {
+      document.getElementById("batch-title").textContent = "Batch unavailable";
+      document.getElementById("batch-subtitle").textContent = message;
+      document.getElementById("batch-summary").innerHTML = `<p class="empty">${esc(message)}</p>`;
+    }
+
+    function renderSummary() {
+      const counts = { paid: 0, demo: 0, pending: 0 };
+      rosterRows.forEach(row => { if (counts[row.payment_status] !== undefined) counts[row.payment_status]++; });
+      document.getElementById("batch-summary").innerHTML = [
+        ["Status", batch.is_active ? "Active" : "Retired"], ["Category", batch.category || "—"], ["Subject", subjectName(batch.subject_key)],
+        ["Session", batch.session_period || "—"], ["Schedule", batch.schedule || "—"], ["Standard fee", pkr(batch.fee)],
+        ["Primary teacher", teachers[batch.teacher_id] || "Unassigned"], ["Billing", batch.monthly_billing_enabled ? "Monthly" : "One-time"],
+        ["Students", `${rosterRows.length} total · ${counts.paid} paid · ${counts.demo} demo · ${counts.pending} pending`]
+      ].map(([label,value]) => `<div class="card"><span class="meta">${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
+    }
+
+    function studentRecord(id) { return students.find(student => student.id === id) || { id, full_name: "Student" }; }
+    function renderRoster() {
+      const rows = rosterRows.map(row => ({ ...row, student: studentRecord(row.student_id), contact: contacts[row.student_id] || {} }));
+      mountList("batch-roster", "roster", rows, {
+        pageSize: 15, noun: "students", placeholder: "Search by name, ID, email, subject or city…", empty: "No students are enrolled in this batch.",
+        match: (row, term) => `${row.student.full_name||""} ${row.student.student_code||""} ${row.contact.email||""} ${row.contact.phone||""} ${row.contact.city||""} ${(row.student.subjects||[]).join(" ")} ${row.payment_status}`.toLowerCase().includes(term),
+        render: items => `<div class="batch-roster-wrap"><table class="batch-roster-table"><thead><tr><th>Student</th><th>Contact</th><th>Academic profile</th><th>Enrollment</th><th>Actions</th></tr></thead><tbody>${items.map(row => `<tr>
+          <td data-label="Student"><strong>${esc(row.student.full_name)}</strong><br><span class="meta">${esc(row.student.student_code || "ID pending")}</span></td>
+          <td data-label="Contact"><span class="breakable">${esc(row.contact.email || "—")}</span><br><span class="meta">${esc(row.contact.phone || "—")} · ${esc(row.contact.city || "—")}</span></td>
+          <td data-label="Academic profile">${esc((row.student.subjects || []).map(subjectName).join(", ") || "—")}<br><span class="meta">${esc(row.student.grade_level || "Grade pending")} · ${esc(row.student.time_preference || "time pending")}</span></td>
+          <td data-label="Enrollment"><span class="pill ${row.payment_status === "paid" ? "paid" : "pending"}">${esc(row.payment_status)}</span><br>${pkr(agreedFee(row))}<br><span class="meta">${esc(row.discount_note || "No discount")} · ${row.enrolled_at ? new Date(row.enrolled_at).toLocaleDateString() : "—"}</span></td>
+          <td data-label="Actions"><div class="batch-row-actions"><button class="btn soft sm" onclick="openFeeEditor('${row.student_id}')">Edit fee</button><button class="btn danger sm" data-name="${esc(row.student.full_name)}" onclick="removeStudent('${row.student_id}', this.dataset.name)">Remove</button></div></td>
+        </tr>`).join("")}</tbody></table></div>`
+      });
+    }
+
+    function renderAvailable() {
+      const enrolled = new Set(rosterRows.map(row => row.student_id));
+      const available = students.filter(student => !enrolled.has(student.id)).map(student => ({ ...student, contact: contacts[student.id] || {} }));
+      mountList("batch-available", "available", available, {
+        pageSize: 10, noun: "available students", placeholder: "Search available students…", empty: "All matching students are already enrolled.",
+        match: (student, term) => `${student.full_name||""} ${student.student_code||""} ${student.contact.email||""} ${(student.subjects||[]).join(" ")}`.toLowerCase().includes(term),
+        render: items => `<div class="batch-roster-wrap"><table class="batch-roster-table"><thead><tr><th>Select</th><th>Student</th><th>Email</th><th>Subjects</th><th>Submitted</th></tr></thead><tbody>${items.map(student => `<tr><td data-label="Select"><input type="checkbox" data-student-select="${student.id}" ${selected.has(student.id) ? "checked" : ""}/></td><td data-label="Student"><strong>${esc(student.full_name)}</strong><br><span class="meta">${esc(student.student_code || student.grade_level || "Profile pending")}</span></td><td data-label="Email" class="breakable">${esc(student.contact.email || "—")}</td><td data-label="Subjects">${esc((student.subjects || []).map(subjectName).join(", ") || "—")}</td><td data-label="Submitted">${new Date(student.profile_submitted_at || student.created_at).toLocaleDateString()}</td></tr>`).join("")}</tbody></table></div>`
+      });
+      document.getElementById("available").onchange = event => {
+        const box = event.target.closest("[data-student-select]"); if (!box) return;
+        box.checked ? selected.add(box.dataset.studentSelect) : selected.delete(box.dataset.studentSelect); updateSelectedCount();
+      };
+      updateSelectedCount();
+    }
+    function updateSelectedCount() { document.getElementById("add-count").textContent = `${selected.size} selected`; }
+
+    document.getElementById("add-selected").onclick = async () => {
+      if (!selected.size) return alert("Select at least one student.");
+      const amount = Number(document.getElementById("add-fee").value), standard = Number(batch.fee || 0), note = document.getElementById("add-note").value.trim();
+      if (!Number.isFinite(amount) || amount < 0) return alert("Enter a valid agreed fee.");
+      if (amount < standard && !note) return alert("A discount reason is required below the standard fee.");
+      const status = document.getElementById("add-status").value, ids = [...selected];
+      const { error } = await sb.from("enrollments").upsert(ids.map(student_id => ({ batch_id: batch.id, student_id, payment_status: status, amount, discount_note: amount < standard ? note : null })), { onConflict: "batch_id,student_id" });
+      if (error) return alert("Students were not added: " + error.message);
+      if (status === "paid") {
+        try {
+          for (const studentId of ids) await recordInitialPayment(studentId, amount, amount < standard ? note : null);
+        } catch (paymentError) {
+          alert("Students were enrolled, but at least one payment record needs review: " + paymentError.message);
+        }
+      }
+      selected.clear();
+      document.getElementById("add-msg").className = "msg ok"; document.getElementById("add-msg").textContent = `${ids.length} student(s) added as ${status}.`;
+      await loadPage();
+    };
+
+    async function recordInitialPayment(studentId, amount, discountNote) {
+      const { count } = await sb.from("payments").select("*", { count: "exact", head: true }).eq("student_id", studentId).eq("batch_id", batch.id);
+      if (count) return;
+      const paymentNote = discountNote ? `Fee — ${batch.name} | Discount: ${discountNote}` : `Fee — ${batch.name}`;
+      const { data: payment, error } = await sb.from("payments").insert({ student_id: studentId, batch_id: batch.id, amount, note: paymentNote, recorded_by: window._meId }).select("id").single();
+      if (error) throw new Error(error.message);
+      if (batch.monthly_billing_enabled) {
+        const now = new Date(), billingMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        await sb.from("monthly_invoices").upsert({ batch_id: batch.id, student_id: studentId, billing_month: billingMonth, due_date: billingMonth, amount, status: "paid", payment_id: payment.id, paid_on: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: "batch_id,student_id,billing_month" });
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) await fetch(`${SUPABASE_URL}/functions/v1/notify`, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "payment_receipt", payment_id: payment.id }) });
+    }
+
+    async function removeStudent(studentId, name) {
+      if (!confirm(`Remove ${name || "this student"} from ${batch.name}? Their account and historical records will remain.`)) return;
+      const { data, error } = await sb.rpc("admin_remove_student_from_batch", { p_batch_id: batch.id, p_student_id: studentId });
+      if (error) return alert("Student was not removed: " + error.message);
+      if (!data) return alert("This student is no longer enrolled in the batch.");
+      await loadPage();
+    }
+
+    function openFeeEditor(studentId) {
+      const row = rosterRows.find(item => item.student_id === studentId); if (!row) return;
+      editingStudentId = studentId;
+      document.getElementById("fee-title").textContent = `Edit fee — ${studentRecord(studentId).full_name}`;
+      document.getElementById("fee-amount").value = agreedFee(row); document.getElementById("fee-note").value = row.discount_note || "";
+      document.getElementById("fee-msg").className = "msg"; document.getElementById("fee-modal").style.display = "flex";
+    }
+    function closeFeeEditor() { editingStudentId = null; document.getElementById("fee-modal").style.display = "none"; }
+    document.getElementById("save-fee").onclick = async () => {
+      const row = rosterRows.find(item => item.student_id === editingStudentId); if (!row) return;
+      const amount = Number(document.getElementById("fee-amount").value), standard = Number(batch.fee || 0), note = document.getElementById("fee-note").value.trim();
+      const msg = document.getElementById("fee-msg");
+      if (!Number.isFinite(amount) || amount < 0) { msg.className = "msg err"; msg.textContent = "Enter a valid agreed fee."; return; }
+      if (amount < standard && !note) { msg.className = "msg err"; msg.textContent = "A discount reason is required below the standard fee."; return; }
+      const discount = amount < standard ? note : null;
+      const { error } = await sb.from("enrollments").update({ amount, discount_note: discount }).eq("batch_id", batch.id).eq("student_id", editingStudentId);
+      if (!error && row.payment_status === "paid") await sb.from("payments").update({ amount, note: discount ? `Fee — ${batch.name} | Discount: ${discount}` : `Fee — ${batch.name}` }).eq("batch_id", batch.id).eq("student_id", editingStudentId);
+      if (error) { msg.className = "msg err"; msg.textContent = "Fee was not updated: " + error.message; return; }
+      closeFeeEditor(); await loadPage();
+    };
+
+    init();
+  </script>
+</body>
+</html>

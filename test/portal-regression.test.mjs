@@ -20,6 +20,7 @@ test("portal inline scripts parse", () => {
     "portal/reset-password.html",
     "portal/classroom.html",
     "portal/orientation.html",
+    "portal/admin-batch.html",
   ]) {
     for (const script of inlineScripts(read(file))) {
       assert.doesNotThrow(() => new Function(script), `${file} has a parse error`);
@@ -57,12 +58,12 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   const admin = read("portal/admin.html");
 
   assert.match(admin, /Edit Batch/);
-  assert.match(admin, /openBatchDetails\('\$\{b\.id\}'\)/, "batch title should open its details");
+  assert.match(admin, /admin-batch\.html\?id=\$\{encodeURIComponent\(b\.id\)\}/, "batch title should open its dedicated details page");
   assert.match(admin, /function openBatchDetails\(batchId\)/);
   assert.match(admin, /Student Roster/);
   assert.match(admin, /function openBatchEditor\(batchId\)/);
   assert.match(admin, /from\("batches"\)\.update\(\{/);
-  assert.match(admin, /Students<\/button>/);
+  assert.match(admin, />Students<\/a>/);
   assert.match(admin, /function openBatchStudents\(batchId\)/);
   assert.match(admin, /Add Selected Students/);
   assert.match(admin, /Agreed fee per student/);
@@ -700,4 +701,17 @@ test("admin membership and access controls preserve records", () => {
   assert.match(admin, /setStaffActive/);
   assert.match(accessFn, /ban_duration: active \? "none" : "876000h"/);
   assert.doesNotMatch(accessFn, /deleteUser/);
+});
+
+test("batch students use a dedicated searchable paginated admin page", () => {
+  const admin = read("portal/admin.html");
+  const page = read("portal/admin-batch.html");
+  assert.match(admin, /admin-batch\.html\?id=\$\{encodeURIComponent\(b\.id\)\}/);
+  assert.doesNotMatch(admin, /onclick="openBatchStudents\('\$\{b\.id\}'\)"/);
+  assert.match(page, /mountList\("batch-roster"/);
+  assert.match(page, /pageSize:\s*15/);
+  assert.match(page, /admin_remove_student_from_batch/);
+  assert.match(page, /Edit fee/);
+  assert.match(page, /data-student-select/);
+  assert.match(page, /profile_submitted_at/);
 });

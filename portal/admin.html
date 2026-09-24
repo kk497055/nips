@@ -1017,7 +1017,7 @@
           const actions = showingRetired
             ? `<button class="btn green sm" onclick="toggleBatch('${b.id}',false)">Restore Batch</button>`
             : `<a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
-            <button class="btn green sm" onclick="openBatchStudents('${b.id}')">Students</button>
+            <a class="btn green sm" href="admin-batch.html?id=${encodeURIComponent(b.id)}">Students</a>
             <button class="btn soft sm" onclick="openBatchEditor('${b.id}')">Edit Batch</button>
             <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Primary</button>
             <button class="btn soft sm" onclick="addCoTeacher('${b.id}')">Add Co-teacher</button>
@@ -1025,7 +1025,7 @@
             <button class="btn sm" onclick="toggleBatch('${b.id}',true)">Deactivate</button>
             <button class="btn soft sm" onclick="openBatchOperations('${b.id}')">Move / retire</button>`;
           return `<div class="card" style="margin-bottom:12px">
-          <h3><button type="button" onclick="openBatchDetails('${b.id}')" style="padding:0;border:0;background:none;color:var(--primary);font:inherit;font-weight:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px" aria-label="View details for ${esc(b.name)}">${esc(b.name)}</button> ${b.is_active?'':'<span class="pill pending">retired</span>'}</h3>
+          <h3><a href="admin-batch.html?id=${encodeURIComponent(b.id)}" style="color:var(--primary);text-decoration:underline;text-underline-offset:3px" aria-label="View details for ${esc(b.name)}">${esc(b.name)}</a> ${b.is_active?'':'<span class="pill pending">retired</span>'}</h3>
           <div class="meta">${esc(b.category||'')} · ${esc(b.schedule||'—')} · Fee PKR ${b.fee||0} · ${b.monthly_billing_enabled ? 'Monthly billing · ' : ''}Primary: ${esc(tmap[b.teacher_id]||'unassigned')} · Co-teachers: ${coNames} · ${paidByBatch[b.id]||0} paid</div>
           <div class="row-actions">
             ${actions}
