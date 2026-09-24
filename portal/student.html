@@ -39,6 +39,7 @@
       <a data-student-nav="classes" href="student.html?view=classes">My Classes</a>
       <a data-student-nav="learning" href="student.html?view=learning">Learning</a>
       <a data-student-nav="fees" href="student.html?view=fees">Fees &amp; Receipts</a>
+      <a data-student-nav="certificates" href="student.html?view=certificates">Certificates</a>
       <a data-student-nav="notifications" href="student.html?view=notifications">Notifications <span id="notification-count"></span></a>
       <a data-student-nav="account" href="student.html?view=account">Account &amp; Help</a>
     </nav>
@@ -60,6 +61,7 @@
     </div>
 
     <div id="fees" data-student-view="fees"></div>
+    <div class="section" data-student-view="certificates"><h2>My Certificates</h2><p class="meta" style="margin-bottom:12px">Official completion certificates issued by NIPS. Each PDF includes a QR code for public verification.</p><div id="student-certificates"><p class="empty">Loading certificates…</p></div></div>
 
     <div class="section" data-student-view="notifications">
       <div class="class-top"><div><h2>Notifications</h2><p class="meta">Schedule announcements and reminders from NIPS.</p></div><button class="btn soft sm" onclick="markAllNotificationsRead()">Mark all as read</button></div>
@@ -261,7 +263,7 @@
     })();
 
     async function setupStudentWorkspace(profile) {
-      const allowed = ["home", "classes", "learning", "fees", "notifications", "account"];
+      const allowed = ["home", "classes", "learning", "fees", "certificates", "notifications", "account"];
       const requested = new URLSearchParams(location.search).get("view");
       const view = allowed.includes(requested) ? requested : "home";
       document.querySelectorAll("[data-student-view]").forEach((section) => {
@@ -282,6 +284,20 @@
       await renderStudentProfile(profile, user?.email || "");
       await renderStudyModePreference();
       await renderNotifications();
+      await renderStudentCertificates();
+    }
+
+    async function renderStudentCertificates() {
+      const { data, error } = await sb.from("certificates").select("*").order("issued_at", { ascending: false });
+      const box = document.getElementById("student-certificates");
+      if (error) { box.innerHTML = '<p class="empty">Certificates could not be loaded.</p>'; return; }
+      mountList("student-certificates", "student-certificates", data || [], {
+        pageSize: 8, noun: "certificates", hideSearch: true, empty: "No completion certificates have been issued yet.",
+        render: items => items.map(c => {
+          const actions = c.revoked_at ? "" : `<div class="row-actions"><a class="btn green sm" href="${SUPABASE_URL}/functions/v1/certificate-pdf?code=${encodeURIComponent(c.verification_code)}" target="_blank" rel="noopener">Open PDF</a><a class="btn soft sm" href="../verify-certificate.html?code=${encodeURIComponent(c.verification_code)}" target="_blank" rel="noopener">Verify online</a></div>`;
+          return `<div class="card" style="margin-bottom:10px"><div class="class-top"><div><h3>${esc(c.course)}</h3><div class="meta">${esc(c.certificate_number)} · ${esc(c.program)} · completed ${new Date(c.completion_date + "T00:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC" })}</div></div><span class="pill ${c.revoked_at ? "pending" : "paid"}">${c.revoked_at ? "revoked" : "verified"}</span></div>${actions}</div>`;
+        }).join("")
+      });
     }
 
     const STUDENT_SUBJECTS = ["physics","maths","chemistry","biology","computer","english","accounting","other"];

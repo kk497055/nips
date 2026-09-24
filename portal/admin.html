@@ -349,6 +349,7 @@
       <div id="people"><p class="empty">Loading…</p></div>
     </div>
     <div id="student-profile-detail" class="student-profile-modal"><div class="card student-profile-card"><div class="class-top"><h3 id="student-profile-detail-title">Student profile</h3><div class="row-actions"><button class="btn green sm" id="student-profile-edit-button" onclick="openStudentProfileEditor()">Edit profile</button><button class="btn soft sm" onclick="closeStudentProfileDetail()">Close</button></div></div><div id="student-profile-detail-content"></div></div></div>
+    <div id="teacher-profile-detail" class="student-profile-modal"><div class="card student-profile-card"><div class="class-top"><h3 id="teacher-profile-title">Teacher profile</h3><button class="btn soft sm" onclick="closeTeacherProfile()">Close</button></div><div class="msg" id="teacher-profile-msg"></div><div id="teacher-profile-content"></div></div></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -373,7 +374,7 @@
       document.getElementById("admin-subtitle").textContent = config.subtitle;
       document.getElementById("admin-nav").innerHTML = Object.entries(ADMIN_VIEWS).map(([key, item]) =>
         `<a href="admin.html?view=${key}" class="${key === view ? "active" : ""}">${item.label}</a>`
-      ).join("");
+      ).join("") + '<a href="admin-certificates.html">Certificates</a>';
       document.querySelectorAll("[data-admin-view]").forEach(section => {
         section.hidden = !section.dataset.adminView.split(" ").includes(view);
       });
@@ -1370,17 +1371,19 @@
     };
 
     async function loadPeople() {
-      const [{ data: people }, { data: contacts }, { data: batches }] = await Promise.all([
+      const [{ data: people }, { data: contacts }, { data: batches }, { data: teacherProfiles }] = await Promise.all([
         sb.from("profiles").select("*").order("created_at",{ascending:false}),
         sb.from("student_contacts").select("student_id,phone,email,city,education_board"),
-        sb.from("batches").select("id,name").eq("is_active", true)
+        sb.from("batches").select("id,name,teacher_id").eq("is_active", true),
+        sb.from("teacher_profiles").select("*")
       ]);
       const box = document.getElementById("people");
       window._batches = batches || [];
       renderBatchSelect();
       const view = window._adminView;
       const contactOf = Object.fromEntries((contacts || []).map(contact => [contact.student_id, contact]));
-      const enrichedPeople = (people || []).map(person => ({ ...person, contact: contactOf[person.id] || {} }));
+      const teacherProfileOf = Object.fromEntries((teacherProfiles || []).map(profile => [profile.teacher_id, profile]));
+      const enrichedPeople = (people || []).map(person => ({ ...person, contact: contactOf[person.id] || {}, teacherProfile: teacherProfileOf[person.id] || {} }));
       window._peopleById = Object.fromEntries(enrichedPeople.map(person => [person.id, person]));
       const subjectFilter = document.getElementById("student-subject-filter");
       document.getElementById("student-filter-tools").hidden = view !== "students";
@@ -1403,7 +1406,7 @@
         const isSelf = u.id === window._meId;
         return `<tr>
           <td data-label="Name">${u.role === "student" ? `<button class="person-name-button" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
-          ${view === "students" ? `<td data-label="Email" class="breakable">${esc(u.contact.email || "—")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : ""}
+          ${view === "students" ? `<td data-label="Email" class="breakable">${esc(u.contact.email || "—")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : view === "staff" ? `<td data-label="Contact"><span class="breakable">${esc(u.teacherProfile.contact_email || "—")}</span><br><span class="meta">${esc(u.teacherProfile.phone || "—")}</span></td><td data-label="Subjects">${esc((u.teacherProfile.subjects || []).join(", ") || "—")}</td>` : ""}
           <td data-label="Role"><span class="badge">${u.role}</span>${view === "staff" ? `<br><span class="pill ${u.is_active === false ? "pending" : "paid"}">${u.is_active === false ? "inactive" : "active"}</span>` : ""}</td>
           <td data-label="Actions" class="people-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `<details class="action-menu"><summary>Manage</summary><div class="action-menu-panel">
@@ -1412,6 +1415,7 @@
             ${u.role!=='student'?`<button class="btn sm" onclick="setRole('${u.id}','student')">Make Student</button>`:''}
             <button class="btn soft sm" data-name="${esc(u.full_name)}" onclick="sendPasswordReset('${u.id}', this.dataset.name)">Send password reset</button>
             ${view === "staff" ? `<button class="btn ${u.is_active === false ? "green" : "danger"} sm" data-name="${esc(u.full_name)}" onclick="setStaffActive('${u.id}', ${u.is_active === false}, this.dataset.name)">${u.is_active === false ? "Reactivate staff" : "Deactivate staff"}</button>` : ""}
+            ${view === "staff" && u.role === "teacher" ? `<button class="btn soft sm" onclick="openTeacherProfile('${u.id}')">Edit teacher profile</button><button class="btn sm" onclick="assignTeacherFromStaff('${u.id}')">Assign to batch</button><button class="btn green sm" data-name="${esc(u.full_name)}" onclick="sendTeacherAppointment('${u.id}',this.dataset.name)">Send appointment letter</button>` : ""}
             ${u.role==='student'?`<button class="btn sm" onclick="enrol('${u.id}','pending')">Enrol Pending</button>
             <button class="btn soft sm" onclick="enrol('${u.id}','demo')">Enrol Demo</button>
             <button class="btn green sm" onclick="enrol('${u.id}','paid')">Enrol + Mark Paid</button>`:''}</div></details>`}
@@ -1422,9 +1426,19 @@
         placeholder: view === "students" ? "Search students…" : "Search staff by name or role…",
         noun: view === "students" ? "students" : "staff", empty: "No people match your search.", pageSize: 10,
         match: (u, t) => `${u.full_name||''} ${u.contact.email||''} ${(u.subjects||[]).join(" ")} ${u.student_code||''} ${u.role||''}`.toLowerCase().includes(t),
-        render: (items) => `<div class="people-table-wrap"><table class="people-table"><thead><tr><th>Name</th>${view === "students" ? "<th>Email</th><th>Subjects</th><th>Submitted</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
+        render: (items) => `<div class="people-table-wrap"><table class="people-table"><thead><tr><th>Name</th>${view === "students" ? "<th>Email</th><th>Subjects</th><th>Submitted</th>" : view === "staff" ? "<th>Contact</th><th>Subjects</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
       });
     }
+
+    async function assignTeacherFromStaff(teacherId) {
+      const batches=(window._batches||[]).filter(batch=>batch.teacher_id!==teacherId);if(!batches.length)return alert("No available active batches.");
+      const pick=prompt("Assign as primary teacher to which batch?\n"+batches.map((b,i)=>`${i+1}. ${b.name}`).join("\n")+"\n\nEnter number:");const batch=batches[parseInt(pick)-1];if(!batch)return;
+      const{error}=await sb.from("batches").update({teacher_id:teacherId}).eq("id",batch.id);if(error)return alert("Teacher was not assigned: "+error.message);alert(`Teacher assigned to ${batch.name}.`);await loadPeople();
+    }
+    async function sendTeacherAppointment(teacherId,name){if(!confirm(`Send the appointment confirmation letter to ${name}?`))return;const{data:{session}}=await sb.auth.getSession();const response=await fetch(`${SUPABASE_URL}/functions/v1/send-teacher-appointment`,{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({teacher_id:teacherId})});const body=await response.json().catch(()=>({}));if(!response.ok)return alert("Appointment letter was not sent: "+(body.error||"Unknown error"));alert(`Appointment confirmation sent to ${body.email}.`)}
+    function closeTeacherProfile(){document.getElementById("teacher-profile-detail").style.display="none"}
+    function openTeacherProfile(teacherId){const teacher=(window._peopleById||{})[teacherId];if(!teacher)return;const p=teacher.teacherProfile||{},subjects=["physics","maths","chemistry","biology","computer","english","accounting","painting","calligraphy","sketching","other"],chosen=new Set(p.subjects||[]);document.getElementById("teacher-profile-title").textContent=`Teacher profile — ${teacher.full_name}`;document.getElementById("teacher-profile-content").innerHTML=`<div class="template-form-grid"><div class="field"><label>Contact email</label><input id="atp-email" value="${esc(p.contact_email||"")}"></div><div class="field"><label>Phone</label><input id="atp-phone" value="${esc(p.phone||"")}"></div><div class="field"><label>City</label><input id="atp-city" value="${esc(p.city||"")}"></div><div class="field"><label>Address</label><input id="atp-address" value="${esc(p.address||"")}"></div><div class="field"><label>Qualification</label><input id="atp-qualification" value="${esc(p.qualification||"")}"></div><div class="field"><label>Board / awarding body</label><input id="atp-board" value="${esc(p.education_board||"")}"></div><div class="field"><label>Designation</label><input id="atp-designation" value="${esc(p.designation||"")}"></div><div class="field"><label>Joining date</label><input id="atp-joining" type="date" value="${esc(p.joining_date||"")}"></div><div class="field" style="grid-column:1/-1"><label>Subjects</label><div class="row-actions">${subjects.map(s=>`<label class="consent"><input type="checkbox" name="atp-subject" value="${s}" ${chosen.has(s)?"checked":""}/> ${s}</label>`).join("")}</div></div><div class="field"><label>Compensation type</label><select id="atp-comp-type"><option value="">Not specified</option>${["monthly","per_class","hourly","other"].map(v=>`<option value="${v}" ${p.compensation_type===v?"selected":""}>${v.replaceAll("_"," ")}</option>`).join("")}</select></div><div class="field"><label>Compensation amount</label><input id="atp-comp-amount" type="number" value="${esc(p.compensation_amount||"")}"></div><div class="field"><label>Bank name</label><input id="atp-bank" value="${esc(p.bank_name||"")}"></div><div class="field"><label>Account title</label><input id="atp-account-title" value="${esc(p.account_title||"")}"></div><div class="field"><label>IBAN / account number</label><input id="atp-iban" value="${esc(p.iban||"")}"></div></div><button class="btn green" onclick="saveAdminTeacherProfile('${teacherId}')">Save teacher profile</button>`;document.getElementById("teacher-profile-msg").className="msg";document.getElementById("teacher-profile-detail").style.display="flex"}
+    async function saveAdminTeacherProfile(teacherId){const val=id=>document.getElementById(id).value.trim(),payload={teacher_id:teacherId,contact_email:val("atp-email")||null,phone:val("atp-phone")||null,city:val("atp-city")||null,address:val("atp-address")||null,qualification:val("atp-qualification")||null,education_board:val("atp-board")||null,designation:val("atp-designation")||null,joining_date:val("atp-joining")||null,subjects:[...document.querySelectorAll('[name="atp-subject"]:checked')].map(x=>x.value),compensation_type:val("atp-comp-type")||null,compensation_amount:Number(val("atp-comp-amount"))||null,bank_name:val("atp-bank")||null,account_title:val("atp-account-title")||null,iban:val("atp-iban")||null,updated_at:new Date().toISOString()};const{error}=await sb.from("teacher_profiles").upsert(payload);const msg=document.getElementById("teacher-profile-msg");msg.className="msg "+(error?"err":"ok");msg.textContent=error?error.message:"Teacher profile saved.";if(!error)await loadPeople()}
 
     let selectedStudentProfileId = null;
     function closeStudentProfileDetail() { document.getElementById("student-profile-detail").style.display = "none"; selectedStudentProfileId = null; }

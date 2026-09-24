@@ -21,6 +21,7 @@ test("portal inline scripts parse", () => {
     "portal/classroom.html",
     "portal/orientation.html",
     "portal/admin-batch.html",
+    "portal/admin-certificates.html",
   ]) {
     for (const script of inlineScripts(read(file))) {
       assert.doesNotThrow(() => new Function(script), `${file} has a parse error`);
@@ -46,7 +47,7 @@ test("teacher and admin UX support co-teachers without removing primary teacher"
   const teacher = read("portal/teacher.html");
   const admin = read("portal/admin.html");
 
-  assert.doesNotMatch(teacher, /\.eq\("teacher_id"/, "teacher dashboard must rely on RLS, not only primary teacher_id");
+  assert.match(teacher, /from\("batches"\)\.select\("\*"\)\.eq\("is_active", true\)/, "teacher batch loading must rely on RLS, not only primary teacher_id");
   assert.match(admin, /Assign Primary/);
   assert.match(admin, /Add Co-teacher/);
   assert.match(admin, /Remove Co-teacher/);
@@ -714,4 +715,39 @@ test("batch students use a dedicated searchable paginated admin page", () => {
   assert.match(page, /Edit fee/);
   assert.match(page, /data-student-select/);
   assert.match(page, /profile_submitted_at/);
+});
+
+test("completion certificates are recorded, downloadable and publicly verifiable", () => {
+  const migration = read("supabase/migrations/20260924010000_certificates_and_teacher_profiles.sql");
+  const admin = read("portal/admin-certificates.html");
+  const student = read("portal/student.html");
+  const pdf = read("supabase/functions/certificate-pdf/index.ts");
+  const verify = read("verify-certificate.html");
+  assert.match(migration, /create table if not exists public\.certificates/);
+  assert.match(migration, /verification_code text not null unique/);
+  assert.match(migration, /create or replace function public\.verify_certificate/);
+  assert.match(migration, /certificate-assets/);
+  assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
+  assert.match(admin, /issue_certificate/);
+  assert.match(admin, /Issued certificate ledger/);
+  assert.match(student, /My Certificates/);
+  assert.match(pdf, /QRCode\.toDataURL/);
+  assert.match(pdf, /CERTIFICATE OF COMPLETION/);
+  assert.match(verify, /verify_certificate/);
+});
+
+test("teacher profiles remain private and support staff allocation and appointment letters", () => {
+  const migration = read("supabase/migrations/20260924010000_certificates_and_teacher_profiles.sql");
+  const teacher = read("portal/teacher.html");
+  const admin = read("portal/admin.html");
+  const appointment = read("supabase/functions/send-teacher-appointment/index.ts");
+  assert.match(migration, /create table if not exists public\.teacher_profiles/);
+  assert.match(migration, /teacher_profiles_self/);
+  assert.match(migration, /teacher_profiles_admin/);
+  assert.match(teacher, /My Professional Profile/);
+  assert.match(teacher, /compensation_amount/);
+  assert.match(admin, /Assign to batch/);
+  assert.match(admin, /Send appointment letter/);
+  assert.match(admin, /Edit teacher profile/);
+  assert.match(appointment, /Appointment confirmation/);
 });
