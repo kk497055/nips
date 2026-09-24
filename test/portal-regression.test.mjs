@@ -22,6 +22,7 @@ test("portal inline scripts parse", () => {
     "portal/orientation.html",
     "portal/admin-batch.html",
     "portal/admin-certificates.html",
+    "portal/admin-faculty-applications.html",
     "portal/teacher-apply.html",
   ]) {
     for (const script of inlineScripts(read(file))) {
@@ -758,6 +759,7 @@ test("faculty applications are gated, reviewable and send lifecycle emails", () 
   const login = read("portal/login.html");
   const apply = read("portal/teacher-apply.html");
   const admin = read("portal/admin.html");
+  const applications = read("portal/admin-faculty-applications.html");
   const migration = read("supabase/migrations/20260924020000_teacher_applications.sql");
   const submit = read("supabase/functions/teacher-application/index.ts");
   const review = read("supabase/functions/admin-teacher-application/index.ts");
@@ -766,7 +768,9 @@ test("faculty applications are gated, reviewable and send lifecycle emails", () 
   assert.match(migration, /create table if not exists public\.teacher_applications/);
   assert.match(migration, /revoke all on table public\.teacher_applications from anon/);
   assert.match(admin, /Faculty Applications/);
-  assert.match(admin, /Approve as teacher/);
+  assert.match(admin, /admin-faculty-applications\.html/);
+  assert.match(applications, /Approve as teacher/);
+  assert.match(applications, /Applicants have no portal or teacher access until approved/);
   assert.match(submit, /Faculty application received/);
   assert.match(review, /Faculty application approved/);
   assert.match(review, /generateLink\(\{type:"recovery"/);
