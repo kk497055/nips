@@ -31,10 +31,11 @@ Deno.serve(async req => {
   center(page, "This certificate is proudly presented to", 416, italic, 13, muted);
   center(page, clean(cert.profiles?.full_name || "Student"), 363, bold, 31, green);
   page.drawLine({ start: { x: 205, y: 352 }, end: { x: 637, y: 352 }, thickness: 1, color: gold });
-  center(page, "for successfully completing", 325, regular, 13, muted);
-  center(page, clean(cert.course), 286, bold, 23, ink);
-  center(page, `${clean(cert.program)}  |  Duration: ${clean(cert.duration)}`, 256, regular, 13, muted);
-  center(page, `Completed on ${new Date(cert.completion_date + "T00:00:00Z").toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric", timeZone:"UTC" })}`, 230, regular, 12, muted);
+  center(page, `Son / daughter of ${clean(cert.father_name)}`, 331, regular, 12, muted);
+  center(page, "for successfully completing", 306, regular, 13, muted);
+  center(page, clean(cert.course), 271, bold, 23, ink);
+  center(page, `${clean(cert.program)}  |  Duration: ${clean(cert.duration)}`, 243, regular, 13, muted);
+  center(page, `Completed on ${new Date(cert.completion_date + "T00:00:00Z").toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric", timeZone:"UTC" })}`, 219, regular, 12, muted);
 
   if (cert.signature_url) {
     try {

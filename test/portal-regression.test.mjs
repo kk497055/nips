@@ -22,6 +22,7 @@ test("portal inline scripts parse", () => {
     "portal/orientation.html",
     "portal/admin-batch.html",
     "portal/admin-certificates.html",
+    "portal/teacher-apply.html",
   ]) {
     for (const script of inlineScripts(read(file))) {
       assert.doesNotThrow(() => new Function(script), `${file} has a parse error`);
@@ -745,9 +746,40 @@ test("teacher profiles remain private and support staff allocation and appointme
   assert.match(migration, /teacher_profiles_self/);
   assert.match(migration, /teacher_profiles_admin/);
   assert.match(teacher, /My Professional Profile/);
-  assert.match(teacher, /compensation_amount/);
+  assert.doesNotMatch(teacher, /tp-comp-amount|tp-joining|tp-bank|tp-iban/, "teacher self-service must not expose employment or payment fields");
+  assert.match(admin, /compensation_amount/, "employment and payment fields remain available to administrators");
   assert.match(admin, /Assign to batch/);
   assert.match(admin, /Send appointment letter/);
   assert.match(admin, /Edit teacher profile/);
   assert.match(appointment, /Appointment confirmation/);
+});
+
+test("faculty applications are gated, reviewable and send lifecycle emails", () => {
+  const login = read("portal/login.html");
+  const apply = read("portal/teacher-apply.html");
+  const admin = read("portal/admin.html");
+  const migration = read("supabase/migrations/20260924020000_teacher_applications.sql");
+  const submit = read("supabase/functions/teacher-application/index.ts");
+  const review = read("supabase/functions/admin-teacher-application/index.ts");
+  assert.match(login, /Apply as faculty/);
+  assert.match(apply, /does not create teacher access/);
+  assert.match(migration, /create table if not exists public\.teacher_applications/);
+  assert.match(migration, /revoke all on table public\.teacher_applications from anon/);
+  assert.match(admin, /Faculty Applications/);
+  assert.match(admin, /Approve as teacher/);
+  assert.match(submit, /Faculty application received/);
+  assert.match(review, /Faculty application approved/);
+  assert.match(review, /generateLink\(\{type:"recovery"/);
+});
+
+test("certificates snapshot father name and use the verified CEO signature asset", () => {
+  const migration = read("supabase/migrations/20260924020000_teacher_applications.sql");
+  const admin = read("portal/admin-certificates.html");
+  const pdf = read("supabase/functions/certificate-pdf/index.ts");
+  const verify = read("verify-certificate.html");
+  assert.match(migration, /add column if not exists father_name/);
+  assert.match(migration, /ceo-signature-transparent\.png/);
+  assert.match(admin, /Father \/ guardian name/);
+  assert.match(pdf, /Son \/ daughter of/);
+  assert.match(verify, /Father \/ guardian/);
 });

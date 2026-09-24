@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <title>Apply as Faculty — NIPS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="portal.css?v=17" />
+</head>
+<body>
+  <div class="topbar"><div class="brand"><img src="../assets/nips-logo-1.png" alt="NIPS" onerror="this.style.display='none'"/> NIPS Portal</div><div class="right"><a class="btn ghost sm" href="login.html">Sign in</a></div></div>
+  <main class="wrap" style="max-width:900px">
+    <p class="eyebrow">Faculty application</p>
+    <h1>Teach with NIPS</h1>
+    <p class="sub">Submit your professional details for review. Applying does not create teacher access; an administrator must approve your application first.</p>
+    <div class="card">
+      <div class="msg" id="application-msg"></div>
+      <div class="template-form-grid">
+        <div class="field"><label>Full name *</label><input id="full-name" maxlength="160" autocomplete="name" /></div>
+        <div class="field"><label>Email *</label><input id="email" type="email" maxlength="254" autocomplete="email" /></div>
+        <div class="field"><label>Phone *</label><input id="phone" maxlength="50" autocomplete="tel" /></div>
+        <div class="field"><label>City</label><input id="city" maxlength="100" /></div>
+        <div class="field"><label>Highest qualification</label><input id="qualification" maxlength="200" /></div>
+        <div class="field"><label>Board / awarding body</label><input id="board" maxlength="160" /></div>
+        <div class="field"><label>Years of experience</label><input id="experience" type="number" min="0" step="0.5" /></div>
+        <div class="field"><label>Other subject</label><input id="other-subject" maxlength="160" /></div>
+        <div class="field" style="grid-column:1/-1"><label>Teaching subjects *</label><div class="row-actions" id="subjects"></div></div>
+        <div class="field" style="grid-column:1/-1"><label>Professional summary</label><textarea id="message" rows="4" maxlength="1500" placeholder="Briefly describe your teaching experience and availability."></textarea></div>
+      </div>
+      <label class="consent"><input id="consent" type="checkbox" /> I confirm that these details are accurate and may be reviewed by NIPS for faculty recruitment.</label>
+      <div class="row-actions" style="margin-top:16px"><button class="btn green" id="submit-application">Submit application</button><a class="btn soft" href="login.html">Back to sign in</a></div>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js?v=10"></script>
+  <script>
+    const options=[["physics","Physics"],["maths","Mathematics"],["chemistry","Chemistry"],["biology","Biology"],["computer","Computer"],["english","English"],["accounting","Accounting"],["painting","Painting"],["calligraphy","Calligraphy"],["sketching","Sketching"],["other","Other"]];
+    document.getElementById("subjects").innerHTML=options.map(([v,l])=>`<label class="consent"><input type="checkbox" name="subject" value="${v}"/> ${l}</label>`).join("");
+    const show=(text,ok=false)=>{const msg=document.getElementById("application-msg");msg.className="msg "+(ok?"ok":"err");msg.textContent=text};
+    document.getElementById("submit-application").onclick=async()=>{
+      const button=document.getElementById("submit-application"),value=id=>document.getElementById(id).value.trim();
+      if(!document.getElementById("consent").checked)return show("Please confirm the declaration before submitting.");
+      const payload={full_name:value("full-name"),email:value("email"),phone:value("phone"),city:value("city"),qualification:value("qualification"),education_board:value("board"),experience_years:value("experience"),other_subject:value("other-subject"),message:value("message"),subjects:[...document.querySelectorAll('[name="subject"]:checked')].map(x=>x.value)};
+      button.disabled=true;button.textContent="Submitting…";
+      const response=await fetch(`${SUPABASE_URL}/functions/v1/teacher-application`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const body=await response.json().catch(()=>({}));button.disabled=false;button.textContent="Submit application";
+      if(!response.ok)return show(body.error||"The application could not be submitted.");
+      document.querySelectorAll("input,textarea").forEach(input=>{if(input.type==="checkbox")input.checked=false;else input.value=""});
+      show("Application received. Check your email for confirmation; NIPS will email you when the status changes.",true);
+    };
+  </script>
+</body>
+</html>
