@@ -475,9 +475,11 @@
     }
 
     async function refreshLive() {
+      await sb.rpc("close_stale_class_sessions");
       const heartbeatCutoff = new Date(Date.now() - 150 * 1000).toISOString();
+      const now = new Date().toISOString();
       const { data: live } = await sb.from("sessions")
-        .select("batch_id,started_at,last_heartbeat_at").is("ended_at", null).gt("last_heartbeat_at", heartbeatCutoff);
+        .select("batch_id,started_at,last_heartbeat_at,scheduled_end_at").is("ended_at", null).gt("last_heartbeat_at", heartbeatCutoff).gt("scheduled_end_at", now);
       const el = document.getElementById("live-banner");
       if (!live || !live.length) { el.innerHTML = ""; return; }
       const ids = [...new Set(live.map(s => s.batch_id))];

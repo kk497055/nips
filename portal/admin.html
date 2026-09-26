@@ -112,6 +112,7 @@
           </div>
           <div class="field"><label>Start Date *</label><input id="b-date" type="date"/></div>
           <div class="field"><label>Class Time *</label><input id="b-time" type="time"/></div>
+          <div class="field"><label>Class duration (minutes) *</label><input id="b-duration" type="number" min="15" max="480" step="15" value="60"/></div>
           <div class="field"><label>Subject *</label><select id="b-subject"><option value="">— select subject —</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
           <div class="field"><label>Session *</label><select id="b-period"><option value="">— select session —</option><option value="morning">Morning</option><option value="evening">Evening</option></select></div>
           <div class="field" style="grid-column:1 / -1"><label>Class Days</label>
@@ -161,6 +162,7 @@
           <div class="field"><label>Batch Name *</label><input id="eb-name"/></div>
           <div class="field"><label>Category</label><input id="eb-category" placeholder="e.g. Intermediate"/></div>
           <div class="field"><label>Schedule</label><input id="eb-schedule" placeholder="e.g. Mon/Wed · 18:00 (from 2026-01-01)"/></div>
+          <div class="field"><label>Class duration (minutes)</label><input id="eb-duration" type="number" min="15" max="480" step="15"/></div>
           <div class="field"><label>Fee (PKR)</label><input id="eb-fee" type="number" min="0" step="1"/></div>
           <div class="field"><label>Primary Teacher</label><select id="eb-teacher"></select></div>
           <div class="field"><label>Room slug</label><input id="eb-room"/></div>
@@ -933,6 +935,7 @@
       const feeRaw = document.getElementById("b-fee").value.trim();
       const subject_key = document.getElementById("b-subject").value;
       const session_period = document.getElementById("b-period").value;
+      const class_duration_minutes = Number(document.getElementById("b-duration").value);
       const days = [...document.querySelectorAll("#b-days input:checked")].map(c => c.value);
 
       // --- validation ---
@@ -943,6 +946,7 @@
       if (!time) return showBatchMsg("Please pick a class time.");
       if (!subject_key) return showBatchMsg("Please select a subject.");
       if (!session_period) return showBatchMsg("Please select morning or evening.");
+      if (!Number.isInteger(class_duration_minutes) || class_duration_minutes < 15 || class_duration_minutes > 480) return showBatchMsg("Class duration must be between 15 and 480 minutes.");
       let fee = 0;
       if (feeRaw !== "") {
         fee = Number(feeRaw);
@@ -962,7 +966,7 @@
       btn.disabled = true; btn.textContent = "Creating…";
       const { error } = await sb.from("batches").insert({
         name, category, schedule, fee, teacher_id: teacher, jitsi_room: room,
-        subject_key, session_period, live_class_url: document.getElementById("b-live-url").value.trim() || null, monthly_billing_enabled
+        subject_key, session_period, class_duration_minutes, live_class_url: document.getElementById("b-live-url").value.trim() || null, monthly_billing_enabled
       });
       btn.disabled = false; btn.textContent = "Create Batch";
       if (error) return showBatchMsg("Error: " + error.message);
@@ -1195,6 +1199,7 @@
       document.getElementById("eb-name").value = batch.name || "";
       document.getElementById("eb-category").value = batch.category || "";
       document.getElementById("eb-schedule").value = batch.schedule || "";
+      document.getElementById("eb-duration").value = batch.class_duration_minutes || 60;
       document.getElementById("eb-fee").value = batch.fee ?? 0;
       document.getElementById("eb-room").value = batch.jitsi_room || "";
       document.getElementById("eb-subject").value = batch.subject_key || "";
@@ -1214,9 +1219,11 @@
       const name = document.getElementById("eb-name").value.trim();
       const fee = Number(document.getElementById("eb-fee").value);
       const room = document.getElementById("eb-room").value.trim();
+      const classDuration = Number(document.getElementById("eb-duration").value);
       if (!name) return show("Batch name is required.");
       if (!Number.isFinite(fee) || fee < 0) return show("Fee must be a number of 0 or more.");
       if (!room) return show("Room slug is required.");
+      if (!Number.isInteger(classDuration) || classDuration < 15 || classDuration > 480) return show("Class duration must be between 15 and 480 minutes.");
       const btn = document.getElementById("save-batch");
       const currentBatch = (window._batchList || []).find(batch => batch.id === editingBatchId);
       const nextTeacherId = document.getElementById("eb-teacher").value || null;
@@ -1225,6 +1232,7 @@
         name,
         category: document.getElementById("eb-category").value.trim() || null,
         schedule: document.getElementById("eb-schedule").value.trim() || null,
+        class_duration_minutes: classDuration,
         fee,
         jitsi_room: room,
         subject_key: document.getElementById("eb-subject").value || null,

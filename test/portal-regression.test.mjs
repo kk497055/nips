@@ -100,6 +100,9 @@ test("live classrooms expire stale sessions and attendance is absent until marke
   assert.match(classroom, /last_heartbeat_at/);
   assert.match(classroom, /setInterval\(\(\) => patchSession/);
   assert.match(student, /close_stale_class_sessions/);
+  assert.match(student, /gt\("scheduled_end_at", now\)/);
+  assert.match(classroom, /scheduled_end_at: scheduledEndAt/);
+  assert.match(classroom, /setTimeout\(endSession, durationMinutes \* 60000\)/);
   assert.match(student, /gt\("last_heartbeat_at", heartbeatCutoff\)/);
   assert.match(teacher, /statusOf\[s\.id\]\|\|"absent"/);
   assert.match(migration, /interval '150 seconds'/);

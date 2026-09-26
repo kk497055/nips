@@ -59,6 +59,7 @@
       // makes mobile/tab closures self-expiring even when pagehide never fires.
       let sessionId = null;
       let heartbeatTimer = null;
+      let absoluteEndTimer = null;
       const patchSession = (payload, keepalive = false) => {
         if (!sessionId) return Promise.resolve();
         return fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sessionId)}`, {
@@ -72,14 +73,22 @@
         await sb.from("sessions").update({ ended_at: new Date().toISOString() })
           .eq("batch_id", batchId).eq("created_by", profile.id).is("ended_at", null);
         const now = new Date().toISOString();
+        const { data: batchTiming } = await sb.from("batches").select("class_duration_minutes").eq("id", batchId).single();
+        const durationMinutes = Math.min(480, Math.max(15, Number(batchTiming?.class_duration_minutes || 60)));
+        const scheduledEndAt = new Date(Date.now() + durationMinutes * 60000).toISOString();
         const { data } = await sb.from("sessions")
-          .insert({ batch_id: batchId, title: tok.room, created_by: profile.id, last_heartbeat_at: now }).select().single();
+          .insert({ batch_id: batchId, title: tok.room, created_by: profile.id, last_heartbeat_at: now, scheduled_end_at: scheduledEndAt }).select().single();
         sessionId = data?.id || null;
-        if (sessionId) heartbeatTimer = setInterval(() => patchSession({ last_heartbeat_at: new Date().toISOString() }), 20000);
+        if (sessionId) {
+          heartbeatTimer = setInterval(() => patchSession({ last_heartbeat_at: new Date().toISOString() }), 20000);
+          absoluteEndTimer = setTimeout(endSession, durationMinutes * 60000);
+        }
       };
       const endSession = () => {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
+        if (absoluteEndTimer) clearTimeout(absoluteEndTimer);
         heartbeatTimer = null;
+        absoluteEndTimer = null;
         if (sessionId) { patchSession({ ended_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() }, true); sessionId = null; }
       };
       if (isTeacher) window.addEventListener("pagehide", endSession);
