@@ -89,6 +89,8 @@ test("embedded video classes disable participant chat", () => {
   assert.match(classroom, /hideDisplayName:\s*true/);
   assert.match(classroom, /HIDE_DISPLAY_NAME:\s*true/);
   assert.doesNotMatch(classroom, /\['microphone','camera'[^\]]*'chat'/);
+  assert.match(classroom, /id="switch-camera"/);
+  assert.match(classroom, /executeCommand\("toggleCamera"\)/);
 });
 
 test("live classrooms expire stale sessions and attendance is absent until marked", () => {

@@ -14,12 +14,18 @@
     #jitsi{height:calc(100vh - 58px);width:100%}
     .cbar{background:var(--primary);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
     .cbar .info{font-family:'Outfit',sans-serif;font-weight:600}
+    #switch-camera{display:none}
+    @media (max-width:900px), (pointer:coarse){
+      .cbar{gap:10px;padding:9px 12px}
+      .cbar>div:last-child{display:flex;align-items:center;gap:8px}
+      #switch-camera.available{display:inline-flex}
+    }
   </style>
 </head>
 <body data-portal-footer="false">
   <div class="cbar">
     <div class="info" id="title">Loading class…</div>
-    <div><a class="btn ghost sm" id="back">← Leave</a></div>
+    <div><button class="btn ghost sm" id="switch-camera" type="button" aria-label="Switch between front and rear camera">Switch camera</button><a class="btn ghost sm" id="back">← Leave</a></div>
   </div>
   <div id="jitsi"></div>
 
@@ -118,7 +124,16 @@
         }
       });
 
-      api.addEventListener("videoConferenceJoined", startSession);
+      const switchCamera = document.getElementById("switch-camera");
+      switchCamera.addEventListener("click", () => {
+        // Jitsi's mobile-web command alternates between user-facing and
+        // environment-facing cameras without exposing the full settings UI.
+        api.executeCommand("toggleCamera");
+      });
+      api.addEventListener("videoConferenceJoined", () => {
+        switchCamera.classList.add("available");
+        startSession();
+      });
       api.addEventListener("videoConferenceLeft", endSession);
       api.addEventListener("readyToClose", () => { endSession(); location.href = document.getElementById("back").href; });
     })();
