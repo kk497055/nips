@@ -82,13 +82,14 @@ test("admin can safely edit a batch and add students from its batch card", () =>
   assert.doesNotMatch(admin, /from\("enrollments"\)\.delete\(/, "student management must not remove enrollments");
 });
 
-test("embedded video classes disable participant chat", () => {
+test("embedded video classes allow shared chat but disable private chat", () => {
   const classroom = read("portal/classroom.html");
 
-  assert.match(classroom, /disableChat:\s*true/);
+  assert.match(classroom, /disableChat:\s*false/);
+  assert.match(classroom, /disablePrivateChat:\s*'all'/);
   assert.match(classroom, /hideDisplayName:\s*true/);
   assert.match(classroom, /HIDE_DISPLAY_NAME:\s*true/);
-  assert.doesNotMatch(classroom, /\['microphone','camera'[^\]]*'chat'/);
+  assert.match(classroom, /\['microphone','camera'[^\]]*'chat'/);
   assert.match(classroom, /id="switch-camera"/);
   assert.match(classroom, /executeCommand\("toggleCamera"\)/);
 });

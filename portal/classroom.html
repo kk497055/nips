@@ -107,20 +107,23 @@
         configOverwrite: {
           startWithAudioMuted: !tok.moderator,
           prejoinPageEnabled: false,
-          disableChat: true,
+          disableChat: false,
+          // Keep the shared classroom chat available while preventing direct
+          // participant-to-participant messages.
+          remoteVideoMenu: { disabled: true, disablePrivateChat: 'all' },
           hideDisplayName: true,
           disableParticipantMenu: true,
           filmstrip: { disableResizable: true },
           toolbarButtons: tok.moderator
-            ? ['microphone','camera','desktop','whiteboard','raisehand','tileview','recording','hangup','settings']
-            : ['microphone','camera','whiteboard','raisehand','tileview','hangup'],
+            ? ['microphone','camera','desktop','whiteboard','chat','raisehand','tileview','recording','hangup','settings']
+            : ['microphone','camera','whiteboard','chat','raisehand','tileview','hangup'],
           whiteboard: { enabled: true }
         },
         interfaceConfigOverwrite: {
           HIDE_DISPLAY_NAME: true,
           TOOLBAR_BUTTONS: tok.moderator
-            ? ['microphone','camera','desktop','whiteboard','raisehand','tileview','recording','hangup','settings']
-            : ['microphone','camera','whiteboard','raisehand','tileview','hangup']
+            ? ['microphone','camera','desktop','whiteboard','chat','raisehand','tileview','recording','hangup','settings']
+            : ['microphone','camera','whiteboard','chat','raisehand','tileview','hangup']
         }
       });
 
