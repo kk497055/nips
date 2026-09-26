@@ -17,7 +17,8 @@
     <div class="card">
       <div class="msg" id="application-msg"></div>
       <div class="template-form-grid">
-        <div class="field"><label>Full name *</label><input id="full-name" maxlength="160" autocomplete="name" /></div>
+        <div class="field"><label>First name *</label><input id="first-name" maxlength="80" autocomplete="given-name" /></div>
+        <div class="field"><label>Last name *</label><input id="last-name" maxlength="80" autocomplete="family-name" /></div>
         <div class="field"><label>Email *</label><input id="email" type="email" maxlength="254" autocomplete="email" /></div>
         <div class="field"><label>Phone *</label><input id="phone" maxlength="50" autocomplete="tel" /></div>
         <div class="field"><label>City</label><input id="city" maxlength="100" /></div>
@@ -41,7 +42,7 @@
     document.getElementById("submit-application").onclick=async()=>{
       const button=document.getElementById("submit-application"),value=id=>document.getElementById(id).value.trim();
       if(!document.getElementById("consent").checked)return show("Please confirm the declaration before submitting.");
-      const payload={full_name:value("full-name"),email:value("email"),phone:value("phone"),city:value("city"),qualification:value("qualification"),education_board:value("board"),experience_years:value("experience"),other_subject:value("other-subject"),message:value("message"),subjects:[...document.querySelectorAll('[name="subject"]:checked')].map(x=>x.value)};
+      const payload={first_name:value("first-name"),last_name:value("last-name"),email:value("email"),phone:value("phone"),city:value("city"),qualification:value("qualification"),education_board:value("board"),experience_years:value("experience"),other_subject:value("other-subject"),message:value("message"),subjects:[...document.querySelectorAll('[name="subject"]:checked')].map(x=>x.value)};
       button.disabled=true;button.textContent="Submitting…";
       const response=await fetch(`${SUPABASE_URL}/functions/v1/teacher-application`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const body=await response.json().catch(()=>({}));button.disabled=false;button.textContent="Submit application";

@@ -12,13 +12,18 @@ Deno.serve(async req=>{
   if(req.method!=="POST")return json({error:"Method not allowed"},405);
   try{
     const body=await req.json();
-    const full_name=clean(body.full_name,160),email=clean(body.email,254).toLowerCase(),phone=clean(body.phone,50);
+    const legacyName=clean(body.full_name,160).replace(/([a-z])([A-Z])/g,"$1 $2");
+    const legacyParts=legacyName.split(/\s+/).filter(Boolean);
+    const first_name=clean(body.first_name,80)||(legacyParts.shift()||"");
+    const last_name=clean(body.last_name,80)||legacyParts.join(" ");
+    const full_name=`${first_name} ${last_name}`.trim();
+    const email=clean(body.email,254).toLowerCase(),phone=clean(body.phone,50);
     const subjects=[...new Set((Array.isArray(body.subjects)?body.subjects:[]).map((x:unknown)=>clean(x,30).toLowerCase()).filter((x:string)=>SUBJECTS.has(x)))];
-    if(!full_name||!email||!phone)return json({error:"Full name, email and phone are required."},400);
+    if(!first_name||!last_name||!email||!phone)return json({error:"First name, last name, email and phone are required."},400);
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json({error:"Enter a valid email address."},400);
     if(!subjects.length)return json({error:"Choose at least one teaching subject."},400);
     const svc=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
-    const payload={full_name,email,phone,city:clean(body.city,100)||null,qualification:clean(body.qualification,200)||null,education_board:clean(body.education_board,160)||null,subjects,other_subject:clean(body.other_subject,160)||null,experience_years:Number.isFinite(Number(body.experience_years))?Math.max(0,Number(body.experience_years)):null,message:clean(body.message,1500)||null};
+    const payload={first_name,last_name,full_name,email,phone,city:clean(body.city,100)||null,qualification:clean(body.qualification,200)||null,education_board:clean(body.education_board,160)||null,subjects,other_subject:clean(body.other_subject,160)||null,experience_years:Number.isFinite(Number(body.experience_years))?Math.max(0,Number(body.experience_years)):null,message:clean(body.message,1500)||null};
     const{data,error}=await svc.from("teacher_applications").insert(payload).select("id").single();
     if(error){
       if(error.code==="23505")return json({error:"An active faculty application already exists for this email. NIPS will contact you after review."},409);
@@ -29,4 +34,3 @@ Deno.serve(async req=>{
     return json({ok:true,application_id:data.id,email_sent:sent.ok});
   }catch(e){return json({error:String(e instanceof Error?e.message:e)},500)}
 });
-

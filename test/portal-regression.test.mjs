@@ -780,6 +780,7 @@ test("faculty applications are gated, reviewable and send lifecycle emails", () 
   const admin = read("portal/admin.html");
   const applications = read("portal/admin-faculty-applications.html");
   const migration = read("supabase/migrations/20260924020000_teacher_applications.sql");
+  const namesMigration = read("supabase/migrations/20260926010000_teacher_application_names.sql");
   const submit = read("supabase/functions/teacher-application/index.ts");
   const review = read("supabase/functions/admin-teacher-application/index.ts");
   assert.match(login, /Apply as faculty/);
@@ -790,6 +791,12 @@ test("faculty applications are gated, reviewable and send lifecycle emails", () 
   assert.match(admin, /admin-faculty-applications\.html/);
   assert.match(applications, /Approve as teacher/);
   assert.match(applications, /Applicants have no portal or teacher access until approved/);
+  assert.match(apply, /First name \*/);
+  assert.match(apply, /Last name \*/);
+  assert.match(applications, /<th>First name<\/th><th>Last name<\/th>/);
+  assert.match(namesMigration, /add column if not exists first_name/);
+  assert.match(namesMigration, /regexp_replace\(full_name/);
+  assert.match(submit, /first_name,last_name,full_name/);
   assert.match(submit, /Faculty application received/);
   assert.match(review, /Faculty application approved/);
   assert.match(review, /generateLink\(\{type:"recovery"/);
