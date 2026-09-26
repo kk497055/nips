@@ -312,15 +312,19 @@
 
       const { data: enr } = await sb.from("enrollments").select("student_id").eq("batch_id",batchId).eq("payment_status","paid");
       const ids = (enr||[]).map(e=>e.student_id);
-      const { data: profs } = await sb.from("profiles").select("id,full_name").in("id", ids.length?ids:["00000000-0000-0000-0000-000000000000"]);
+      const [{ data: profs }, { data: existing }] = await Promise.all([
+        sb.from("profiles").select("id,full_name").in("id", ids.length?ids:["00000000-0000-0000-0000-000000000000"]),
+        sb.from("attendance").select("student_id,status").eq("batch_id",batchId).eq("session_date",today)
+      ]);
       roster = profs || [];
+      const statusOf = Object.fromEntries((existing || []).map(row => [row.student_id,row.status]));
 
       const list = document.getElementById("att-list");
       list.innerHTML = roster.length ? "" : '<p class="empty">No paid students.</p>';
       roster.forEach(s => {
         list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
           <span>${esc(s.full_name)}</span>
-          <select data-sid="${s.id}"><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option></select>
+          <select data-sid="${s.id}">${["absent","present","late"].map(status=>`<option value="${status}" ${(statusOf[s.id]||"absent")===status?"selected":""}>${status[0].toUpperCase()+status.slice(1)}</option>`).join("")}</select>
         </div>`;
       });
       document.getElementById("att").style.display = "flex";

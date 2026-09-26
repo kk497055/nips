@@ -1020,7 +1020,7 @@
             : `<a class="btn green sm" href="classroom.html?batch=${b.id}">Join</a>
             <a class="btn green sm" href="admin-batch.html?id=${encodeURIComponent(b.id)}">Students</a>
             <button class="btn soft sm" onclick="openBatchEditor('${b.id}')">Edit Batch</button>
-            <button class="btn sm" onclick="assignTeacher('${b.id}')">Assign Primary</button>
+            <button class="btn sm" onclick="assignTeacher('${b.id}')">${b.teacher_id ? "Replace Primary Teacher" : "Assign Primary Teacher"}</button>
             <button class="btn soft sm" onclick="addCoTeacher('${b.id}')">Add Co-teacher</button>
             <button class="btn soft sm" onclick="removeCoTeacher('${b.id}')">Remove Co-teacher</button>
             <button class="btn sm" onclick="toggleBatch('${b.id}',true)">Deactivate</button>
@@ -1079,14 +1079,20 @@
     }
 
     async function assignTeacher(batchId) {
-      const { data: teachers } = await sb.from("profiles").select("id,full_name").eq("role","teacher");
+      const batch = (window._batchList || []).find(item => item.id === batchId);
+      const { data: teachers } = await sb.from("profiles").select("id,full_name").eq("role","teacher").eq("is_active",true);
       if (!teachers || !teachers.length) return alert("No teachers yet. Promote a user to Teacher first.");
-      const list = teachers.map((t,i)=>`${i+1}. ${t.full_name}`).join("\n");
-      const pick = prompt("Assign which teacher?\n"+list+"\n\nEnter number:");
+      const available = teachers.filter(teacher => teacher.id !== batch?.teacher_id);
+      if (!available.length) return alert("No other active teacher is available.");
+      const list = available.map((t,i)=>`${i+1}. ${t.full_name}`).join("\n");
+      const pick = prompt(`${batch?.teacher_id ? "Replace the current primary teacher with" : "Assign"} which teacher?\n${list}\n\nEnter number:`);
       const idx = parseInt(pick)-1;
-      if (isNaN(idx) || !teachers[idx]) return;
-      const { error } = await sb.from("batches").update({ teacher_id: teachers[idx].id }).eq("id",batchId);
+      if (isNaN(idx) || !available[idx]) return;
+      const oldName = (window._teacherList || []).find(t => t.id === batch?.teacher_id)?.full_name || "Unassigned";
+      if (batch?.teacher_id && !confirm(`Replace ${oldName} with ${available[idx].full_name} as primary teacher for ${batch.name}? The former teacher will immediately lose access unless separately assigned to another batch.`)) return;
+      const { error } = await sb.rpc("admin_replace_batch_teacher", { p_batch_id: batchId, p_new_teacher_id: available[idx].id });
       if (error) return alert("Error: "+error.message);
+      alert(`${available[idx].full_name} is now the primary teacher for ${batch?.name || "the batch"}.`);
       loadBatches();
     }
 
@@ -1212,13 +1218,14 @@
       if (!Number.isFinite(fee) || fee < 0) return show("Fee must be a number of 0 or more.");
       if (!room) return show("Room slug is required.");
       const btn = document.getElementById("save-batch");
+      const currentBatch = (window._batchList || []).find(batch => batch.id === editingBatchId);
+      const nextTeacherId = document.getElementById("eb-teacher").value || null;
       btn.disabled = true; btn.textContent = "Saving…";
       const { error } = await sb.from("batches").update({
         name,
         category: document.getElementById("eb-category").value.trim() || null,
         schedule: document.getElementById("eb-schedule").value.trim() || null,
         fee,
-        teacher_id: document.getElementById("eb-teacher").value || null,
         jitsi_room: room,
         subject_key: document.getElementById("eb-subject").value || null,
         session_period: document.getElementById("eb-period").value || null,
@@ -1226,8 +1233,13 @@
         is_active: document.getElementById("eb-active").checked,
         monthly_billing_enabled: document.getElementById("eb-monthly").checked
       }).eq("id", editingBatchId);
+      let teacherError = null;
+      if (!error && currentBatch?.teacher_id !== nextTeacherId) {
+        const result = await sb.rpc("admin_replace_batch_teacher", { p_batch_id: editingBatchId, p_new_teacher_id: nextTeacherId });
+        teacherError = result.error;
+      }
       btn.disabled = false; btn.textContent = "Save Changes";
-      if (error) return show("Error: " + error.message);
+      if (error || teacherError) return show("Error: " + (error || teacherError).message);
       closeBatchEditor();
       await Promise.all([loadBatches(), loadOverview(), loadBulkEnrol(), loadPeople()]);
     };
@@ -1433,7 +1445,7 @@
     async function assignTeacherFromStaff(teacherId) {
       const batches=(window._batches||[]).filter(batch=>batch.teacher_id!==teacherId);if(!batches.length)return alert("No available active batches.");
       const pick=prompt("Assign as primary teacher to which batch?\n"+batches.map((b,i)=>`${i+1}. ${b.name}`).join("\n")+"\n\nEnter number:");const batch=batches[parseInt(pick)-1];if(!batch)return;
-      const{error}=await sb.from("batches").update({teacher_id:teacherId}).eq("id",batch.id);if(error)return alert("Teacher was not assigned: "+error.message);alert(`Teacher assigned to ${batch.name}.`);await loadPeople();
+      const{error}=await sb.rpc("admin_replace_batch_teacher",{p_batch_id:batch.id,p_new_teacher_id:teacherId});if(error)return alert("Teacher was not assigned: "+error.message);alert(`Teacher assigned to ${batch.name}.`);await Promise.all([loadPeople(),loadBatches()]);
     }
     async function sendTeacherAppointment(teacherId,name){if(!confirm(`Send the appointment confirmation letter to ${name}?`))return;const{data:{session}}=await sb.auth.getSession();const response=await fetch(`${SUPABASE_URL}/functions/v1/send-teacher-appointment`,{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({teacher_id:teacherId})});const body=await response.json().catch(()=>({}));if(!response.ok)return alert("Appointment letter was not sent: "+(body.error||"Unknown error"));alert(`Appointment confirmation sent to ${body.email}.`)}
     function closeTeacherProfile(){document.getElementById("teacher-profile-detail").style.display="none"}

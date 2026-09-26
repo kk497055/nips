@@ -54,7 +54,7 @@ test("teacher and admin UX support co-teachers without removing primary teacher"
   assert.match(admin, /Add Co-teacher/);
   assert.match(admin, /Remove Co-teacher/);
   assert.match(admin, /Co-teachers:/);
-  assert.match(admin, /batches"\)\.update\(\{ teacher_id:/, "primary teacher assignment remains backward-compatible");
+  assert.match(admin, /admin_replace_batch_teacher/, "primary teacher replacement uses the audited atomic workflow");
 });
 
 test("admin can safely edit a batch and add students from its batch card", () => {
@@ -86,7 +86,26 @@ test("embedded video classes disable participant chat", () => {
   const classroom = read("portal/classroom.html");
 
   assert.match(classroom, /disableChat:\s*true/);
+  assert.match(classroom, /hideDisplayName:\s*true/);
+  assert.match(classroom, /HIDE_DISPLAY_NAME:\s*true/);
   assert.doesNotMatch(classroom, /\['microphone','camera'[^\]]*'chat'/);
+});
+
+test("live classrooms expire stale sessions and attendance is absent until marked", () => {
+  const classroom = read("portal/classroom.html");
+  const student = read("portal/student.html");
+  const teacher = read("portal/teacher.html");
+  const migration = read("supabase/migrations/20260926000000_class_lifecycle_and_teacher_replacement.sql");
+  assert.match(classroom, /videoConferenceJoined/);
+  assert.match(classroom, /last_heartbeat_at/);
+  assert.match(classroom, /setInterval\(\(\) => patchSession/);
+  assert.match(student, /close_stale_class_sessions/);
+  assert.match(student, /gt\("last_heartbeat_at", heartbeatCutoff\)/);
+  assert.match(teacher, /statusOf\[s\.id\]\|\|"absent"/);
+  assert.match(migration, /interval '150 seconds'/);
+  assert.match(migration, /admin_replace_batch_teacher/);
+  assert.match(migration, /batch_teacher_assignment_history/);
+  assert.doesNotMatch(migration, /delete from public\.sessions|delete from public\.attendance/i);
 });
 
 test("admins can atomically move students and safely retire batches", () => {

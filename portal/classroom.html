@@ -55,19 +55,34 @@
 
       document.getElementById("title").textContent = tok.room;
 
-      // Log the session start (teacher/admin only — RLS blocks students).
-      // Keep the row id so we can mark it ended when the teacher leaves — that
-      // drives the students' "class is live now" banner.
+      // A session starts only after the moderator actually joins. A heartbeat
+      // makes mobile/tab closures self-expiring even when pagehide never fires.
       let sessionId = null;
-      const endSession = () => {
-        if (sessionId) { sb.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId).then(()=>{}); sessionId = null; }
+      let heartbeatTimer = null;
+      const patchSession = (payload, keepalive = false) => {
+        if (!sessionId) return Promise.resolve();
+        return fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sessionId)}`, {
+          method: "PATCH", keepalive,
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
       };
-      if (isTeacher) {
+      const startSession = async () => {
+        if (!isTeacher || sessionId) return;
+        await sb.from("sessions").update({ ended_at: new Date().toISOString() })
+          .eq("batch_id", batchId).eq("created_by", profile.id).is("ended_at", null);
+        const now = new Date().toISOString();
         const { data } = await sb.from("sessions")
-          .insert({ batch_id: batchId, title: tok.room, created_by: profile.id }).select().single();
-        sessionId = data?.id;
-        window.addEventListener("pagehide", endSession);
-      }
+          .insert({ batch_id: batchId, title: tok.room, created_by: profile.id, last_heartbeat_at: now }).select().single();
+        sessionId = data?.id || null;
+        if (sessionId) heartbeatTimer = setInterval(() => patchSession({ last_heartbeat_at: new Date().toISOString() }), 20000);
+      };
+      const endSession = () => {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+        if (sessionId) { patchSession({ ended_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() }, true); sessionId = null; }
+      };
+      if (isTeacher) window.addEventListener("pagehide", endSession);
 
       const api = new JitsiMeetExternalAPI("8x8.vc", {
         roomName: `${tok.appId}/${tok.room}`,
@@ -78,18 +93,24 @@
           startWithAudioMuted: !tok.moderator,
           prejoinPageEnabled: false,
           disableChat: true,
+          hideDisplayName: true,
+          disableParticipantMenu: true,
+          filmstrip: { disableResizable: true },
           toolbarButtons: tok.moderator
             ? ['microphone','camera','desktop','whiteboard','raisehand','tileview','recording','hangup','settings']
             : ['microphone','camera','whiteboard','raisehand','tileview','hangup'],
           whiteboard: { enabled: true }
         },
         interfaceConfigOverwrite: {
+          HIDE_DISPLAY_NAME: true,
           TOOLBAR_BUTTONS: tok.moderator
             ? ['microphone','camera','desktop','whiteboard','raisehand','tileview','recording','hangup','settings']
             : ['microphone','camera','whiteboard','raisehand','tileview','hangup']
         }
       });
 
+      api.addEventListener("videoConferenceJoined", startSession);
+      api.addEventListener("videoConferenceLeft", endSession);
       api.addEventListener("readyToClose", () => { endSession(); location.href = document.getElementById("back").href; });
     })();
   </script>
