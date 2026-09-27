@@ -114,7 +114,7 @@
           <div class="field"><label>Class Time *</label><input id="b-time" type="time"/></div>
           <div class="field"><label>Class duration (minutes) *</label><input id="b-duration" type="number" min="15" max="480" step="15" value="60"/></div>
           <div class="field"><label>Subject *</label><select id="b-subject"><option value="">— select subject —</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
-          <div class="field"><label>Session *</label><select id="b-period"><option value="">— select session —</option><option value="morning">Morning</option><option value="evening">Evening</option></select></div>
+          <div class="field"><label>Session *</label><select id="b-period"><option value="">— select session —</option><option value="morning">Morning</option><option value="evening">Evening</option><option value="night">Night</option></select></div>
           <div class="field" style="grid-column:1 / -1"><label>Class Days</label>
             <div id="b-days" style="display:flex;gap:6px;flex-wrap:wrap">
               <label class="daybtn"><input type="checkbox" value="Mon"/> Mon</label>
@@ -167,7 +167,7 @@
           <div class="field"><label>Primary Teacher</label><select id="eb-teacher"></select></div>
           <div class="field"><label>Room slug</label><input id="eb-room"/></div>
           <div class="field"><label>Subject</label><select id="eb-subject"><option value="">Not specified</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
-          <div class="field"><label>Session</label><select id="eb-period"><option value="">Not specified</option><option value="morning">Morning</option><option value="evening">Evening</option></select></div>
+          <div class="field"><label>Session</label><select id="eb-period"><option value="">Not specified</option><option value="morning">Morning</option><option value="evening">Evening</option><option value="night">Night</option></select></div>
           <div class="field" style="grid-column:1 / -1"><label>External live-class link (optional)</label><input id="eb-live-url" type="url" placeholder="https://zoom.us/… or another meeting link"/></div>
           <div class="field"><label style="display:flex;align-items:center;gap:8px"><input id="eb-active" type="checkbox" style="width:auto"/> Active batch</label></div>
           <div class="field" style="grid-column:1 / -1"><label style="display:flex;align-items:center;gap:8px"><input id="eb-monthly" type="checkbox" style="width:auto"/> Monthly billing (due on the 1st; 7-day grace period; live-class access pauses after grace)</label></div>
@@ -945,7 +945,7 @@
       if (isNaN(Date.parse(date))) return showBatchMsg("Start date is invalid.");
       if (!time) return showBatchMsg("Please pick a class time.");
       if (!subject_key) return showBatchMsg("Please select a subject.");
-      if (!session_period) return showBatchMsg("Please select morning or evening.");
+      if (!session_period) return showBatchMsg("Please select morning, evening, or night.");
       if (!Number.isInteger(class_duration_minutes) || class_duration_minutes < 15 || class_duration_minutes > 480) return showBatchMsg("Class duration must be between 15 and 480 minutes.");
       let fee = 0;
       if (feeRaw !== "") {
@@ -1492,7 +1492,7 @@
       </div><div class="field"><label>Subjects</label><div class="row-actions">${subjectOptions.map(([value,label]) => `<label class="consent"><input type="checkbox" name="spe-subject" value="${value}" ${selectedSubjects.has(value) ? "checked" : ""}/> ${label}</label>`).join("")}</div></div>
       <div class="field"><label>Other subject</label><input id="spe-other" value="${esc(student.other_subject || "")}"/></div>
       <div class="field"><label>Study mode</label><div class="row-actions"><label class="consent"><input type="checkbox" name="spe-mode" value="online" ${selectedModes.has("online") ? "checked" : ""}/> Online</label><label class="consent"><input type="checkbox" name="spe-mode" value="physical" ${selectedModes.has("physical") ? "checked" : ""}/> Physical</label></div></div>
-      <div class="field"><label>Time preference</label><select id="spe-period"><option value="">Not specified</option><option value="morning" ${student.time_preference === "morning" ? "selected" : ""}>Morning</option><option value="evening" ${student.time_preference === "evening" ? "selected" : ""}>Evening</option></select></div>
+      <div class="field"><label>Time preference</label><select id="spe-period"><option value="">Not specified</option><option value="morning" ${student.time_preference === "morning" ? "selected" : ""}>Morning</option><option value="evening" ${student.time_preference === "evening" ? "selected" : ""}>Evening</option><option value="night" ${student.time_preference === "night" ? "selected" : ""}>Night</option></select></div>
       <div class="row-actions"><button class="btn green" onclick="saveStudentProfileEditor()">Save profile</button><button class="btn soft" onclick="openStudentProfileDetail('${student.id}')">Cancel</button></div>`;
     }
 

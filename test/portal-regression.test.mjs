@@ -706,6 +706,18 @@ test("student profiles and subject-based batch matching are additive and pending
   assert.match(admin, /profile_submitted_at/);
 });
 
+test("night sessions are available across batch and student workflows", () => {
+  const admin = read("portal/admin.html");
+  const student = read("portal/student.html");
+  const contact = read("contact.html");
+  const migration = read("supabase/migrations/20260928000000_night_batch_sessions.sql");
+  assert.match(admin, /value="night">Night/);
+  assert.match(student, /value="night"/);
+  assert.match(contact, /value="Night">Night/);
+  assert.match(migration, /'morning','evening','night'/);
+  assert.match(migration, /when 'night' then 'NGT'/);
+});
+
 test("mobile public navigation keeps the portal entry visible", () => {
   const css = read("css/style.css");
   for (const page of ["index.html", "about.html", "contact.html", "resources.html"]) {
