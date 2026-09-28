@@ -107,13 +107,21 @@
         configOverwrite: {
           startWithAudioMuted: !tok.moderator,
           prejoinPageEnabled: false,
+          resolution: 720,
+          constraints: { video: { height: { ideal: 720, max: 720, min: 360 } } },
+          maxFullResolutionParticipants: 1,
+          channelLastN: tok.moderator ? -1 : 1,
+          startLastN: tok.moderator ? -1 : 1,
           disableChat: false,
           // Keep the shared classroom chat available while preventing direct
           // participant-to-participant messages.
           remoteVideoMenu: { disabled: true, disablePrivateChat: 'all' },
           hideDisplayName: true,
           disableParticipantMenu: true,
-          filmstrip: { disableResizable: true },
+          // Teachers retain the roster filmstrip. Students receive only the
+          // main teaching feed, avoiding name/avatar tiles and saving bandwidth.
+          filmstrip: { disabled: !tok.moderator, disableResizable: true },
+          disableSelfView: !tok.moderator,
           toolbarButtons: tok.moderator
             ? ['microphone','camera','desktop','whiteboard','chat','raisehand','tileview','recording','hangup','settings']
             : ['microphone','camera','whiteboard','chat','raisehand','tileview','hangup'],
@@ -135,6 +143,7 @@
       });
       api.addEventListener("videoConferenceJoined", () => {
         switchCamera.classList.add("available");
+        api.executeCommand("setVideoQuality", 720);
         startSession();
       });
       api.addEventListener("videoConferenceLeft", endSession);

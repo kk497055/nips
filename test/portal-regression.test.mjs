@@ -92,6 +92,10 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(classroom, /\['microphone','camera'[^\]]*'chat'/);
   assert.match(classroom, /id="switch-camera"/);
   assert.match(classroom, /executeCommand\("toggleCamera"\)/);
+  assert.match(classroom, /filmstrip:\s*\{\s*disabled:\s*!tok\.moderator/);
+  assert.match(classroom, /channelLastN:\s*tok\.moderator\s*\?\s*-1\s*:\s*1/);
+  assert.match(classroom, /executeCommand\("setVideoQuality",\s*720\)/);
+  assert.match(classroom, /height:\s*\{\s*ideal:\s*720,\s*max:\s*720,\s*min:\s*360\s*\}/);
 });
 
 test("live classrooms expire stale sessions and attendance is absent until marked", () => {
