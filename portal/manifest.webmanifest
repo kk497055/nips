@@ -9,7 +9,7 @@
   "background_color": "#0f3321",
   "theme_color": "#1a5336",
   "icons": [
-    { "src": "/assets/nips-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/assets/nips-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/assets/nips-logo-transparent-v2.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/nips-logo-transparent-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
