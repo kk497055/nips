@@ -754,9 +754,19 @@ test("student directory supports safe multi-select batch actions", () => {
   assert.match(admin, /data-student-select-all/);
   assert.match(admin, /function bulkStudentEnrol\(status\)/);
   assert.match(admin, /function bulkRemoveStudentsFromBatch\(\)/);
+  assert.match(admin, /function bulkDeleteUnenrolledStudents\(\)/);
+  assert.match(admin, /admin-delete-unenrolled-students/);
   assert.match(admin, /admin_remove_student_from_batch/);
-  assert.match(admin, /accounts, payments, attendance and history will remain/);
+  assert.match(admin, /This changes batch membership only/);
   assert.doesNotMatch(admin, /from\("profiles"\)\.delete\(|deleteUser\(/);
+});
+
+test("unenrolled student deletion is admin-only and refuses enrolled accounts", () => {
+  const fn = read("supabase/functions/admin-delete-unenrolled-students/index.ts");
+  assert.match(fn, /admin\?\.role !== "admin"/);
+  assert.match(fn, /from\("enrollments"\)/);
+  assert.match(fn, /Cannot delete a student who belongs to a batch/);
+  assert.match(fn, /auth\.admin\.deleteUser/);
 });
 
 test("batch students use a dedicated searchable paginated admin page", () => {

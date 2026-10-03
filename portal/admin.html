@@ -351,7 +351,7 @@
       <div id="student-bulk-actions" class="card student-bulk-actions" hidden>
         <div>
           <strong>Bulk student actions</strong>
-          <p class="meta">Select students in the list, then choose a batch. Removing affects only that batch membership—the student account and history remain intact.</p>
+          <p class="meta">Select one or more students. Choose a batch for enrolment or batch removal; unenrolled accounts can be deleted separately.</p>
         </div>
         <div class="student-bulk-controls">
           <div class="field"><label>Target batch</label><select id="student-bulk-batch"><option value="">— select batch —</option></select></div>
@@ -361,6 +361,7 @@
             <button class="btn soft sm" onclick="bulkStudentEnrol('demo')">Enrol demo</button>
             <button class="btn green sm" onclick="bulkStudentEnrol('paid')">Enrol + mark paid</button>
             <button class="btn danger sm" onclick="bulkRemoveStudentsFromBatch()">Remove from batch</button>
+            <button class="btn danger sm" onclick="bulkDeleteUnenrolledStudents()">Delete unenrolled accounts</button>
             <button class="btn soft sm" onclick="clearStudentSelection()">Clear selection</button>
           </div>
         </div>
@@ -1466,12 +1467,31 @@
       if (!batch) return showStudentBulkMessage("Select the batch to remove them from.");
       const enrolledIds = studentIds.filter(id => (window._peopleById[id]?.batchMemberships || []).some(item => item.id === batchId));
       if (!enrolledIds.length) return showStudentBulkMessage("None of the selected students are enrolled in that batch.");
-      if (!confirm(`Remove ${enrolledIds.length} selected student(s) from ${batch.name}? Their accounts, payments, attendance and history will remain.`)) return;
+      if (!confirm(`Remove ${enrolledIds.length} selected student(s) from ${batch.name}? This changes batch membership only.`)) return;
       const results = await Promise.all(enrolledIds.map(studentId => sb.rpc("admin_remove_student_from_batch", { p_batch_id: batchId, p_student_id: studentId })));
       const failures = results.filter(result => result.error).length;
       if (failures) return showStudentBulkMessage(`${failures} removal(s) failed. No student accounts were deleted.`);
       clearStudentSelection();
-      showStudentBulkMessage(`${enrolledIds.length} student(s) removed from ${batch.name}. Their accounts and history were preserved.`, true);
+      showStudentBulkMessage(`${enrolledIds.length} student(s) removed from ${batch.name}.`, true);
+      await Promise.all([loadPeople(), loadOverview()]);
+    }
+    async function bulkDeleteUnenrolledStudents() {
+      const studentIds = selectedStudentIds();
+      if (!studentIds.length) return showStudentBulkMessage("Select at least one student.");
+      const enrolled = studentIds.filter(id => (window._peopleById[id]?.batchMemberships || []).length);
+      if (enrolled.length) return showStudentBulkMessage(`${enrolled.length} selected student(s) still belong to a batch. Remove them from every batch before deleting their accounts.`);
+      const names = studentIds.map(id => window._peopleById[id]?.full_name || "Student");
+      if (!confirm(`Permanently delete ${studentIds.length} unenrolled student account(s)?\n\n${names.slice(0, 8).join("\n")}${names.length > 8 ? `\n…and ${names.length - 8} more` : ""}\n\nThis cannot be undone.`)) return;
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return showStudentBulkMessage("Your session has expired. Sign in again.");
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-delete-unenrolled-students`, {
+        method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ user_ids: studentIds })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) return showStudentBulkMessage(body.error || "The accounts could not be deleted.");
+      clearStudentSelection();
+      showStudentBulkMessage(`${body.deleted || 0} unenrolled student account(s) deleted.${body.failed?.length ? ` ${body.failed.length} account(s) were protected by related records and were not deleted.` : ""}`, true);
       await Promise.all([loadPeople(), loadOverview()]);
     }
 
@@ -1526,7 +1546,7 @@
           ${view === "students" ? `<td data-label="Select"><input type="checkbox" data-student-row-select="${u.id}" onchange="toggleStudentSelection('${u.id}', this.checked)" ${window._studentSelection.has(u.id) ? "checked" : ""} aria-label="Select ${esc(u.full_name)}"/></td>` : ""}
           <td data-label="Name">${u.role === "student" ? `<button class="person-name-button" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
           ${view === "students" ? `<td data-label="Contact"><span class="breakable">${esc(u.contact.email || "—")}</span><br><span class="meta">WhatsApp: ${esc(u.contact.phone || "—")}</span></td><td data-label="Batch">${esc((u.batchNames || []).join(", ") || "Not enrolled")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : view === "staff" ? `<td data-label="Contact"><span class="breakable">${esc(u.teacherProfile.contact_email || "—")}</span><br><span class="meta">${esc(u.teacherProfile.phone || "—")}</span></td><td data-label="Subjects">${esc((u.teacherProfile.subjects || []).join(", ") || "—")}</td>` : ""}
-          <td data-label="Role"><span class="badge">${u.role}</span>${view === "staff" ? `<br><span class="pill ${u.is_active === false ? "pending" : "paid"}">${u.is_active === false ? "inactive" : "active"}</span>` : ""}</td>
+          ${view === "staff" ? `<td data-label="Role"><span class="badge">${u.role}</span><br><span class="pill ${u.is_active === false ? "pending" : "paid"}">${u.is_active === false ? "inactive" : "active"}</span></td>
           <td data-label="Actions" class="people-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `<details class="action-menu"><summary>Manage</summary><div class="action-menu-panel">
             ${u.role!=='admin'?`<button class="btn danger sm" onclick="setRole('${u.id}','admin')">Make Admin</button>`:''}
@@ -1535,15 +1555,15 @@
             <button class="btn soft sm" data-name="${esc(u.full_name)}" onclick="sendPasswordReset('${u.id}', this.dataset.name)">Send password reset</button>
             ${view === "staff" ? `<button class="btn ${u.is_active === false ? "green" : "danger"} sm" data-name="${esc(u.full_name)}" onclick="setStaffActive('${u.id}', ${u.is_active === false}, this.dataset.name)">${u.is_active === false ? "Reactivate staff" : "Deactivate staff"}</button>` : ""}
             ${view === "staff" && u.role === "teacher" ? `<button class="btn soft sm" onclick="openTeacherProfile('${u.id}')">Edit teacher profile</button><button class="btn sm" onclick="assignTeacherFromStaff('${u.id}')">Assign to batch</button><button class="btn green sm" data-name="${esc(u.full_name)}" onclick="sendTeacherAppointment('${u.id}',this.dataset.name)">Send appointment letter</button>` : ""}
-            ${u.role==='student'?`<span class="meta">Use the checkbox and bulk actions above for enrolment or batch removal.</span>`:''}</div></details>`}
-          </td>
+            </div></details>`}
+          </td>` : ""}
         </tr>`; };
 
       mountList("people", "people", visiblePeople, {
         placeholder: view === "students" ? "Search students…" : "Search staff by name or role…",
         noun: view === "students" ? "students" : "staff", empty: "No people match your search.", pageSize: 10,
         match: (u, t) => `${u.full_name||''} ${u.contact.email||''} ${u.contact.phone||''} ${(u.batchNames||[]).join(" ")} ${(u.subjects||[]).join(" ")} ${u.student_code||''} ${u.role||''}`.toLowerCase().includes(t),
-        render: (items) => `<div class="people-table-wrap"><table class="people-table"><thead><tr>${view === "students" ? `<th><input type="checkbox" data-student-select-all onchange='toggleVisibleStudents(this, ${JSON.stringify(items.map(item => item.id))})' aria-label="Select students on this page"/></th>` : ""}<th>Name</th>${view === "students" ? "<th>Contact</th><th>Batch</th><th>Subjects</th><th>Submitted</th>" : view === "staff" ? "<th>Contact</th><th>Subjects</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
+        render: (items) => `<div class="people-table-wrap"><table class="people-table" data-directory-view="${view}"><thead><tr>${view === "students" ? `<th><input type="checkbox" data-student-select-all onchange='toggleVisibleStudents(this, ${JSON.stringify(items.map(item => item.id))})' aria-label="Select students on this page"/></th>` : ""}<th>Name</th>${view === "students" ? "<th>Contact</th><th>Batch</th><th>Subjects</th><th>Submitted</th>" : view === "staff" ? "<th>Contact</th><th>Subjects</th>" : ""}${view === "staff" ? "<th>Role</th><th>Actions</th>" : ""}</tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
       });
       updateStudentSelectionCount();
     }
