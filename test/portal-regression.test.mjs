@@ -747,6 +747,18 @@ test("admin membership and access controls preserve records", () => {
   assert.doesNotMatch(accessFn, /deleteUser/);
 });
 
+test("student directory supports safe multi-select batch actions", () => {
+  const admin = read("portal/admin.html");
+  assert.match(admin, /id="student-bulk-actions"/);
+  assert.match(admin, /data-student-row-select/);
+  assert.match(admin, /data-student-select-all/);
+  assert.match(admin, /function bulkStudentEnrol\(status\)/);
+  assert.match(admin, /function bulkRemoveStudentsFromBatch\(\)/);
+  assert.match(admin, /admin_remove_student_from_batch/);
+  assert.match(admin, /accounts, payments, attendance and history will remain/);
+  assert.doesNotMatch(admin, /from\("profiles"\)\.delete\(|deleteUser\(/);
+});
+
 test("batch students use a dedicated searchable paginated admin page", () => {
   const admin = read("portal/admin.html");
   const page = read("portal/admin-batch.html");
