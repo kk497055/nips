@@ -1391,11 +1391,12 @@
     };
 
     async function loadPeople() {
-      const [{ data: people }, { data: contacts }, { data: batches }, { data: teacherProfiles }] = await Promise.all([
+      const [{ data: people }, { data: contacts }, { data: batches }, { data: teacherProfiles }, { data: enrollments }] = await Promise.all([
         sb.from("profiles").select("*").order("created_at",{ascending:false}),
         sb.from("student_contacts").select("student_id,phone,email,city,education_board"),
         sb.from("batches").select("id,name,teacher_id").eq("is_active", true),
-        sb.from("teacher_profiles").select("*")
+        sb.from("teacher_profiles").select("*"),
+        sb.from("enrollments").select("student_id,batches(id,name,is_active)")
       ]);
       const box = document.getElementById("people");
       window._batches = batches || [];
@@ -1403,7 +1404,11 @@
       const view = window._adminView;
       const contactOf = Object.fromEntries((contacts || []).map(contact => [contact.student_id, contact]));
       const teacherProfileOf = Object.fromEntries((teacherProfiles || []).map(profile => [profile.teacher_id, profile]));
-      const enrichedPeople = (people || []).map(person => ({ ...person, contact: contactOf[person.id] || {}, teacherProfile: teacherProfileOf[person.id] || {} }));
+      const batchNamesByStudent = (enrollments || []).reduce((map, enrollment) => {
+        if (enrollment.batches?.is_active !== false && enrollment.batches?.name) (map[enrollment.student_id] ||= []).push(enrollment.batches.name);
+        return map;
+      }, {});
+      const enrichedPeople = (people || []).map(person => ({ ...person, contact: contactOf[person.id] || {}, teacherProfile: teacherProfileOf[person.id] || {}, batchNames: [...new Set(batchNamesByStudent[person.id] || [])] }));
       window._peopleById = Object.fromEntries(enrichedPeople.map(person => [person.id, person]));
       const subjectFilter = document.getElementById("student-subject-filter");
       document.getElementById("student-filter-tools").hidden = view !== "students";
@@ -1426,7 +1431,7 @@
         const isSelf = u.id === window._meId;
         return `<tr>
           <td data-label="Name">${u.role === "student" ? `<button class="person-name-button" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
-          ${view === "students" ? `<td data-label="Email" class="breakable">${esc(u.contact.email || "—")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : view === "staff" ? `<td data-label="Contact"><span class="breakable">${esc(u.teacherProfile.contact_email || "—")}</span><br><span class="meta">${esc(u.teacherProfile.phone || "—")}</span></td><td data-label="Subjects">${esc((u.teacherProfile.subjects || []).join(", ") || "—")}</td>` : ""}
+          ${view === "students" ? `<td data-label="Contact"><span class="breakable">${esc(u.contact.email || "—")}</span><br><span class="meta">WhatsApp: ${esc(u.contact.phone || "—")}</span></td><td data-label="Batch">${esc((u.batchNames || []).join(", ") || "Not enrolled")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : view === "staff" ? `<td data-label="Contact"><span class="breakable">${esc(u.teacherProfile.contact_email || "—")}</span><br><span class="meta">${esc(u.teacherProfile.phone || "—")}</span></td><td data-label="Subjects">${esc((u.teacherProfile.subjects || []).join(", ") || "—")}</td>` : ""}
           <td data-label="Role"><span class="badge">${u.role}</span>${view === "staff" ? `<br><span class="pill ${u.is_active === false ? "pending" : "paid"}">${u.is_active === false ? "inactive" : "active"}</span>` : ""}</td>
           <td data-label="Actions" class="people-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `<details class="action-menu"><summary>Manage</summary><div class="action-menu-panel">
@@ -1445,8 +1450,8 @@
       mountList("people", "people", visiblePeople, {
         placeholder: view === "students" ? "Search students…" : "Search staff by name or role…",
         noun: view === "students" ? "students" : "staff", empty: "No people match your search.", pageSize: 10,
-        match: (u, t) => `${u.full_name||''} ${u.contact.email||''} ${(u.subjects||[]).join(" ")} ${u.student_code||''} ${u.role||''}`.toLowerCase().includes(t),
-        render: (items) => `<div class="people-table-wrap"><table class="people-table"><thead><tr><th>Name</th>${view === "students" ? "<th>Email</th><th>Subjects</th><th>Submitted</th>" : view === "staff" ? "<th>Contact</th><th>Subjects</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
+        match: (u, t) => `${u.full_name||''} ${u.contact.email||''} ${u.contact.phone||''} ${(u.batchNames||[]).join(" ")} ${(u.subjects||[]).join(" ")} ${u.student_code||''} ${u.role||''}`.toLowerCase().includes(t),
+        render: (items) => `<div class="people-table-wrap"><table class="people-table"><thead><tr><th>Name</th>${view === "students" ? "<th>Contact</th><th>Batch</th><th>Subjects</th><th>Submitted</th>" : view === "staff" ? "<th>Contact</th><th>Subjects</th>" : ""}<th>Role</th><th>Actions</th></tr></thead><tbody>${items.map(rowHtml).join("")}</tbody></table></div>`
       });
     }
 

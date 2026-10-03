@@ -44,11 +44,15 @@
 
       <div id="signup-name" class="field" style="display:none">
         <label>Full Name</label>
-        <input id="name" type="text" placeholder="Your full name" />
+        <input id="name" type="text" placeholder="Your full name" autocomplete="name" />
+      </div>
+      <div id="signup-whatsapp" class="field" style="display:none">
+        <label>WhatsApp Number</label>
+        <input id="whatsapp" type="tel" placeholder="e.g. +92 300 1234567" autocomplete="tel" inputmode="tel" />
       </div>
       <div class="field">
         <label>Email</label>
-        <input id="email" type="email" placeholder="you@example.com" />
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
       </div>
       <div class="field">
         <label>Password</label>
@@ -101,6 +105,7 @@
       document.getElementById("tag").textContent = isUp ? "Create your student account" : "Sign in to your account";
       document.getElementById("submit").textContent = isUp ? "Create Account" : "Sign In";
       document.getElementById("signup-name").style.display = isUp ? "block" : "none";
+      document.getElementById("signup-whatsapp").style.display = isUp ? "block" : "none";
       document.getElementById("signup-confirm").style.display = isUp ? "block" : "none";
       document.getElementById("toggle-text").textContent = isUp ? "Already registered?" : "New student?";
       document.getElementById("toggle").textContent = isUp ? "Sign in" : "Create an account";
@@ -126,14 +131,17 @@
 
       if (mode === "signup") {
         const password2 = document.getElementById("password2").value;
+        const full_name = document.getElementById("name").value.trim();
+        const whatsapp = document.getElementById("whatsapp").value.trim();
+        if (full_name.length < 2) return show("Enter the student's full name.");
+        if (!/^\+?[0-9][0-9 ()-]{8,18}$/.test(whatsapp)) return show("Enter a valid WhatsApp number, including the country code where applicable.");
         if (password.length < 6) return show("Password must be at least 6 characters.");
         if (password !== password2) return show("Passwords do not match.");
-        const full_name = document.getElementById("name").value.trim() || "New User";
         const { error } = await sb.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name },
+            data: { full_name, whatsapp },
             emailRedirectTo: "https://nips.com.pk/portal/login.html"
           }
         });

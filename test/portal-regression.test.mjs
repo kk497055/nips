@@ -320,7 +320,7 @@ test("student administration remains readable on desktop and mobile", () => {
   const css = read("portal/portal.css");
 
   assert.match(admin, /class="people-table"/);
-  assert.match(admin, /data-label="Email" class="breakable"/);
+  assert.match(admin, /data-label="Contact"><span class="breakable"/);
   assert.match(admin, /<details class="action-menu">/);
   assert.match(admin, /class="student-profile-grid"/);
   assert.doesNotMatch(admin, /student-profile-detail-content[\s\S]{0,500}orientation-detail-grid/);
@@ -834,4 +834,30 @@ test("certificates snapshot father name and use the verified CEO signature asset
   assert.match(admin, /Father \/ guardian name/);
   assert.match(pdf, /Son \/ daughter of/);
   assert.match(verify, /Father \/ guardian/);
+});
+
+test("standard student signup requires and captures a WhatsApp number", () => {
+  const login = read("portal/login.html");
+  const migration = read("supabase/migrations/20261004000000_signup_whatsapp_capture.sql");
+  assert.match(login, /id="signup-whatsapp"/);
+  assert.match(login, /id="whatsapp" type="tel"/);
+  assert.match(login, /data: \{ full_name, whatsapp \}/);
+  assert.match(login, /Enter a valid WhatsApp number/);
+  assert.match(migration, /raw_user_meta_data->>'whatsapp'/);
+  assert.match(migration, /insert into public\.student_contacts/);
+});
+
+test("admin student directory shows WhatsApp contact and active batch names", () => {
+  const admin = read("portal/admin.html");
+  assert.match(admin, /enrollments"\)\.select\("student_id,batches\(id,name,is_active\)"\)/);
+  assert.match(admin, /WhatsApp:/);
+  assert.match(admin, /data-label="Batch"/);
+  assert.match(admin, /batchNamesByStudent/);
+});
+
+test("certificate PDF uses the approved transparent NIPS logo and enlarged signature", () => {
+  const pdf = read("supabase/functions/certificate-pdf/index.ts");
+  assert.match(pdf, /nips-logo-transparent-v2\.png/);
+  assert.match(pdf, /logo\.scaleToFit\(59, 59\)/);
+  assert.match(pdf, /image\.scaleToFit\(190, 66\)/);
 });
