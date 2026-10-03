@@ -348,23 +348,19 @@
       <h2 id="people-heading">People</h2>
       <p class="meta" id="people-note" style="margin-bottom:8px">Promote signed-up users to Teacher or Admin, or enrol students into batches after payment review.</p>
       <div id="student-filter-tools" class="field" style="max-width:280px" hidden><label>Filter by subject</label><select id="student-subject-filter"><option value="">All subjects</option><option value="physics">Physics</option><option value="maths">Mathematics</option><option value="chemistry">Chemistry</option><option value="biology">Biology</option><option value="computer">Computer</option><option value="english">English</option><option value="accounting">Accounting</option><option value="other">Other</option></select></div>
-      <div id="student-bulk-actions" class="card student-bulk-actions" hidden>
-        <div>
-          <strong>Bulk student actions</strong>
-          <p class="meta">Select one or more students. Choose a batch for enrolment or batch removal; unenrolled accounts can be deleted separately.</p>
-        </div>
-        <div class="student-bulk-controls">
-          <div class="field"><label>Target batch</label><select id="student-bulk-batch"><option value="">— select batch —</option></select></div>
-          <div class="row-actions">
-            <span class="list-count" id="student-bulk-count">0 selected</span>
-            <button class="btn sm" onclick="bulkStudentEnrol('pending')">Enrol pending</button>
-            <button class="btn soft sm" onclick="bulkStudentEnrol('demo')">Enrol demo</button>
-            <button class="btn green sm" onclick="bulkStudentEnrol('paid')">Enrol + mark paid</button>
-            <button class="btn danger sm" onclick="bulkRemoveStudentsFromBatch()">Remove from batch</button>
-            <button class="btn danger sm" onclick="bulkDeleteUnenrolledStudents()">Delete unenrolled accounts</button>
-            <button class="btn soft sm" onclick="clearStudentSelection()">Clear selection</button>
-          </div>
-        </div>
+      <div id="student-bulk-actions" class="student-bulk-actions" hidden>
+        <strong id="student-bulk-count">0 selected</strong>
+        <select id="student-bulk-action" aria-label="Bulk action" onchange="updateStudentBulkAction()">
+          <option value="">Choose action…</option>
+          <option value="pending">Enrol as pending</option>
+          <option value="demo">Enrol with demo access</option>
+          <option value="paid">Enrol and mark paid</option>
+          <option value="remove">Remove from batch</option>
+          <option value="delete">Delete unenrolled accounts</option>
+        </select>
+        <select id="student-bulk-batch" aria-label="Target batch" hidden><option value="">Choose batch…</option></select>
+        <button class="btn green sm" id="student-bulk-apply" onclick="applyStudentBulkAction()" disabled>Apply</button>
+        <button class="btn soft sm" onclick="clearStudentSelection()">Clear</button>
         <div class="msg" id="student-bulk-msg"></div>
       </div>
       <div id="people"><p class="empty">Loading…</p></div>
@@ -1414,6 +1410,15 @@
       const count = window._studentSelection.size;
       const label = document.getElementById("student-bulk-count");
       if (label) label.textContent = `${count} selected`;
+      const toolbar = document.getElementById("student-bulk-actions");
+      if (toolbar && window._adminView === "students") toolbar.hidden = count === 0;
+      if (!count) {
+        const action = document.getElementById("student-bulk-action");
+        if (action) action.value = "";
+        const msg = document.getElementById("student-bulk-msg");
+        if (msg) { msg.className = "msg"; msg.textContent = ""; }
+      }
+      updateStudentBulkAction();
     }
     function toggleStudentSelection(studentId, checked) {
       checked ? window._studentSelection.add(studentId) : window._studentSelection.delete(studentId);
@@ -1433,6 +1438,23 @@
       const msg = document.getElementById("student-bulk-msg");
       msg.className = "msg " + (ok ? "ok" : "err");
       msg.textContent = text;
+    }
+    function updateStudentBulkAction() {
+      const action = document.getElementById("student-bulk-action");
+      const batch = document.getElementById("student-bulk-batch");
+      const apply = document.getElementById("student-bulk-apply");
+      if (!action || !batch || !apply) return;
+      const needsBatch = ["pending", "demo", "paid", "remove"].includes(action.value);
+      batch.hidden = !needsBatch;
+      if (!needsBatch) batch.value = "";
+      apply.className = `btn sm ${["remove", "delete"].includes(action.value) ? "danger" : "green"}`;
+      apply.disabled = !window._studentSelection.size || !action.value || (needsBatch && !batch.value);
+    }
+    function applyStudentBulkAction() {
+      const action = document.getElementById("student-bulk-action").value;
+      if (["pending", "demo", "paid"].includes(action)) return bulkStudentEnrol(action);
+      if (action === "remove") return bulkRemoveStudentsFromBatch();
+      if (action === "delete") return bulkDeleteUnenrolledStudents();
     }
     function selectedStudentIds() {
       const valid = new Set(Object.values(window._peopleById || {}).filter(person => person.role === "student").map(person => person.id));
@@ -1522,7 +1544,8 @@
       document.getElementById("student-filter-tools").hidden = view !== "students";
       document.getElementById("student-bulk-actions").hidden = view !== "students";
       if (view === "students") {
-        document.getElementById("student-bulk-batch").innerHTML = '<option value="">— select batch —</option>' + (batches || []).map(batch => `<option value="${batch.id}">${esc(batch.name)}</option>`).join("");
+        document.getElementById("student-bulk-batch").innerHTML = '<option value="">Choose batch…</option>' + (batches || []).map(batch => `<option value="${batch.id}">${esc(batch.name)}</option>`).join("");
+        document.getElementById("student-bulk-batch").onchange = updateStudentBulkAction;
         updateStudentSelectionCount();
       }
       if (view === "students" && !subjectFilter.dataset.bound) {
@@ -1545,7 +1568,7 @@
         return `<tr>
           ${view === "students" ? `<td data-label="Select"><input type="checkbox" data-student-row-select="${u.id}" onchange="toggleStudentSelection('${u.id}', this.checked)" ${window._studentSelection.has(u.id) ? "checked" : ""} aria-label="Select ${esc(u.full_name)}"/></td>` : ""}
           <td data-label="Name">${u.role === "student" ? `<button class="person-name-button" onclick="openStudentProfileDetail('${u.id}')">${esc(u.full_name)}</button>` : esc(u.full_name)}${isSelf?' <span class="pill">you</span>':''}${u.student_code ? `<br><span class="meta">${esc(u.student_code)}</span>` : ""}</td>
-          ${view === "students" ? `<td data-label="Contact"><span class="breakable">${esc(u.contact.email || "—")}</span><br><span class="meta">WhatsApp: ${esc(u.contact.phone || "—")}</span></td><td data-label="Batch">${esc((u.batchNames || []).join(", ") || "Not enrolled")}</td><td data-label="Subjects">${esc((u.subjects || []).map(subject => subject === "maths" ? "Mathematics" : subject).join(", ") || "—")}</td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : view === "staff" ? `<td data-label="Contact"><span class="breakable">${esc(u.teacherProfile.contact_email || "—")}</span><br><span class="meta">${esc(u.teacherProfile.phone || "—")}</span></td><td data-label="Subjects">${esc((u.teacherProfile.subjects || []).join(", ") || "—")}</td>` : ""}
+          ${view === "students" ? `<td data-label="Contact"><span class="breakable">${esc(u.contact.email || "—")}</span><br><span class="meta">WhatsApp: ${esc(u.contact.phone || "—")}</span></td><td data-label="Batch"><div class="directory-chips">${(u.batchNames || []).length ? u.batchNames.map(name => `<span class="directory-chip">${esc(name)}</span>`).join("") : '<span class="meta">Not enrolled</span>'}</div></td><td data-label="Subjects"><div class="directory-chips">${(u.subjects || []).length ? u.subjects.map(subject => `<span class="directory-chip soft">${esc(subject === "maths" ? "Mathematics" : subject)}</span>`).join("") : '<span class="meta">—</span>'}</div></td><td data-label="Submitted">${new Date(u.profile_submitted_at || u.created_at).toLocaleDateString()}</td>` : view === "staff" ? `<td data-label="Contact"><span class="breakable">${esc(u.teacherProfile.contact_email || "—")}</span><br><span class="meta">${esc(u.teacherProfile.phone || "—")}</span></td><td data-label="Subjects">${esc((u.teacherProfile.subjects || []).join(", ") || "—")}</td>` : ""}
           ${view === "staff" ? `<td data-label="Role"><span class="badge">${u.role}</span><br><span class="pill ${u.is_active === false ? "pending" : "paid"}">${u.is_active === false ? "inactive" : "active"}</span></td>
           <td data-label="Actions" class="people-actions">
             ${isSelf ? '<span class="meta" style="font-size:12px">— your own account —</span>' : `<details class="action-menu"><summary>Manage</summary><div class="action-menu-panel">

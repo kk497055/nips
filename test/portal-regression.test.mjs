@@ -755,6 +755,8 @@ test("student directory supports safe multi-select batch actions", () => {
   assert.match(admin, /function bulkStudentEnrol\(status\)/);
   assert.match(admin, /function bulkRemoveStudentsFromBatch\(\)/);
   assert.match(admin, /function bulkDeleteUnenrolledStudents\(\)/);
+  assert.match(admin, /function applyStudentBulkAction\(\)/);
+  assert.match(admin, /function updateStudentBulkAction\(\)/);
   assert.match(admin, /admin-delete-unenrolled-students/);
   assert.match(admin, /admin_remove_student_from_batch/);
   assert.match(admin, /This changes batch membership only/);
