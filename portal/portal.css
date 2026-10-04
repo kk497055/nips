@@ -192,6 +192,10 @@ tr:last-child td{border-bottom:none}
 .overview-custom.open{display:grid}
 .overview-custom .field{margin-bottom:0}
 @media(max-width:760px){.overview-toolbar{grid-template-columns:1fr}.overview-presets{justify-content:flex-start}.overview-custom{grid-template-columns:1fr}}
+
+/* Faculty recruitment uses cards: application data is too dense for a six-column table. */
+.faculty-application-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.faculty-application-card{display:flex;flex-direction:column;min-width:0;background:#fff;border:1px solid var(--border);border-radius:14px;overflow:visible}.faculty-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 18px 13px;border-bottom:1px solid var(--border)}.faculty-card-head h3{margin:0 0 3px;font-size:20px}.faculty-card-head .meta{margin:0}.faculty-card-body{display:grid;grid-template-columns:1fr 1fr;gap:15px 18px;padding:17px 18px;flex:1}.faculty-card-body section{display:flex;flex-direction:column;gap:4px;min-width:0}.faculty-label{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.faculty-card-actions{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding:13px 18px;background:#f7faf8;border-top:1px solid var(--border)}.faculty-card-actions .action-menu{position:relative}.faculty-card-actions .action-menu-panel{position:absolute;right:0;z-index:15;width:190px;padding:9px;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 10px 25px rgba(0,0,0,.14)}
+@media(max-width:760px){.faculty-application-grid{grid-template-columns:1fr}.faculty-card-body{grid-template-columns:1fr}.faculty-card-actions>.btn,.faculty-card-actions>.action-menu{flex:1 1 100%}.faculty-card-actions>.btn,.faculty-card-actions>.action-menu>summary{width:100%}.faculty-card-actions .action-menu-panel{position:static;width:100%}}
 .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 
 /* Dedicated admin batch roster */

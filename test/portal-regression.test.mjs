@@ -899,6 +899,7 @@ test("faculty applicants can be interviewed through isolated moderator-first Jit
   assert.match(admin, /Schedule interview/);
   assert.match(admin, /Open Jitsi room/);
   assert.match(admin, /Private interview notes/);
+  assert.match(admin, /faculty-application-grid/);
   assert.match(scheduler, /Faculty interview scheduled/);
   assert.match(scheduler, /moderator:moderator\?"true":"false"/);
   assert.match(guest, /interviewer_ready/);
