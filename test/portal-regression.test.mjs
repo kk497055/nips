@@ -885,3 +885,26 @@ test("certificate PDF uses the approved transparent NIPS logo and enlarged signa
   assert.match(pdf, /logo\.scaleToFit\(59, 59\)/);
   assert.match(pdf, /image\.scaleToFit\(190, 66\)/);
 });
+
+test("faculty applicants can be interviewed through isolated moderator-first Jitsi rooms", () => {
+  const migration = read("supabase/migrations/20261004020000_faculty_interviews.sql");
+  const admin = read("portal/admin-faculty-applications.html");
+  const room = read("portal/faculty-interview.html");
+  const scheduler = read("supabase/functions/admin-faculty-interview/index.ts");
+  const guest = read("supabase/functions/faculty-interview/index.ts");
+  const reminders = read("supabase/functions/faculty-interview-reminders/index.ts");
+  assert.match(migration, /create table if not exists public\.faculty_interviews/);
+  assert.match(migration, /on delete restrict/);
+  assert.match(migration, /nips-faculty-interview-reminders/);
+  assert.match(admin, /Schedule interview/);
+  assert.match(admin, /Open Jitsi room/);
+  assert.match(admin, /Private interview notes/);
+  assert.match(scheduler, /Faculty interview scheduled/);
+  assert.match(scheduler, /moderator:moderator\?"true":"false"/);
+  assert.match(guest, /interviewer_ready/);
+  assert.match(guest, /interviewer has not joined yet/);
+  assert.match(room, /disableChat:true/);
+  assert.match(room, /faculty-interview\?token=/);
+  assert.match(reminders, /reminder_24h_sent_at/);
+  assert.match(reminders, /reminder_1h_sent_at/);
+});
