@@ -124,18 +124,27 @@
           disableSelfView: !tok.moderator,
           toolbarButtons: tok.moderator
             ? ['microphone','camera','desktop','whiteboard','chat','raisehand','tileview','recording','hangup','settings']
-            : ['microphone','camera','whiteboard','chat','raisehand','tileview','hangup'],
+            : ['microphone','camera','whiteboard','chat','raisehand','hangup'],
           whiteboard: { enabled: true }
         },
         interfaceConfigOverwrite: {
           HIDE_DISPLAY_NAME: true,
+          FILM_STRIP_MAX_HEIGHT: tok.moderator ? 120 : 0,
           TOOLBAR_BUTTONS: tok.moderator
             ? ['microphone','camera','desktop','whiteboard','chat','raisehand','tileview','recording','hangup','settings']
-            : ['microphone','camera','whiteboard','chat','raisehand','tileview','hangup']
+            : ['microphone','camera','whiteboard','chat','raisehand','hangup']
         }
       });
 
       const switchCamera = document.getElementById("switch-camera");
+      const enforceStudentStageOnly = ({ visible } = {}) => {
+        if (tok.moderator) return;
+        api.executeCommand("setTileView", false);
+        // Some hosted Jitsi releases ignore filmstrip.disabled on mobile.
+        // Close it when Jitsi reports it visible and prevent students from
+        // reopening tile view through the toolbar.
+        if (visible === true) api.executeCommand("toggleFilmStrip");
+      };
       switchCamera.addEventListener("click", () => {
         // Jitsi's mobile-web command alternates between user-facing and
         // environment-facing cameras without exposing the full settings UI.
@@ -144,8 +153,10 @@
       api.addEventListener("videoConferenceJoined", () => {
         switchCamera.classList.add("available");
         api.executeCommand("setVideoQuality", 720);
+        enforceStudentStageOnly();
         startSession();
       });
+      api.addEventListener("filmstripDisplayChanged", enforceStudentStageOnly);
       api.addEventListener("videoConferenceLeft", endSession);
       api.addEventListener("readyToClose", () => { endSession(); location.href = document.getElementById("back").href; });
     })();

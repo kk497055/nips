@@ -93,6 +93,11 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(classroom, /id="switch-camera"/);
   assert.match(classroom, /executeCommand\("toggleCamera"\)/);
   assert.match(classroom, /filmstrip:\s*\{\s*disabled:\s*!tok\.moderator/);
+  assert.match(classroom, /FILM_STRIP_MAX_HEIGHT:\s*tok\.moderator\s*\?\s*120\s*:\s*0/);
+  assert.match(classroom, /filmstripDisplayChanged/);
+  assert.match(classroom, /executeCommand\("setTileView",\s*false\)/);
+  assert.match(classroom, /if \(visible === true\) api\.executeCommand\("toggleFilmStrip"\)/);
+  assert.doesNotMatch(classroom, /:\s*\['microphone','camera','whiteboard','chat','raisehand','tileview','hangup'\]/);
   assert.match(classroom, /channelLastN:\s*tok\.moderator\s*\?\s*-1\s*:\s*1/);
   assert.match(classroom, /executeCommand\("setVideoQuality",\s*720\)/);
   assert.match(classroom, /height:\s*\{\s*ideal:\s*720,\s*max:\s*720,\s*min:\s*360\s*\}/);
