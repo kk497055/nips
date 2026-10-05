@@ -906,6 +906,9 @@ test("faculty applicants can be interviewed through isolated moderator-first Jit
   assert.match(guest, /interviewer has not joined yet/);
   assert.match(room, /disableChat:true/);
   assert.match(room, /faculty-interview\?token=/);
+  assert.match(room, /toolbarButtons:\["microphone","camera","desktop"/);
+  assert.match(room, /display-capture/);
+  assert.match(room, /toggleShareScreen/);
   assert.match(reminders, /reminder_24h_sent_at/);
   assert.match(reminders, /reminder_1h_sent_at/);
 });
