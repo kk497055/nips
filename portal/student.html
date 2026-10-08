@@ -289,6 +289,23 @@
       await renderStudentCertificates();
     }
 
+    async function openStudentCertificate(code) {
+      const tab = window.open("", "_blank");
+      try {
+        if (tab) tab.document.write('<p style="font:16px system-ui;padding:24px">Preparing certificate…</p>');
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) throw new Error("Your session has expired. Please sign in again.");
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/certificate-pdf?code=${encodeURIComponent(code)}`, { headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY } });
+        if (!res.ok) throw new Error((await res.text()) || "Certificate PDF could not be generated.");
+        const url = URL.createObjectURL(await res.blob());
+        if (tab) tab.location.replace(url); else location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 300000);
+      } catch (e) {
+        if (tab) tab.close();
+        alert(e.message);
+      }
+    }
+
     async function renderStudentCertificates() {
       const { data, error } = await sb.from("certificates").select("*").order("issued_at", { ascending: false });
       const box = document.getElementById("student-certificates");
@@ -296,7 +313,7 @@
       mountList("student-certificates", "student-certificates", data || [], {
         pageSize: 8, noun: "certificates", hideSearch: true, empty: "No completion certificates have been issued yet.",
         render: items => items.map(c => {
-          const actions = c.revoked_at ? "" : `<div class="row-actions"><a class="btn green sm" href="${SUPABASE_URL}/functions/v1/certificate-pdf?code=${encodeURIComponent(c.verification_code)}" target="_blank" rel="noopener">Open PDF</a><a class="btn soft sm" href="../verify-certificate.html?code=${encodeURIComponent(c.verification_code)}" target="_blank" rel="noopener">Verify online</a></div>`;
+          const actions = c.revoked_at ? "" : `<div class="row-actions"><button class="btn green sm" type="button" onclick="openStudentCertificate('${c.verification_code}')">Open PDF</button><a class="btn soft sm" href="../verify-certificate.html?code=${encodeURIComponent(c.verification_code)}" target="_blank" rel="noopener">Verify online</a></div>`;
           return `<div class="card" style="margin-bottom:10px"><div class="class-top"><div><h3>${esc(c.course)}</h3><div class="meta">${esc(c.certificate_number)} · ${esc(c.program)} · completed ${new Date(c.completion_date + "T00:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC" })}</div></div><span class="pill ${c.revoked_at ? "pending" : "paid"}">${c.revoked_at ? "revoked" : "verified"}</span></div>${actions}</div>`;
         }).join("")
       });

@@ -92,8 +92,10 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(classroom, /\['microphone','camera'[^\]]*'chat'/);
   assert.match(classroom, /id="switch-camera"/);
   assert.match(classroom, /executeCommand\("toggleCamera"\)/);
-  assert.match(classroom, /filmstrip:\s*\{\s*disabled:\s*!tok\.moderator/);
-  assert.match(classroom, /FILM_STRIP_MAX_HEIGHT:\s*tok\.moderator\s*\?\s*120\s*:\s*0/);
+  assert.match(classroom, /filmstrip:\s*\{\s*disabled:\s*true/);
+  assert.match(classroom, /disableSelfView:\s*true/);
+  assert.match(classroom, /FILM_STRIP_MAX_HEIGHT:\s*0/);
+  assert.match(classroom, /'participants-pane'/);
   assert.match(classroom, /filmstripDisplayChanged/);
   assert.match(classroom, /executeCommand\("setTileView",\s*false\)/);
   assert.match(classroom, /if \(visible === true\) api\.executeCommand\("toggleFilmStrip"\)/);
@@ -802,6 +804,10 @@ test("completion certificates are recorded, downloadable and publicly verifiable
   assert.doesNotMatch(migration, /delete from|truncate |drop table/i);
   assert.match(admin, /issue_certificate/);
   assert.match(admin, /Issued certificate ledger/);
+  assert.match(admin, /Authorization:`Bearer \$\{session\.access_token\}`/);
+  assert.match(admin, /URL\.createObjectURL\(await res\.blob\(\)\)/);
+  assert.match(student, /openStudentCertificate/);
+  assert.match(student, /Authorization: `Bearer \$\{session\.access_token\}`/);
   assert.match(student, /My Certificates/);
   assert.match(pdf, /QRCode\.toDataURL/);
   assert.match(pdf, /CERTIFICATE OF COMPLETION/);
