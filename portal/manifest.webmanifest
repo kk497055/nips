@@ -5,7 +5,7 @@
   "start_url": "/portal/login.html",
   "scope": "/portal/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0f3321",
   "theme_color": "#1a5336",
   "icons": [

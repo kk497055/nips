@@ -385,6 +385,11 @@ test("portal pages use current stylesheet cache key", () => {
   }
 });
 
+test("installed mobile portal supports portrait and landscape", () => {
+  const manifest = JSON.parse(read("portal/manifest.webmanifest"));
+  assert.equal(manifest.orientation, "any");
+});
+
 test("student centre keeps existing dashboard data in focused self-service views", () => {
   const student = read("portal/student.html");
   const config = read("portal/config.js");
