@@ -44,6 +44,11 @@
       const message = { kind, data, recipient };
       if (!channelReady) outbox.push(message); else deliver(message);
     };
+    const openChannel = () => {
+      if (channelReady) return;
+      channelReady = true;
+      outbox.splice(0).forEach(deliver);
+    };
 
     const fit = () => {
       const rect = canvas.getBoundingClientRect();
@@ -165,10 +170,7 @@
       } else if (message.kind === "close") hide();
       updatePermissionUi();
     });
-    api.addEventListener("dataChannelOpened", () => {
-      channelReady = true;
-      outbox.splice(0).forEach(deliver);
-    });
+    api.addEventListener("dataChannelOpened", openChannel);
     api.addEventListener("participantJoined", ({ id }) => { if (isTeacher) publishState(id); });
     window.addEventListener("resize", fit);
     new ResizeObserver(fit).observe(canvas);
@@ -177,10 +179,16 @@
     return {
       onJoined(event) {
         localId = event?.id || null;
+        // dataChannelOpened can precede videoConferenceJoined on fast/reused
+        // mobile sessions. Retry after join so a missed one-time event cannot
+        // strand whiteboard messages in the queue.
+        setTimeout(openChannel, 1200);
         if (isTeacher) {
           teacherId = localId;
-          setTimeout(() => publishState(), 600);
-        } else setTimeout(() => send("request-state"), 800);
+          [600, 2200, 5000].forEach(delay => setTimeout(() => publishState(), delay));
+        } else {
+          [800, 2500, 5500].forEach(delay => setTimeout(() => send("request-state"), delay));
+        }
       }
     };
   };
