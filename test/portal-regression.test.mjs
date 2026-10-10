@@ -744,6 +744,15 @@ test("student profiles and subject-based batch matching are additive and pending
   assert.match(admin, /profile_submitted_at/);
 });
 
+test("academic enrollment requires an explicit admin action", () => {
+  const migration = read("supabase/migrations/20261010010000_manual_student_enrollment.sql");
+  assert.match(migration, /drop trigger if exists trg_auto_enroll_students_for_batch/i);
+  assert.match(migration, /auto_enroll_profile_into_matching_batches[\s\S]*return 0/i);
+  assert.match(migration, /Academic enrollments require an explicit admin action/i);
+  assert.match(migration, /No administrator-created orientation cohort is available/i);
+  assert.doesNotMatch(migration, /create_next_orientation_cohort\(v_application\.program_id\)/i);
+});
+
 test("night sessions are available across batch and student workflows", () => {
   const admin = read("portal/admin.html");
   const student = read("portal/student.html");
@@ -913,6 +922,8 @@ test("admin student directory shows WhatsApp contact and active batch names", ()
   const admin = read("portal/admin.html");
   assert.match(admin, /enrollments"\)\.select\("student_id,batches\(id,name,is_active\)"\)/);
   assert.match(admin, /WhatsApp:/);
+  assert.match(admin, /Class:/);
+  assert.match(admin, /Board:/);
   assert.match(admin, /data-label="Batch"/);
   assert.match(admin, /batchNamesByStudent/);
 });
