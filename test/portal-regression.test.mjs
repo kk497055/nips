@@ -84,6 +84,7 @@ test("admin can safely edit a batch and add students from its batch card", () =>
 
 test("embedded video classes allow shared chat but disable private chat", () => {
   const classroom = read("portal/classroom.html");
+  const whiteboard = read("portal/classroom-whiteboard.js");
 
   assert.match(classroom, /disableChat:\s*false/);
   assert.match(classroom, /disablePrivateChat:\s*'all'/);
@@ -105,6 +106,14 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(classroom, /channelLastN:\s*tok\.moderator\s*\?\s*-1\s*:\s*1/);
   assert.match(classroom, /executeCommand\("setVideoQuality",\s*720\)/);
   assert.match(classroom, /height:\s*\{\s*ideal:\s*720,\s*max:\s*720,\s*min:\s*360\s*\}/);
+  assert.match(classroom, /whiteboard:\s*\{\s*enabled:\s*false\s*\}/);
+  assert.match(classroom, /classroom-whiteboard\.js/);
+  assert.match(whiteboard, /nips-whiteboard-v1/);
+  assert.match(whiteboard, /Teacher controlled · read-only/);
+  assert.match(whiteboard, /Allow student writing/);
+  assert.match(whiteboard, /message\.kind === "proposal" && studentsCanWrite/);
+  assert.match(whiteboard, /send\("request-state"\)/);
+  assert.doesNotThrow(() => new Function(whiteboard));
 });
 
 test("live classrooms expire stale sessions and attendance is absent until marked", () => {

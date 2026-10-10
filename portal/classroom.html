@@ -15,6 +15,15 @@
     .cbar{background:var(--primary);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
     .cbar .info{font-family:'Outfit',sans-serif;font-weight:600}
     #switch-camera{display:none}
+    #open-board{display:none}
+    #open-board.available{display:inline-flex}
+    .nips-board{position:fixed;inset:58px 0 0;z-index:30;background:#eef2ef;display:flex;flex-direction:column}
+    .nips-board[hidden]{display:none!important}
+    .nips-board-bar{min-height:54px;padding:8px 12px;background:#fff;border-bottom:1px solid #d8dedb;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .nips-board-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .nips-board-tools input[type="color"]{width:42px;height:36px;padding:2px;border:1px solid #cbd5d1;border-radius:8px;background:#fff}
+    .nips-board-canvas-wrap{position:relative;flex:1;min-height:0;padding:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    #nips-board-canvas{width:100%;height:100%;background:#fff;border:1px solid #d8dedb;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.08);touch-action:none}
     @media (max-width:900px), (pointer:coarse){
       .cbar{gap:10px;padding:9px 12px}
       .cbar>div:last-child{display:flex;align-items:center;gap:8px}
@@ -25,13 +34,21 @@
 <body data-portal-footer="false">
   <div class="cbar">
     <div class="info" id="title">Loading class…</div>
-    <div><button class="btn ghost sm" id="switch-camera" type="button" aria-label="Switch between front and rear camera">Switch camera</button><a class="btn ghost sm" id="back">← Leave</a></div>
+    <div><button class="btn ghost sm" id="open-board" type="button">Whiteboard</button><button class="btn ghost sm" id="switch-camera" type="button" aria-label="Switch between front and rear camera">Switch camera</button><a class="btn ghost sm" id="back">← Leave</a></div>
   </div>
   <div id="jitsi"></div>
+  <section class="nips-board" id="nips-board" hidden aria-label="NIPS classroom whiteboard">
+    <div class="nips-board-bar">
+      <div><strong>NIPS Whiteboard</strong><div class="meta" id="nips-board-status">Teacher controlled · read-only for students</div></div>
+      <div class="nips-board-tools" id="nips-board-tools"></div>
+    </div>
+    <div class="nips-board-canvas-wrap"><canvas id="nips-board-canvas"></canvas></div>
+  </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://8x8.vc/external_api.js"></script>
   <script src="config.js?v=10"></script>
+  <script src="classroom-whiteboard.js?v=1"></script>
   <script>
     (async () => {
       const session = await requireAuth();
@@ -124,9 +141,9 @@
           filmstrip: { disabled: true, disableResizable: true },
           disableSelfView: true,
           toolbarButtons: tok.moderator
-            ? ['microphone','camera','desktop','whiteboard','chat','participants-pane','raisehand','recording','hangup','settings']
-            : ['microphone','camera','whiteboard','chat','raisehand','hangup'],
-          whiteboard: { enabled: true }
+            ? ['microphone','camera','desktop','chat','participants-pane','raisehand','recording','hangup','settings']
+            : ['microphone','camera','chat','raisehand','hangup'],
+          whiteboard: { enabled: false }
         },
         interfaceConfigOverwrite: {
           HIDE_DISPLAY_NAME: true,
@@ -137,12 +154,13 @@
           FILM_STRIP_MAX_HEIGHT: 0,
           VIDEO_LAYOUT_FIT: 'nocrop',
           TOOLBAR_BUTTONS: tok.moderator
-            ? ['microphone','camera','desktop','whiteboard','chat','participants-pane','raisehand','recording','hangup','settings']
-            : ['microphone','camera','whiteboard','chat','raisehand','hangup']
+            ? ['microphone','camera','desktop','chat','participants-pane','raisehand','recording','hangup','settings']
+            : ['microphone','camera','chat','raisehand','hangup']
         }
       });
 
       const switchCamera = document.getElementById("switch-camera");
+      const board = createNipsWhiteboard(api, { isTeacher: tok.moderator });
       const enforceStageOnly = ({ visible } = {}) => {
         api.executeCommand("setTileView", false);
         // Some hosted Jitsi releases ignore filmstrip.disabled on mobile.
@@ -155,9 +173,10 @@
         // environment-facing cameras without exposing the full settings UI.
         api.executeCommand("toggleCamera");
       });
-      api.addEventListener("videoConferenceJoined", () => {
+      api.addEventListener("videoConferenceJoined", event => {
         switchCamera.classList.add("available");
         api.executeCommand("setVideoQuality", 720);
+        board.onJoined(event);
         enforceStageOnly();
         startSession();
       });
