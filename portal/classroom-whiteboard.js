@@ -2,7 +2,7 @@
   const NS = "nips-whiteboard-v1";
   const clamp = value => Math.max(0, Math.min(1, value));
 
-  window.createNipsWhiteboard = (api, { isTeacher }) => {
+  window.createNipsWhiteboard = (api, { isTeacher, relay }) => {
     const panel = document.getElementById("nips-board");
     const canvas = document.getElementById("nips-board-canvas");
     const tools = document.getElementById("nips-board-tools");
@@ -19,6 +19,7 @@
     let width = 3;
     let channelReady = false;
     const outbox = [];
+    const seen = new Set();
 
     const isModerator = async id => {
       const info = await api.getRoomsInfo?.();
@@ -35,14 +36,16 @@
         return (api.getParticipantsInfo?.() || []).map(person => person.participantId || person.id).filter(id => id && id !== localId);
       }
     };
-    const deliver = async ({ kind, data, recipient }) => {
-      const text = JSON.stringify({ ns: NS, kind, ...data });
+    const deliver = async ({ message, recipient }) => {
+      const text = JSON.stringify(message);
       const recipients = recipient ? [recipient] : await participantIds();
       recipients.forEach(id => api.executeCommand("sendEndpointTextMessage", id, text));
     };
     const send = (kind, data = {}, recipient = "") => {
-      const message = { kind, data, recipient };
-      if (!channelReady) outbox.push(message); else deliver(message);
+      const message = { ns: NS, id: crypto.randomUUID(), kind, ...data };
+      const delivery = { message, recipient };
+      relay?.({ senderId: localId, senderRole: isTeacher ? "teacher" : "observer", recipient, message });
+      if (!channelReady) outbox.push(delivery); else deliver(delivery);
     };
     const openChannel = () => {
       if (channelReady) return;
@@ -142,11 +145,12 @@
     canvas.addEventListener("pointerup", finishStroke);
     canvas.addEventListener("pointercancel", finishStroke);
 
-    api.addEventListener("endpointTextMessageReceived", async ({ senderInfo, eventData }) => {
-      let message;
-      try { message = JSON.parse(eventData?.text || ""); } catch (_) { return; }
-      if (message?.ns !== NS) return;
-      const senderId = senderInfo?.id;
+    const receive = async (senderId, message, trustedTeacher = false) => {
+      if (message?.ns !== NS || (message.id && seen.has(message.id))) return;
+      if (message.id) {
+        seen.add(message.id);
+        if (seen.size > 1000) seen.delete(seen.values().next().value);
+      }
       if (isTeacher) {
         if (message.kind === "request-state") publishState(senderId);
         if (message.kind === "proposal" && studentsCanWrite && message.stroke) {
@@ -156,7 +160,7 @@
         }
         return;
       }
-      if (!teacherId && await isModerator(senderId)) teacherId = senderId;
+      if (!teacherId && (trustedTeacher || await isModerator(senderId))) teacherId = senderId;
       if (!teacherId || senderId !== teacherId) return;
       if (message.kind === "state") {
         strokes = Array.isArray(message.strokes) ? message.strokes : [];
@@ -169,6 +173,11 @@
         studentsCanWrite = Boolean(message.studentsCanWrite);
       } else if (message.kind === "close") hide();
       updatePermissionUi();
+    };
+    api.addEventListener("endpointTextMessageReceived", async ({ senderInfo, eventData }) => {
+      let message;
+      try { message = JSON.parse(eventData?.text || ""); } catch (_) { return; }
+      receive(senderInfo?.id, message);
     });
     api.addEventListener("dataChannelOpened", openChannel);
     api.addEventListener("participantJoined", ({ id }) => { if (isTeacher) publishState(id); });
@@ -177,6 +186,11 @@
     updatePermissionUi();
 
     return {
+      onRelay(payload) {
+        if (!payload?.message || payload.senderId === localId) return;
+        if (payload.recipient && payload.recipient !== localId) return;
+        receive(payload.senderId, payload.message, payload.senderRole === "teacher");
+      },
       onJoined(event) {
         localId = event?.id || null;
         // dataChannelOpened can precede videoConferenceJoined on fast/reused

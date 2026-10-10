@@ -48,7 +48,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://8x8.vc/external_api.js"></script>
   <script src="config.js?v=10"></script>
-  <script src="classroom-whiteboard.js?v=3"></script>
+  <script src="classroom-whiteboard.js?v=4"></script>
   <script>
     (async () => {
       const session = await requireAuth();
@@ -163,7 +163,15 @@
       // Jitsi moderator privileges are shared by teachers and administrators,
       // but the assigned teaching role owns the classroom whiteboard. Admins
       // retain call moderation while observing the teacher's shared board.
-      const board = createNipsWhiteboard(api, { isTeacher: profile.role === "teacher" });
+      let board;
+      const whiteboardChannel = sb.channel(`classroom-whiteboard:${batchId}`, {
+        config: { broadcast: { self: false } }
+      }).on("broadcast", { event: "whiteboard" }, ({ payload }) => board?.onRelay(payload));
+      board = createNipsWhiteboard(api, {
+        isTeacher: profile.role === "teacher",
+        relay: payload => whiteboardChannel.send({ type: "broadcast", event: "whiteboard", payload })
+      });
+      whiteboardChannel.subscribe();
       const enforceStageOnly = ({ visible } = {}) => {
         api.executeCommand("setTileView", false);
         // Some hosted Jitsi releases ignore filmstrip.disabled on mobile.
@@ -184,8 +192,8 @@
         startSession();
       });
       api.addEventListener("filmstripDisplayChanged", enforceStageOnly);
-      api.addEventListener("videoConferenceLeft", endSession);
-      api.addEventListener("readyToClose", () => { endSession(); location.href = document.getElementById("back").href; });
+      api.addEventListener("videoConferenceLeft", () => { whiteboardChannel.unsubscribe(); endSession(); });
+      api.addEventListener("readyToClose", () => { whiteboardChannel.unsubscribe(); endSession(); location.href = document.getElementById("back").href; });
     })();
   </script>
 </body>
