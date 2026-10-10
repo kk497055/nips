@@ -48,7 +48,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://8x8.vc/external_api.js"></script>
   <script src="config.js?v=10"></script>
-  <script src="classroom-whiteboard.js?v=1"></script>
+  <script src="classroom-whiteboard.js?v=2"></script>
   <script>
     (async () => {
       const session = await requireAuth();
@@ -160,7 +160,10 @@
       });
 
       const switchCamera = document.getElementById("switch-camera");
-      const board = createNipsWhiteboard(api, { isTeacher: tok.moderator });
+      // Jitsi moderator privileges are shared by teachers and administrators,
+      // but the assigned teaching role owns the classroom whiteboard. Admins
+      // retain call moderation while observing the teacher's shared board.
+      const board = createNipsWhiteboard(api, { isTeacher: profile.role === "teacher" });
       const enforceStageOnly = ({ visible } = {}) => {
         api.executeCommand("setTileView", false);
         // Some hosted Jitsi releases ignore filmstrip.disabled on mobile.
