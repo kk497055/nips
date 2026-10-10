@@ -113,6 +113,9 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(whiteboard, /Allow student writing/);
   assert.match(whiteboard, /message\.kind === "proposal" && studentsCanWrite/);
   assert.match(whiteboard, /send\("request-state"\)/);
+  assert.match(whiteboard, /dataChannelOpened/);
+  assert.match(whiteboard, /getRoomsInfo/);
+  assert.match(whiteboard, /recipients\.forEach\(id => api\.executeCommand\("sendEndpointTextMessage", id, text\)\)/);
   assert.doesNotThrow(() => new Function(whiteboard));
 });
 

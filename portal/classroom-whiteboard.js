@@ -17,6 +17,8 @@
     let studentsCanWrite = false;
     let color = "#173f2a";
     let width = 3;
+    let channelReady = false;
+    const outbox = [];
 
     const isModerator = async id => {
       const info = await api.getRoomsInfo?.();
@@ -24,8 +26,23 @@
       return rooms.some(room => (room.participants || []).some(person => person.id === id && person.role === "moderator"));
     };
     const canWrite = () => isTeacher || studentsCanWrite;
+    const participantIds = async () => {
+      try {
+        const info = await api.getRoomsInfo?.();
+        const rooms = Array.isArray(info) ? info : (info?.rooms || []);
+        return [...new Set(rooms.flatMap(room => room.participants || []).map(person => person.id).filter(id => id && id !== localId))];
+      } catch (_) {
+        return (api.getParticipantsInfo?.() || []).map(person => person.participantId || person.id).filter(id => id && id !== localId);
+      }
+    };
+    const deliver = async ({ kind, data, recipient }) => {
+      const text = JSON.stringify({ ns: NS, kind, ...data });
+      const recipients = recipient ? [recipient] : await participantIds();
+      recipients.forEach(id => api.executeCommand("sendEndpointTextMessage", id, text));
+    };
     const send = (kind, data = {}, recipient = "") => {
-      api.executeCommand("sendEndpointTextMessage", recipient, JSON.stringify({ ns: NS, kind, ...data }));
+      const message = { kind, data, recipient };
+      if (!channelReady) outbox.push(message); else deliver(message);
     };
 
     const fit = () => {
@@ -147,6 +164,10 @@
         studentsCanWrite = Boolean(message.studentsCanWrite);
       } else if (message.kind === "close") hide();
       updatePermissionUi();
+    });
+    api.addEventListener("dataChannelOpened", () => {
+      channelReady = true;
+      outbox.splice(0).forEach(deliver);
     });
     api.addEventListener("participantJoined", ({ id }) => { if (isTeacher) publishState(id); });
     window.addEventListener("resize", fit);
