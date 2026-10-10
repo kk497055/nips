@@ -95,6 +95,8 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(classroom, /filmstrip:\s*\{\s*disabled:\s*true/);
   assert.match(classroom, /disableSelfView:\s*true/);
   assert.match(classroom, /FILM_STRIP_MAX_HEIGHT:\s*0/);
+  assert.match(classroom, /VERTICAL_FILMSTRIP:\s*false/);
+  assert.match(classroom, /VIDEO_LAYOUT_FIT:\s*'nocrop'/);
   assert.match(classroom, /'participants-pane'/);
   assert.match(classroom, /filmstripDisplayChanged/);
   assert.match(classroom, /executeCommand\("setTileView",\s*false\)/);

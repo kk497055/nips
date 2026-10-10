@@ -130,7 +130,12 @@
         },
         interfaceConfigOverwrite: {
           HIDE_DISPLAY_NAME: true,
+          // Jitsi's default vertical filmstrip reserves about 200px on the
+          // right even when its tiles are hidden. A zero-height horizontal
+          // strip releases the full stage for whiteboards and shared notes.
+          VERTICAL_FILMSTRIP: false,
           FILM_STRIP_MAX_HEIGHT: 0,
+          VIDEO_LAYOUT_FIT: 'nocrop',
           TOOLBAR_BUTTONS: tok.moderator
             ? ['microphone','camera','desktop','whiteboard','chat','participants-pane','raisehand','recording','hangup','settings']
             : ['microphone','camera','whiteboard','chat','raisehand','hangup']
