@@ -111,6 +111,11 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(whiteboard, /nips-whiteboard-v1/);
   assert.match(whiteboard, /Teacher controlled · read-only/);
   assert.match(whiteboard, /Allow student writing/);
+  assert.match(whiteboard, /Eraser/);
+  assert.match(whiteboard, /Move canvas/);
+  assert.match(whiteboard, /Clear board/);
+  assert.match(whiteboard, /message\.kind === "view"/);
+  assert.match(whiteboard, /canvas\.addEventListener\("wheel"/);
   assert.match(whiteboard, /message\.kind === "proposal" && studentsCanWrite/);
   assert.match(whiteboard, /send\("request-state"\)/);
   assert.match(whiteboard, /dataChannelOpened/);
