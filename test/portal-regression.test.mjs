@@ -116,6 +116,8 @@ test("embedded video classes allow shared chat but disable private chat", () => 
   assert.match(whiteboard, /Clear board/);
   assert.match(whiteboard, /message\.kind === "view"/);
   assert.match(whiteboard, /canvas\.addEventListener\("wheel"/);
+  assert.match(whiteboard, /viewCommitTimer = setTimeout\(\(\) => publishState\(\), 250\)/);
+  assert.match(whiteboard, /send\("view", \{ camera \}\);[\s\S]*publishState\(\)/);
   assert.match(whiteboard, /message\.kind === "proposal" && studentsCanWrite/);
   assert.match(whiteboard, /send\("request-state"\)/);
   assert.match(whiteboard, /dataChannelOpened/);

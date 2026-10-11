@@ -19,6 +19,7 @@
     let camera = { x: 0, y: 0 };
     let panStart = null;
     let viewTimer = null;
+    let viewCommitTimer = null;
     let channelReady = false;
     const outbox = [];
     const seen = new Set();
@@ -97,6 +98,8 @@
     const publishView = () => {
       clearTimeout(viewTimer);
       viewTimer = setTimeout(() => send("view", { camera }), 35);
+      clearTimeout(viewCommitTimer);
+      viewCommitTimer = setTimeout(() => publishState(), 250);
     };
     const setMode = next => {
       mode = next;
@@ -162,7 +165,15 @@
       draw();
     });
     const finishStroke = () => {
-      if (panStart) { panStart = null; setMode("pan"); publishView(); return; }
+      if (panStart) {
+        panStart = null;
+        setMode("pan");
+        clearTimeout(viewTimer);
+        clearTimeout(viewCommitTimer);
+        send("view", { camera });
+        publishState();
+        return;
+      }
       if (!activeStroke) return;
       const stroke = activeStroke;
       activeStroke = null;
